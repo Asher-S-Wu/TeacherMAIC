@@ -15,7 +15,6 @@ import {
   Search,
   Volume2,
   Mic,
-  Plus,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
@@ -44,8 +43,6 @@ import { WebSearchSettings } from './web-search-settings';
 import { WEB_SEARCH_PROVIDERS } from '@/lib/web-search/constants';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
 import { GeneralSettings } from './general-settings';
-import { AddAudioProviderDialog, type NewAudioProviderData } from './add-audio-provider-dialog';
-import { isCustomTTSProvider, isCustomASRProvider } from '@/lib/audio/types';
 import type { SettingsSection } from '@/lib/types/settings';
 
 // ─── Provider List Column (reusable) ───
@@ -56,7 +53,6 @@ function ProviderListColumn<T extends string>({
   onSelect,
   width,
   t,
-  onAdd,
 }: {
   providers: Array<{ id: T; name: string; icon?: string }>;
   configs: Record<string, { isServerConfigured?: boolean }>;
@@ -64,7 +60,6 @@ function ProviderListColumn<T extends string>({
   onSelect: (id: T) => void;
   width: number;
   t: (key: string) => string;
-  onAdd?: () => void;
 }) {
   return (
     <div className="flex-shrink-0 bg-background flex flex-col" style={{ width }}>
@@ -104,85 +99,40 @@ function ProviderListColumn<T extends string>({
           </button>
         ))}
       </div>
-      {onAdd && (
-        <div className="p-3 border-t">
-          <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={onAdd}>
-            <Plus className="h-3.5 w-3.5" />
-            {t('settings.addProviderButton')}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
 
 // ─── Helper: get TTS/ASR provider display name ───
 function getTTSProviderName(providerId: TTSProviderId, t: (key: string) => string): string {
-  if (isCustomTTSProvider(providerId)) {
-    const cfg = useSettingsStore.getState().ttsProvidersConfig[providerId];
-    return cfg?.customName || providerId;
-  }
-  const names: Record<string, string> = {
-    'openai-tts': t('settings.providerOpenAITTS'),
-    'azure-tts': t('settings.providerAzureTTS'),
-    'glm-tts': t('settings.providerGLMTTS'),
+  const names: Record<TTSProviderId, string> = {
     'qwen-tts': t('settings.providerQwenTTS'),
-    'doubao-tts': t('settings.providerDoubaoTTS'),
-    'elevenlabs-tts': t('settings.providerElevenLabsTTS'),
-    'minimax-tts': t('settings.providerMiniMaxTTS'),
-    'browser-native-tts': t('settings.providerBrowserNativeTTS'),
   };
-  return names[providerId] || providerId;
+  return names[providerId];
 }
 
 function getASRProviderName(providerId: ASRProviderId, t: (key: string) => string): string {
-  if (isCustomASRProvider(providerId)) {
-    const cfg = useSettingsStore.getState().asrProvidersConfig[providerId];
-    return cfg?.customName || providerId;
-  }
-  const names: Record<string, string> = {
-    'openai-whisper': t('settings.providerOpenAIWhisper'),
-    'browser-native': t('settings.providerBrowserNative'),
+  const names: Record<ASRProviderId, string> = {
     'qwen-asr': t('settings.providerQwenASR'),
   };
-  return names[providerId] || providerId;
+  return names[providerId];
 }
 
 // ─── Image/Video provider name helpers ───
 const IMAGE_PROVIDER_NAMES: Record<ImageProviderId, string> = {
-  seedream: 'providerSeedream',
-  'openai-image': 'providerOpenAIImage',
   'qwen-image': 'providerQwenImage',
-  'nano-banana': 'providerNanoBanana',
-  'minimax-image': 'providerMiniMaxImage',
-  'grok-image': 'providerGrokImage',
 };
 
 const IMAGE_PROVIDER_ICONS: Record<ImageProviderId, string> = {
-  seedream: '/logos/doubao.svg',
-  'openai-image': '/logos/openai.svg',
   'qwen-image': '/logos/bailian.svg',
-  'nano-banana': '/logos/gemini.svg',
-  'minimax-image': '/logos/minimax.svg',
-  'grok-image': '/logos/grok.svg',
 };
 
 const VIDEO_PROVIDER_NAMES: Record<VideoProviderId, string> = {
-  seedance: 'providerSeedance',
-  kling: 'providerKling',
-  veo: 'providerVeo',
-  sora: 'providerSora',
-  'minimax-video': 'providerMiniMaxVideo',
-  'grok-video': 'providerGrokVideo',
+  'qwen-video': 'providerQwenVideo',
 };
 
 const VIDEO_PROVIDER_ICONS: Record<VideoProviderId, string> = {
-  seedance: '/logos/doubao.svg',
-  kling: '/logos/kling.svg',
-  veo: '/logos/gemini.svg',
-  sora: '/logos/openai.svg',
-  'minimax-video': '/logos/minimax.svg',
-  'grok-video': '/logos/grok.svg',
+  'qwen-video': '/logos/bailian.svg',
 };
 
 interface SettingsDialogProps {
@@ -232,22 +182,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
       setActiveSection(initialSection);
     }
   }, [open, initialSection]);
-
-  // Add provider dialog
-  const [showAddTTSProviderDialog, setShowAddTTSProviderDialog] = useState(false);
-  const [showAddASRProviderDialog, setShowAddASRProviderDialog] = useState(false);
-  const addCustomTTSProvider = useSettingsStore((state) => state.addCustomTTSProvider);
-  const addCustomASRProvider = useSettingsStore((state) => state.addCustomASRProvider);
-
-  const handleAddTTSProvider = (data: NewAudioProviderData) => {
-    const id = `custom-tts-${Date.now()}` as TTSProviderId;
-    addCustomTTSProvider(id, data.name, data.baseUrl, data.requiresApiKey, data.defaultModel);
-  };
-
-  const handleAddASRProvider = (data: NewAudioProviderData) => {
-    const id = `custom-asr-${Date.now()}` as ASRProviderId;
-    addCustomASRProvider(id, data.name, data.baseUrl, data.requiresApiKey);
-  };
 
   // Save status indicator
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
@@ -761,26 +695,16 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
           {activeSection === 'tts' && (
             <>
               <ProviderListColumn
-                providers={[
-                  ...Object.values(TTS_PROVIDERS).map((p) => ({
+                providers={Object.values(TTS_PROVIDERS).map((p) => ({
                     id: p.id,
                     name: getTTSProviderName(p.id, t),
                     icon: p.icon,
-                  })),
-                  ...Object.entries(ttsProvidersConfig)
-                    .filter(([id]) => isCustomTTSProvider(id))
-                    .map(([id, cfg]) => ({
-                      id: id as TTSProviderId,
-                      name: cfg.customName || id,
-                      icon: undefined,
-                    })),
-                ]}
+                  }))}
                 configs={ttsProvidersConfig}
                 selectedId={ttsProviderId}
                 onSelect={setTTSProvider}
                 width={providerListWidth}
                 t={t}
-                onAdd={() => setShowAddTTSProviderDialog(true)}
               />
               <div
                 onMouseDown={(e) => handleResizeStart(e, 'providerList')}
@@ -794,26 +718,16 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
           {activeSection === 'asr' && (
             <>
               <ProviderListColumn
-                providers={[
-                  ...Object.values(ASR_PROVIDERS).map((p) => ({
+                providers={Object.values(ASR_PROVIDERS).map((p) => ({
                     id: p.id,
                     name: getASRProviderName(p.id, t),
                     icon: p.icon,
-                  })),
-                  ...Object.entries(asrProvidersConfig)
-                    .filter(([id]) => isCustomASRProvider(id))
-                    .map(([id, cfg]) => ({
-                      id: id as ASRProviderId,
-                      name: cfg.customName || id,
-                      icon: undefined,
-                    })),
-                ]}
+                  }))}
                 configs={asrProvidersConfig}
                 selectedId={asrProviderId}
                 onSelect={setASRProvider}
                 width={providerListWidth}
                 t={t}
-                onAdd={() => setShowAddASRProviderDialog(true)}
               />
               <div
                 onMouseDown={(e) => handleResizeStart(e, 'providerList')}
@@ -893,21 +807,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
         </div>
       </DialogContent>
 
-      {/* Add TTS Provider Dialog */}
-      <AddAudioProviderDialog
-        open={showAddTTSProviderDialog}
-        onOpenChange={setShowAddTTSProviderDialog}
-        onAdd={handleAddTTSProvider}
-        type="tts"
-      />
-
-      {/* Add ASR Provider Dialog */}
-      <AddAudioProviderDialog
-        open={showAddASRProviderDialog}
-        onOpenChange={setShowAddASRProviderDialog}
-        onAdd={handleAddASRProvider}
-        type="asr"
-      />
     </Dialog>
   );
 }

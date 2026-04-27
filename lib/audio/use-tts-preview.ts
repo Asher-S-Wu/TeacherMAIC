@@ -1,25 +1,17 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import {
-  ensureVoicesLoaded,
-  isBrowserTTSAbortError,
-  playBrowserTTSPreview,
-} from '@/lib/audio/browser-tts-preview';
 
 export interface TTSPreviewOptions {
   text: string;
   providerId: string;
-  modelId?: string;
   voice: string;
   speed: number;
   apiKey?: string;
-  baseUrl?: string;
-  providerOptions?: unknown;
 }
 
 /**
- * Shared hook for TTS preview playback (browser-native and API-based).
+ * Shared hook for Qwen TTS preview playback.
  *
  * - `previewing`: true while a preview is active (including audio playback)
  * - `startPreview(opts)`: start a preview; rejects with non-abort errors
@@ -58,7 +50,6 @@ export function useTTSPreview() {
 
   /**
    * Start a TTS preview.
-   * Abort errors are swallowed; all other errors are re-thrown for the caller.
    */
   const startPreview = useCallback(
     async (options: TTSPreviewOptions): Promise<void> => {
@@ -68,42 +59,14 @@ export function useTTSPreview() {
 
       setPreviewing(true);
       try {
-        if (options.providerId === 'browser-native-tts') {
-          if (typeof window === 'undefined' || !window.speechSynthesis) {
-            throw new Error('Browser does not support Speech Synthesis API');
-          }
-          const voices = await ensureVoicesLoaded();
-          if (isStale()) return;
-          if (voices.length === 0) {
-            throw new Error('No browser TTS voices available');
-          }
-          const controller = playBrowserTTSPreview({
-            text: options.text,
-            voice: options.voice,
-            rate: options.speed,
-            voices,
-          });
-          cancelRef.current = controller.cancel;
-          await controller.promise;
-          if (!isStale()) {
-            cancelRef.current = null;
-            setPreviewing(false);
-          }
-          return;
-        }
-
-        // API-based TTS
         const body: Record<string, unknown> = {
           text: options.text,
           audioId: 'preview',
           ttsProviderId: options.providerId,
-          ttsModelId: options.modelId,
           ttsVoice: options.voice,
           ttsSpeed: options.speed,
         };
         if (options.apiKey?.trim()) body.ttsApiKey = options.apiKey;
-        if (options.baseUrl?.trim()) body.ttsBaseUrl = options.baseUrl;
-        if (options.providerOptions) body.ttsProviderOptions = options.providerOptions;
 
         const res = await fetch('/api/generate/tts', {
           method: 'POST',
@@ -149,9 +112,7 @@ export function useTTSPreview() {
           cancelRef.current = null;
           setPreviewing(false);
         }
-        if (!isBrowserTTSAbortError(error)) {
-          throw error;
-        }
+        throw error;
       }
     },
     [cleanup],

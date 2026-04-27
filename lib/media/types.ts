@@ -1,63 +1,14 @@
 /**
  * Media (Image & Video) Generation Provider Type Definitions
  *
- * Unified types for image generation and video generation
- * with extensible architecture to support multiple providers.
+ * Unified types for image generation and video generation.
  *
  * Currently Supported Image Providers:
- * - Seedream (ByteDance SDXL-based image generation)
- * - OpenAI Image (GPT Image API)
- * - Qwen Image (Alibaba Cloud Wanx image generation)
- * - Nano Banana (Lightweight image generation via Banana.dev)
+ * - Qwen Image (Alibaba Cloud DashScope image generation)
  *
- * Currently Supported Video Providers (Phase 2):
- * - Seedance (ByteDance video generation)
- * - Kling (Kuaishou video generation)
- * - Veo (Google DeepMind video generation)
- * - Sora (OpenAI video generation)
+ * Currently Supported Video Providers:
+ * - Qwen Video / HappyHorse (Alibaba Cloud DashScope text-to-video)
  *
- * HOW TO ADD A NEW PROVIDER:
- *
- * Step 1: Add provider ID to the union type
- *   - For Image: Add to ImageProviderId below
- *   - For Video: Add to VideoProviderId below
- *
- * Step 2: Add provider configuration to constants.ts
- *   - Define provider metadata (name, icon, aspect ratios, styles, etc.)
- *   - Add to IMAGE_PROVIDERS or VIDEO_PROVIDERS registry
- *
- * Step 3: Implement provider logic in image-providers.ts or video-providers.ts
- *   - Add case to generateImage() or generateVideo() switch statement
- *   - Implement API call logic for the new provider
- *   - For async task-based providers, implement MediaTaskAdapter
- *
- * Step 4: Add i18n translations
- *   - Add provider name translations in lib/i18n.ts
- *   - Format: `provider{ProviderName}Image` or `provider{ProviderName}Video`
- *
- * Step 5 (Optional): Add provider-specific options
- *   - Extend ImageGenerationOptions or VideoGenerationOptions as needed
- *   - Document provider-specific parameters in JSDoc
- *
- * Example: Adding DALL-E Image Provider
- * =======================================
- * 1. Add 'dall-e' to ImageProviderId union type
- * 2. In constants.ts:
- *    IMAGE_PROVIDERS['dall-e'] = {
- *      id: 'dall-e',
- *      name: 'DALL-E',
- *      requiresApiKey: true,
- *      defaultBaseUrl: 'https://api.openai.com/v1',
- *      icon: '/openai.svg',
- *      supportedAspectRatios: ['1:1', '16:9', '9:16'],
- *      supportedStyles: ['natural', 'vivid'],
- *      maxResolution: { width: 1024, height: 1024 }
- *    }
- * 3. In image-providers.ts:
- *    case 'dall-e':
- *      return await generateDallEImage(config, options);
- * 4. In i18n.ts:
- *    providerDallEImage: 'DALL-E' / 'DALL-E 图像生成'
  */
 
 // ============================================================================
@@ -70,17 +21,7 @@
  * Add new image providers here as union members.
  * Keep in sync with IMAGE_PROVIDERS registry in constants.ts
  */
-export type ImageProviderId =
-  | 'seedream'
-  | 'openai-image'
-  | 'qwen-image'
-  | 'nano-banana'
-  | 'minimax-image'
-  | 'grok-image';
-// Add new image providers below (uncomment and modify):
-// | 'dall-e'
-// | 'midjourney'
-// | 'stable-diffusion'
+export type ImageProviderId = 'qwen-image';
 
 /**
  * Image Provider Configuration
@@ -185,16 +126,7 @@ export interface ImageGenerationResult {
  * Add new video providers here as union members.
  * Keep in sync with VIDEO_PROVIDERS registry in constants.ts
  */
-export type VideoProviderId =
-  | 'seedance'
-  | 'kling'
-  | 'veo'
-  | 'sora'
-  | 'minimax-video'
-  | 'grok-video';
-// Add new video providers below (uncomment and modify):
-// | 'runway'
-// | 'pika'
+export type VideoProviderId = 'qwen-video';
 
 /**
  * Video Provider Configuration
@@ -219,11 +151,11 @@ export interface VideoProviderConfig {
   /** Available models for this provider */
   models: VideoModelInfo[];
   /** Aspect ratios supported by this provider */
-  supportedAspectRatios: Array<'16:9' | '4:3' | '1:1' | '9:16' | '3:4' | '21:9'>;
+  supportedAspectRatios: Array<'16:9' | '4:3' | '1:1' | '9:16' | '3:4'>;
   /** Supported video durations in seconds */
   supportedDurations?: number[];
   /** Supported output resolutions */
-  supportedResolutions?: Array<'480p' | '720p' | '1080p'>;
+  supportedResolutions?: Array<'720P' | '1080P'>;
   /** Maximum video duration in seconds */
   maxVideoDuration?: number;
 }
@@ -257,9 +189,9 @@ export interface VideoGenerationOptions {
   /** Desired video duration in seconds */
   duration?: number;
   /** Desired aspect ratio */
-  aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16' | '3:4' | '21:9';
+  aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16' | '3:4';
   /** Desired output resolution */
-  resolution?: '480p' | '720p' | '1080p';
+  resolution?: '720P' | '1080P';
 }
 
 /**
@@ -299,7 +231,7 @@ export interface MediaGenerationRequest {
   /** Identifier for the target element on the canvas (e.g. "gen_img_1") */
   elementId: string;
   /** Desired aspect ratio */
-  aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16';
+  aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16' | '3:4';
   /** Optional artistic style hint */
   style?: string;
 }

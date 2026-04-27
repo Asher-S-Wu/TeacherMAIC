@@ -33,45 +33,10 @@ interface ServerConfig {
 // Env-var prefix mappings
 // ---------------------------------------------------------------------------
 
-const TTS_ENV_MAP: Record<string, string> = {
-  TTS_OPENAI: 'openai-tts',
-  TTS_AZURE: 'azure-tts',
-  TTS_GLM: 'glm-tts',
-  TTS_QWEN: 'qwen-tts',
-  TTS_DOUBAO: 'doubao-tts',
-  TTS_ELEVENLABS: 'elevenlabs-tts',
-  TTS_MINIMAX: 'minimax-tts',
-};
-
-const ASR_ENV_MAP: Record<string, string> = {
-  ASR_OPENAI: 'openai-whisper',
-  ASR_QWEN: 'qwen-asr',
-};
+const QWEN_API_KEY_ENV = 'QWEN_API_KEY';
 
 const PDF_ENV_MAP: Record<string, string> = {
   PDF_MINERU_CLOUD: 'mineru-cloud',
-};
-
-const IMAGE_ENV_MAP: Record<string, string> = {
-  IMAGE_OPENAI: 'openai-image',
-  IMAGE_SEEDREAM: 'seedream',
-  IMAGE_QWEN_IMAGE: 'qwen-image',
-  IMAGE_NANO_BANANA: 'nano-banana',
-  IMAGE_MINIMAX: 'minimax-image',
-  IMAGE_GROK: 'grok-image',
-};
-
-const VIDEO_ENV_MAP: Record<string, string> = {
-  VIDEO_SEEDANCE: 'seedance',
-  VIDEO_KLING: 'kling',
-  VIDEO_VEO: 'veo',
-  VIDEO_SORA: 'sora',
-  VIDEO_MINIMAX: 'minimax-video',
-  VIDEO_GROK: 'grok-video',
-};
-
-const WEB_SEARCH_ENV_MAP: Record<string, string> = {
-  TAVILY: 'tavily',
 };
 
 // ---------------------------------------------------------------------------
@@ -104,8 +69,13 @@ function loadEnvSection(envMap: Record<string, string>): Record<string, ServerPr
 }
 
 function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
-  const apiKey = process.env.ZENMUX_API_KEY || undefined;
-  return apiKey ? { kimi: { apiKey } } : {};
+  const apiKey = process.env[QWEN_API_KEY_ENV] || undefined;
+  return apiKey ? { qwen: { apiKey } } : {};
+}
+
+function loadQwenOnlySection(providerId: string): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[QWEN_API_KEY_ENV] || undefined;
+  return apiKey ? { [providerId]: { apiKey } } : {};
 }
 
 // ---------------------------------------------------------------------------
@@ -117,12 +87,12 @@ let _config: ServerConfig | null = null;
 function buildConfig(): ServerConfig {
   return {
     providers: loadLLMEnvSection(),
-    tts: loadEnvSection(TTS_ENV_MAP),
-    asr: loadEnvSection(ASR_ENV_MAP),
+    tts: loadQwenOnlySection('qwen-tts'),
+    asr: loadQwenOnlySection('qwen-asr'),
     pdf: loadEnvSection(PDF_ENV_MAP),
-    image: loadEnvSection(IMAGE_ENV_MAP),
-    video: loadEnvSection(VIDEO_ENV_MAP),
-    webSearch: loadEnvSection(WEB_SEARCH_ENV_MAP),
+    image: loadQwenOnlySection('qwen-image'),
+    video: loadQwenOnlySection('qwen-video'),
+    webSearch: loadQwenOnlySection('bailian'),
   };
 }
 
@@ -171,7 +141,7 @@ export function resolveApiKey(providerId: string, clientKey?: string): string {
   return getConfig().providers[providerId]?.apiKey || '';
 }
 
-/** LLM base URL is fixed by the built-in Kimi provider registry. */
+/** LLM base URL is fixed by the built-in Qwen provider registry. */
 export function resolveBaseUrl(_providerId: string, _clientBaseUrl?: string): string | undefined {
   return undefined;
 }
@@ -195,9 +165,8 @@ export function resolveTTSApiKey(providerId: string, clientKey?: string): string
   return getConfig().tts[providerId]?.apiKey || '';
 }
 
-export function resolveTTSBaseUrl(providerId: string, clientBaseUrl?: string): string | undefined {
-  if (clientBaseUrl) return clientBaseUrl;
-  return getConfig().tts[providerId]?.baseUrl;
+export function resolveTTSBaseUrl(_providerId: string, _clientBaseUrl?: string): string | undefined {
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -219,9 +188,8 @@ export function resolveASRApiKey(providerId: string, clientKey?: string): string
   return getConfig().asr[providerId]?.apiKey || '';
 }
 
-export function resolveASRBaseUrl(providerId: string, clientBaseUrl?: string): string | undefined {
-  if (clientBaseUrl) return clientBaseUrl;
-  return getConfig().asr[providerId]?.baseUrl;
+export function resolveASRBaseUrl(_providerId: string, _clientBaseUrl?: string): string | undefined {
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -268,11 +236,10 @@ export function resolveImageApiKey(providerId: string, clientKey?: string): stri
 }
 
 export function resolveImageBaseUrl(
-  providerId: string,
-  clientBaseUrl?: string,
+  _providerId: string,
+  _clientBaseUrl?: string,
 ): string | undefined {
-  if (clientBaseUrl) return clientBaseUrl;
-  return getConfig().image[providerId]?.baseUrl;
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -282,9 +249,8 @@ export function resolveImageBaseUrl(
 export function getServerVideoProviders(): Record<string, { baseUrl?: string }> {
   const cfg = getConfig();
   const result: Record<string, { baseUrl?: string }> = {};
-  for (const [id, entry] of Object.entries(cfg.video)) {
+  for (const id of Object.keys(cfg.video)) {
     result[id] = {};
-    if (entry.baseUrl) result[id].baseUrl = entry.baseUrl;
   }
   return result;
 }
@@ -295,15 +261,14 @@ export function resolveVideoApiKey(providerId: string, clientKey?: string): stri
 }
 
 export function resolveVideoBaseUrl(
-  providerId: string,
-  clientBaseUrl?: string,
+  _providerId: string,
+  _clientBaseUrl?: string,
 ): string | undefined {
-  if (clientBaseUrl) return clientBaseUrl;
-  return getConfig().video[providerId]?.baseUrl;
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
-// Public API — Web Search (Tavily)
+// Public API — Web Search (Bailian)
 // ---------------------------------------------------------------------------
 
 /** Returns server-configured web search providers (no apiKeys exposed) */
@@ -317,8 +282,8 @@ export function getServerWebSearchProviders(): Record<string, { baseUrl?: string
   return result;
 }
 
-/** Resolve Tavily API key: client key > server key > empty */
+/** Resolve Bailian API key: client key > server QWEN_API_KEY > empty */
 export function resolveWebSearchApiKey(clientKey?: string): string {
   if (clientKey) return clientKey;
-  return getConfig().webSearch.tavily?.apiKey || '';
+  return getConfig().webSearch.bailian?.apiKey || '';
 }

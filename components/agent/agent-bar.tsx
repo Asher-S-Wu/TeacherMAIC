@@ -9,7 +9,6 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { resolveAgentVoice, getAvailableProvidersWithVoices } from '@/lib/audio/voice-resolver';
-import { playBrowserTTSPreview } from '@/lib/audio/browser-tts-preview';
 import {
   Sparkles,
   ChevronDown,
@@ -118,19 +117,6 @@ function AgentVoicePill({
 
       const previewText = t('settings.ttsTestTextDefault');
 
-      if (providerId === 'browser-native-tts') {
-        const { promise, cancel } = playBrowserTTSPreview({ text: previewText, voice: voiceId });
-        previewCancelRef.current = cancel;
-        try {
-          await promise;
-        } catch {
-          // ignore abort
-        }
-        setPreviewingId(null);
-        return;
-      }
-
-      // Server TTS
       try {
         const controller = new AbortController();
         previewAbortRef.current = controller;
@@ -142,15 +128,9 @@ function AgentVoicePill({
             text: previewText,
             audioId: 'voice-preview',
             ttsProviderId: providerId,
-            ttsModelId: modelId || providerConfig?.modelId,
             ttsVoice: voiceId,
             ttsSpeed: 1,
             ttsApiKey: providerConfig?.apiKey,
-            ttsBaseUrl:
-              providerConfig?.serverBaseUrl ||
-              providerConfig?.baseUrl ||
-              providerConfig?.customDefaultBaseUrl,
-            ttsProviderOptions: providerConfig?.providerOptions,
           }),
           signal: controller.signal,
         });
@@ -378,18 +358,6 @@ function TeacherVoicePill({
 
       const previewText = t('settings.ttsTestTextDefault');
 
-      if (providerId === 'browser-native-tts') {
-        const { promise, cancel } = playBrowserTTSPreview({ text: previewText, voice: voiceId });
-        previewCancelRef.current = cancel;
-        try {
-          await promise;
-        } catch {
-          // ignore abort
-        }
-        setPreviewingId(null);
-        return;
-      }
-
       try {
         const controller = new AbortController();
         previewAbortRef.current = controller;
@@ -401,15 +369,9 @@ function TeacherVoicePill({
             text: previewText,
             audioId: 'voice-preview',
             ttsProviderId: providerId,
-            ttsModelId: modelId || providerConfig?.modelId,
             ttsVoice: voiceId,
             ttsSpeed: 1,
             ttsApiKey: providerConfig?.apiKey,
-            ttsBaseUrl:
-              providerConfig?.serverBaseUrl ||
-              providerConfig?.baseUrl ||
-              providerConfig?.customDefaultBaseUrl,
-            ttsProviderOptions: providerConfig?.providerOptions,
           }),
           signal: controller.signal,
         });
@@ -581,17 +543,7 @@ export function AgentBar() {
   const ttsEnabled = useSettingsStore((s) => s.ttsEnabled);
 
   const [open, setOpen] = useState(false);
-  const [browserVoices, setBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Load browser native TTS voices
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    const loadVoices = () => setBrowserVoices(speechSynthesis.getVoices());
-    loadVoices();
-    speechSynthesis.addEventListener('voiceschanged', loadVoices);
-    return () => speechSynthesis.removeEventListener('voiceschanged', loadVoices);
-  }, []);
 
   const allAgents = listAgents();
   const agents = allAgents.filter((a) => !a.isGenerated);
@@ -599,26 +551,8 @@ export function AgentBar() {
   const selectedAgents = agents.filter((a) => selectedAgentIds.includes(a.id));
   const nonTeacherSelected = selectedAgents.filter((a) => a.role !== 'teacher');
 
-  const serverProviders = getAvailableProvidersWithVoices(ttsProvidersConfig);
-  const availableProviders: ProviderWithVoices[] = [
-    ...serverProviders,
-    ...(browserVoices.length > 0
-      ? [
-          {
-            providerId: 'browser-native-tts' as TTSProviderId,
-            providerName: 'Browser Native',
-            voices: browserVoices.map((v) => ({ id: v.voiceURI, name: v.name })),
-            modelGroups: [
-              {
-                modelId: '',
-                modelName: 'Browser Native',
-                voices: browserVoices.map((v) => ({ id: v.voiceURI, name: v.name })),
-              },
-            ],
-          },
-        ]
-      : []),
-  ];
+  const availableProviders: ProviderWithVoices[] =
+    getAvailableProvidersWithVoices(ttsProvidersConfig);
   const showVoice = availableProviders.length > 0;
 
   useEffect(() => {

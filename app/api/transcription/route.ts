@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
 import { transcribeAudio } from '@/lib/audio/asr-providers';
-import { resolveASRApiKey, resolveASRBaseUrl } from '@/lib/server/provider-config';
+import { resolveASRApiKey } from '@/lib/server/provider-config';
 import type { ASRProviderId } from '@/lib/audio/types';
+import { QWEN_ASR_MODEL_ID } from '@/lib/audio/constants';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
-import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 const log = createLogger('Transcription');
 
 export async function POST(req: NextRequest) {
@@ -13,39 +13,26 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
-    const providerId = formData.get('providerId') as ASRProviderId | null;
-    const modelId = formData.get('modelId') as string | null;
+    const requestedProviderId = (formData.get('providerId') as string | null) || 'qwen-asr';
     const language = formData.get('language') as string | null;
     const apiKey = formData.get('apiKey') as string | null;
-    const baseUrl = formData.get('baseUrl') as string | null;
 
     if (!audioFile) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Audio file is required');
     }
 
-    // providerId is required from the client — no server-side store to fall back to
-    const effectiveProviderId = providerId || ('openai-whisper' as ASRProviderId);
-    resolvedProviderId = effectiveProviderId;
-    resolvedModelId = modelId ?? undefined;
-
-    const clientBaseUrl = baseUrl || undefined;
-    if (clientBaseUrl && process.env.NODE_ENV === 'production') {
-      const ssrfError = await validateUrlForSSRF(clientBaseUrl);
-      if (ssrfError) {
-        return apiError('INVALID_URL', 403, ssrfError);
-      }
+    if (requestedProviderId !== 'qwen-asr') {
+      return apiError('INVALID_REQUEST', 400, 'Only qwen-asr is supported');
     }
+    const effectiveProviderId: ASRProviderId = 'qwen-asr';
+    resolvedProviderId = effectiveProviderId;
+    resolvedModelId = QWEN_ASR_MODEL_ID;
 
     const config = {
       providerId: effectiveProviderId,
-      modelId: modelId || undefined,
+      modelId: QWEN_ASR_MODEL_ID,
       language: language || 'auto',
-      apiKey: clientBaseUrl
-        ? apiKey || ''
-        : resolveASRApiKey(effectiveProviderId, apiKey || undefined),
-      baseUrl: clientBaseUrl
-        ? clientBaseUrl
-        : resolveASRBaseUrl(effectiveProviderId, baseUrl || undefined),
+      apiKey: resolveASRApiKey(effectiveProviderId, apiKey || undefined),
     };
 
     // Convert audio file to buffer

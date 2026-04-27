@@ -1,24 +1,13 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import { IMAGE_PROVIDERS } from '@/lib/media/image-providers';
-import {
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  Eye,
-  EyeOff,
-  Zap,
-  Plus,
-  Settings2,
-  Trash2,
-} from 'lucide-react';
+import { CheckCircle2, Eye, EyeOff, Loader2, XCircle, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ImageProviderId } from '@/lib/media/types';
 
@@ -28,10 +17,8 @@ interface ImageSettingsProps {
 
 export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
   const { t } = useI18n();
-
-  const imageModelId = useSettingsStore((state) => state.imageModelId);
+  const provider = IMAGE_PROVIDERS['qwen-image'];
   const imageProvidersConfig = useSettingsStore((state) => state.imageProvidersConfig);
-  const _setImageModelId = useSettingsStore((state) => state.setImageModelId);
   const setImageProviderConfig = useSettingsStore((state) => state.setImageProviderConfig);
 
   const [showApiKey, setShowApiKey] = useState(false);
@@ -39,35 +26,8 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
   const [testStatus, setTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [testMessage, setTestMessage] = useState('');
 
-  // Model dialog state
-  const [showModelDialog, setShowModelDialog] = useState(false);
-  const [editingModelIndex, setEditingModelIndex] = useState<number | null>(null);
-  const [modelForm, setModelForm] = useState({ id: '', name: '' });
-
-  // Reset test state when provider changes (derived state pattern)
-  const [prevSelectedProviderId, setPrevSelectedProviderId] = useState(selectedProviderId);
-  if (selectedProviderId !== prevSelectedProviderId) {
-    setPrevSelectedProviderId(selectedProviderId);
-    setTestStatus('idle');
-    setTestMessage('');
-  }
-
-  const currentConfig = imageProvidersConfig[selectedProviderId];
-  const currentProvider = IMAGE_PROVIDERS[selectedProviderId];
-  const builtInModels = currentProvider?.models || [];
-  const customModels = useMemo(
-    () => currentConfig?.customModels || [],
-    [currentConfig?.customModels],
-  );
+  const currentConfig = imageProvidersConfig['qwen-image'];
   const isServerConfigured = !!currentConfig?.isServerConfigured;
-
-  const handleApiKeyChange = (apiKey: string) => {
-    setImageProviderConfig(selectedProviderId, { apiKey });
-  };
-
-  const handleBaseUrlChange = (baseUrl: string) => {
-    setImageProviderConfig(selectedProviderId, { baseUrl });
-  };
 
   const handleTest = async () => {
     setTestLoading(true);
@@ -77,10 +37,8 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
       const response = await fetch('/api/verify-image-provider', {
         method: 'POST',
         headers: {
-          'x-image-provider': selectedProviderId,
-          'x-image-model': imageModelId || '',
+          'x-image-provider': 'qwen-image',
           'x-api-key': currentConfig?.apiKey || '',
-          'x-base-url': currentConfig?.baseUrl || '',
         },
       });
       const data = await response.json();
@@ -89,7 +47,7 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
         setTestMessage(t('settings.imageConnectivitySuccess'));
       } else {
         setTestStatus('error');
-        setTestMessage(`${t('settings.imageConnectivityFailed')}: ${data.message}`);
+        setTestMessage(`${t('settings.imageConnectivityFailed')}: ${data.error || data.details}`);
       }
     } catch (err) {
       setTestStatus('error');
@@ -99,56 +57,14 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
     }
   };
 
-  // Model CRUD
-  const handleOpenAddModel = () => {
-    setEditingModelIndex(null);
-    setModelForm({ id: '', name: '' });
-    setShowModelDialog(true);
-  };
-
-  const handleOpenEditModel = (index: number) => {
-    setEditingModelIndex(index);
-    setModelForm({ ...customModels[index] });
-    setShowModelDialog(true);
-  };
-
-  const handleSaveModel = useCallback(() => {
-    if (!modelForm.id.trim()) return;
-    const newCustomModels = [...customModels];
-    if (editingModelIndex !== null) {
-      newCustomModels[editingModelIndex] = {
-        id: modelForm.id.trim(),
-        name: modelForm.name.trim() || modelForm.id.trim(),
-      };
-    } else {
-      newCustomModels.push({
-        id: modelForm.id.trim(),
-        name: modelForm.name.trim() || modelForm.id.trim(),
-      });
-    }
-    setImageProviderConfig(selectedProviderId, {
-      customModels: newCustomModels,
-    });
-    setShowModelDialog(false);
-  }, [modelForm, editingModelIndex, customModels, selectedProviderId, setImageProviderConfig]);
-
-  const handleDeleteModel = (index: number) => {
-    const newCustomModels = customModels.filter((_, i) => i !== index);
-    setImageProviderConfig(selectedProviderId, {
-      customModels: newCustomModels,
-    });
-  };
-
   return (
     <div className="space-y-6 max-w-3xl">
-      {/* Server-configured notice */}
       {isServerConfigured && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
           {t('settings.serverConfiguredNotice')}
         </div>
       )}
 
-      {/* API Key + Test inline */}
       <div className="space-y-2">
         <Label>API Key</Label>
         <div className="flex gap-2">
@@ -160,11 +76,9 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              placeholder={
-                isServerConfigured ? t('settings.optionalOverride') : t('settings.enterApiKey')
-              }
+              placeholder={isServerConfigured ? t('settings.optionalOverride') : t('settings.enterApiKey')}
               value={currentConfig?.apiKey || ''}
-              onChange={(e) => handleApiKeyChange(e.target.value)}
+              onChange={(e) => setImageProviderConfig('qwen-image', { apiKey: e.target.value })}
               className="h-8 pr-8"
             />
             <button
@@ -211,138 +125,13 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
         )}
       </div>
 
-      {/* Base URL */}
       <div className="space-y-2">
-        <Label>Base URL</Label>
-        <Input
-          name={`image-base-url-${selectedProviderId}`}
-          type="url"
-          autoComplete="off"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          value={currentConfig?.baseUrl || ''}
-          onChange={(e) => handleBaseUrlChange(e.target.value)}
-          placeholder={
-            currentConfig?.serverBaseUrl ||
-            currentProvider?.defaultBaseUrl ||
-            t('settings.enterCustomBaseUrl')
-          }
-          className="h-8"
-        />
-        {(() => {
-          const effectiveBaseUrl =
-            currentConfig?.baseUrl ||
-            currentConfig?.serverBaseUrl ||
-            currentProvider?.defaultBaseUrl ||
-            '';
-          if (!effectiveBaseUrl) return null;
-          return (
-            <p className="text-xs text-muted-foreground break-all">
-              {t('settings.requestUrl')}: {effectiveBaseUrl}
-            </p>
-          );
-        })()}
-      </div>
-
-      {/* Model list */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <Label className="text-base">{t('settings.models')}</Label>
-          <Button variant="outline" size="sm" onClick={handleOpenAddModel} className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" />
-            {t('settings.addNewModel')}
-          </Button>
-        </div>
-
-        <div className="space-y-1.5">
-          {/* Built-in models */}
-          {builtInModels.map((model) => (
-            <div
-              key={model.id}
-              className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="font-mono text-sm font-medium">{model.name}</div>
-                <div className="text-xs text-muted-foreground font-mono mt-0.5">{model.id}</div>
-              </div>
-            </div>
-          ))}
-
-          {/* Custom models */}
-          {customModels.map((model, index) => (
-            <div
-              key={`custom-${index}`}
-              className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="font-mono text-sm font-medium">{model.name}</div>
-                <div className="text-xs text-muted-foreground font-mono mt-0.5">{model.id}</div>
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2"
-                  onClick={() => handleOpenEditModel(index)}
-                  title={t('settings.editModel')}
-                >
-                  <Settings2 className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => handleDeleteModel(index)}
-                  title={t('settings.deleteModel')}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          ))}
+        <Label className="text-sm text-muted-foreground">{t('settings.availableModels')}</Label>
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/50 border border-border/40 text-xs font-mono text-muted-foreground">
+          <span className="size-1.5 rounded-full bg-emerald-500/70" />
+          {provider.models[0].name}
         </div>
       </div>
-
-      {/* Add/Edit Model Dialog */}
-      <Dialog open={showModelDialog} onOpenChange={setShowModelDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogTitle>
-            {editingModelIndex !== null ? t('settings.editModel') : t('settings.addNewModel')}
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            {editingModelIndex !== null ? t('settings.editModel') : t('settings.addNewModel')}
-          </DialogDescription>
-          <div className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <Label>{t('settings.modelId')}</Label>
-              <Input
-                value={modelForm.id}
-                onChange={(e) => setModelForm((prev) => ({ ...prev, id: e.target.value }))}
-                placeholder="e.g. my-custom-model-v1"
-                className="h-8 font-mono text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('settings.modelName')}</Label>
-              <Input
-                value={modelForm.name}
-                onChange={(e) => setModelForm((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g. My Custom Model"
-                className="h-8 text-sm"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowModelDialog(false)}>
-                {t('settings.cancelEdit')}
-              </Button>
-              <Button size="sm" onClick={handleSaveModel} disabled={!modelForm.id.trim()}>
-                {t('settings.saveModel')}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

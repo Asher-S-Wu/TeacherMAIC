@@ -206,9 +206,7 @@ async function callImageApi(
     headers: {
       'Content-Type': 'application/json',
       'x-image-provider': settings.imageProviderId || '',
-      'x-image-model': settings.imageModelId || '',
       'x-api-key': providerConfig?.apiKey || '',
-      'x-base-url': providerConfig?.baseUrl || '',
     },
     body: JSON.stringify({
       prompt: req.prompt,
@@ -248,7 +246,6 @@ async function callVideoApi(
       'x-video-provider': settings.videoProviderId || '',
       'x-video-model': settings.videoModelId || '',
       'x-api-key': providerConfig?.apiKey || '',
-      'x-base-url': providerConfig?.baseUrl || '',
     },
     body: JSON.stringify({
       prompt: req.prompt,

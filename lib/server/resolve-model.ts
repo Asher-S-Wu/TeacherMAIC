@@ -16,9 +16,9 @@ import type { ThinkingConfig } from '@/lib/types/provider';
 import { resolveApiKey } from '@/lib/server/provider-config';
 
 export interface ResolvedModel extends ModelWithInfo {
-  /** Original model string (e.g. "kimi:moonshotai/kimi-k2.6") */
+  /** Original model string (e.g. "qwen:qwen3.6-plus") */
   modelString: string;
-  /** Resolved provider ID (e.g. "kimi") */
+  /** Resolved provider ID (e.g. "qwen") */
   providerId: string;
   /** Effective API key after server-side fallback resolution */
   apiKey: string;
@@ -36,7 +36,7 @@ export async function resolveModel(params: {
   apiKey?: string;
   thinkingConfig?: ThinkingConfig;
 }): Promise<ResolvedModel> {
-  const modelString = params.modelString || process.env.DEFAULT_MODEL || DEFAULT_MODEL_STRING;
+  const modelString = params.modelString || DEFAULT_MODEL_STRING;
   const { providerId, modelId } = parseModelString(modelString);
 
   const apiKey = resolveApiKey(providerId, params.apiKey || '');

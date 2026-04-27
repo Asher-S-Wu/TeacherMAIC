@@ -275,7 +275,7 @@ export interface StatelessChatRequest {
     nickname?: string;
     bio?: string;
   };
-  /** ZenMux API credentials */
+  /** Qwen API credentials */
   apiKey: string;
   model?: string;
   /**

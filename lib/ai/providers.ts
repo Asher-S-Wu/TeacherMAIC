@@ -1,9 +1,8 @@
 /**
  * Unified AI Provider Configuration
  *
- * Text generation is intentionally limited to Kimi K2.6 through ZenMux.
- * ZenMux exposes an OpenAI-compatible endpoint, so the OpenAI SDK adapter is
- * used with model id "moonshotai/kimi-k2.6".
+ * Text generation is intentionally limited to Qwen through Alibaba Cloud
+ * DashScope's OpenAI-compatible endpoint.
  */
 
 import { createOpenAI } from '@ai-sdk/openai';
@@ -19,8 +18,8 @@ import type {
 import { applyModelMetadata, getCatalogThinkingCapability } from './model-metadata';
 import { getThinkingMode } from './thinking-config';
 
-export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'kimi';
-export const DEFAULT_MODEL_ID = 'moonshotai/kimi-k2.6';
+export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'qwen';
+export const DEFAULT_MODEL_ID = 'qwen3.6-plus';
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
 
 // Re-export types for backward compatibility
@@ -33,17 +32,17 @@ export const MONO_LOGO_PROVIDERS: ReadonlySet<string> = new Set();
  * Provider registry
  */
 export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
-  kimi: {
-    id: 'kimi',
-    name: 'Kimi',
+  qwen: {
+    id: 'qwen',
+    name: 'Qwen',
     type: 'openai',
-    defaultBaseUrl: 'https://zenmux.ai/api/v1',
+    defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     requiresApiKey: true,
-    icon: '/logos/kimi.png',
+    icon: '/logos/bailian.svg',
     models: [
       {
         id: DEFAULT_MODEL_ID,
-        name: 'Kimi K2.6',
+        name: 'Qwen3.6 Plus',
         contextWindow: 256000,
         outputWindow: 8192,
         capabilities: {
@@ -52,7 +51,7 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
           vision: true,
           thinking: {
             control: 'toggle',
-            requestAdapter: 'kimi',
+            requestAdapter: 'qwen',
             defaultMode: 'enabled',
             toggleable: true,
             budgetAdjustable: false,
@@ -91,9 +90,9 @@ function getCompatThinkingBodyParams(
 
   const mode = getThinkingMode(config);
 
-  if (capability.requestAdapter === 'kimi') {
-    if (mode === 'disabled') return { thinking: { type: 'disabled' } };
-    if (mode === 'enabled') return { thinking: { type: 'enabled' } };
+  if (capability.requestAdapter === 'qwen') {
+    if (mode === 'disabled') return { enable_thinking: false };
+    if (mode === 'enabled') return { enable_thinking: true };
     return undefined;
   }
 
@@ -121,7 +120,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
 
   const requiresApiKey = config.requiresApiKey ?? provider.requiresApiKey;
   if (requiresApiKey && !config.apiKey) {
-    throw new Error('API key required for Kimi. Set ZENMUX_API_KEY in Vercel.');
+    throw new Error('API key required for Qwen. Set QWEN_API_KEY in Vercel.');
   }
 
   const effectiveApiKey = config.apiKey || '';
@@ -160,7 +159,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
 
 /**
  * Parse model string in format "providerId:modelId".
- * Bare model IDs are treated as Kimi model IDs.
+ * Bare model IDs are treated as Qwen model IDs.
  */
 export function parseModelString(modelString: string): {
   providerId: BuiltInProviderId;

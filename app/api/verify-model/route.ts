@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       } else if (error.message.includes('429')) {
         errorMessage = 'API rate limit exceeded, please try again later';
       } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
-        errorMessage = 'Cannot connect to the ZenMux API server';
+        errorMessage = 'Cannot connect to the Qwen API server';
       } else if (error.message.includes('timeout')) {
         errorMessage = 'Connection timed out, please check your network';
       } else {

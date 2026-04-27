@@ -6,10 +6,8 @@
  * POST /api/generate/video
  *
  * Headers:
- *   x-video-provider: VideoProviderId (default: 'seedance')
- *   x-video-model: string (optional model override)
+ *   x-video-provider: VideoProviderId (default: 'qwen-video')
  *   x-api-key: string (optional, server fallback)
- *   x-base-url: string (optional, server fallback)
  *
  * Body: { prompt, duration?, aspectRatio?, resolution? }
  * Response: { success: boolean, result?: VideoGenerationResult, error?: string }
@@ -17,13 +15,14 @@
 
 import { NextRequest } from 'next/server';
 import { generateVideo, normalizeVideoOptions } from '@/lib/media/video-providers';
-import { resolveVideoApiKey, resolveVideoBaseUrl } from '@/lib/server/provider-config';
+import { resolveVideoApiKey } from '@/lib/server/provider-config';
 import type { VideoProviderId, VideoGenerationOptions } from '@/lib/media/types';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
-import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 
 const log = createLogger('VideoGeneration API');
+const QWEN_VIDEO_PROVIDER_ID: VideoProviderId = 'qwen-video';
+const QWEN_VIDEO_MODEL_ID = 'happyhorse-1.0-t2v';
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,21 +32,19 @@ export async function POST(request: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing prompt');
     }
 
-    const providerId = (request.headers.get('x-video-provider') || 'seedance') as VideoProviderId;
+    const requestedProviderId = request.headers.get('x-video-provider') || QWEN_VIDEO_PROVIDER_ID;
+    if (requestedProviderId !== QWEN_VIDEO_PROVIDER_ID) {
+      return apiError('INVALID_REQUEST', 400, 'Only qwen-video is supported');
+    }
+    const providerId = QWEN_VIDEO_PROVIDER_ID;
     const clientApiKey = request.headers.get('x-api-key') || undefined;
-    const clientBaseUrl = request.headers.get('x-base-url') || undefined;
-    const clientModel = request.headers.get('x-video-model') || undefined;
+    const requestedModel = request.headers.get('x-video-model') || QWEN_VIDEO_MODEL_ID;
 
-    if (clientBaseUrl && process.env.NODE_ENV === 'production') {
-      const ssrfError = await validateUrlForSSRF(clientBaseUrl);
-      if (ssrfError) {
-        return apiError('INVALID_URL', 403, ssrfError);
-      }
+    if (requestedModel !== QWEN_VIDEO_MODEL_ID) {
+      return apiError('INVALID_REQUEST', 400, 'Only happyhorse-1.0-t2v is supported');
     }
 
-    const apiKey = clientBaseUrl
-      ? clientApiKey || ''
-      : resolveVideoApiKey(providerId, clientApiKey);
+    const apiKey = resolveVideoApiKey(providerId, clientApiKey);
     if (!apiKey) {
       return apiError(
         'MISSING_API_KEY',
@@ -56,19 +53,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const baseUrl = clientBaseUrl ? clientBaseUrl : resolveVideoBaseUrl(providerId, clientBaseUrl);
-
-    // Normalize options against provider capabilities
     const options = normalizeVideoOptions(providerId, body);
 
     log.info(
-      `Generating video: provider=${providerId}, model=${clientModel || 'default'}, ` +
+      `Generating video: provider=${providerId}, model=${QWEN_VIDEO_MODEL_ID}, ` +
         `prompt="${body.prompt.slice(0, 80)}...", duration=${options.duration ?? 'auto'}, ` +
         `aspect=${options.aspectRatio ?? 'auto'}, resolution=${options.resolution ?? 'auto'}`,
     );
 
     const result = await generateVideo(
-      { providerId, apiKey, baseUrl, model: clientModel },
+      { providerId, apiKey, model: QWEN_VIDEO_MODEL_ID },
       options,
     );
 
@@ -79,13 +73,12 @@ export async function POST(request: NextRequest) {
     return apiSuccess({ result });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    // Detect content safety filter rejections (e.g. Seedance SensitiveContent errors)
     if (message.includes('SensitiveContent') || message.includes('sensitive information')) {
       log.warn(`Video blocked by content safety filter: ${message}`);
       return apiError('CONTENT_SENSITIVE', 400, message);
     }
     log.error(
-      `Video generation failed [provider=${request.headers.get('x-video-provider') ?? 'kling'}, model=${request.headers.get('x-video-model') ?? 'default'}]:`,
+      `Video generation failed [provider=${request.headers.get('x-video-provider') ?? 'qwen-video'}, model=${request.headers.get('x-video-model') ?? QWEN_VIDEO_MODEL_ID}]:`,
       error,
     );
     return apiError('INTERNAL_ERROR', 500, message);

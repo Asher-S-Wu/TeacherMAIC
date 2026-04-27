@@ -19,7 +19,7 @@ import { isProviderKeyRequired } from '@/lib/ai/providers';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { resolveModel } from '@/lib/server/resolve-model';
 import { buildSearchQuery } from '@/lib/server/search-query-builder';
-import { searchWithTavily, formatSearchResultsAsContext } from '@/lib/web-search/tavily';
+import { searchWithBailian, formatSearchResultsAsContext } from '@/lib/web-search/bailian';
 import { persistClassroom } from '@/lib/server/classroom-storage';
 import {
   generateMediaForClassroom,
@@ -187,7 +187,7 @@ export async function generateClassroom(
   if (isProviderKeyRequired(providerId) && !apiKey) {
     throw new Error(
       `No API key configured for provider "${providerId}". ` +
-        'Set ZENMUX_API_KEY in Vercel Environment Variables.',
+        'Set QWEN_API_KEY in Vercel Environment Variables.',
     );
   }
 
@@ -236,9 +236,9 @@ export async function generateClassroom(
   // Web search
   let researchContext: string | undefined;
   if (input.enableWebSearch) {
-    const tavilyKey = resolveWebSearchApiKey();
-    if (!tavilyKey) {
-      throw new Error('已开启联网搜索，但 Tavily API Key 未配置');
+    const bailianKey = resolveWebSearchApiKey();
+    if (!bailianKey) {
+      throw new Error('已开启联网搜索，但阿里云百炼 API Key 未配置，请在 Vercel 配置 QWEN_API_KEY');
     }
     const searchQuery = await buildSearchQuery(requirement, pdfText, searchQueryAiCall);
 
@@ -249,9 +249,9 @@ export async function generateClassroom(
       finalQueryLength: searchQuery.finalQueryLength,
     });
 
-    const searchResult = await searchWithTavily({
+    const searchResult = await searchWithBailian({
       query: searchQuery.query,
-      apiKey: tavilyKey,
+      apiKey: bailianKey,
     });
     researchContext = formatSearchResultsAsContext(searchResult);
     if (researchContext) {

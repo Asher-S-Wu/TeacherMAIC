@@ -27,11 +27,9 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import { IMAGE_PROVIDERS } from '@/lib/media/image-providers';
 import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
-import { CUSTOM_ASR_DEFAULT_LANGUAGES } from '@/lib/audio/constants';
 import { ASR_PROVIDERS, getASRSupportedLanguages } from '@/lib/audio/constants';
 import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { ASRProviderId } from '@/lib/audio/types';
-import { isCustomASRProvider } from '@/lib/audio/types';
 import type { SettingsSection } from '@/lib/types/settings';
 
 interface MediaPopoverProps {
@@ -40,18 +38,10 @@ interface MediaPopoverProps {
 
 // ─── Provider icon maps ───
 const IMAGE_PROVIDER_ICONS: Record<string, string> = {
-  seedream: '/logos/doubao.svg',
-  'openai-image': '/logos/openai.svg',
   'qwen-image': '/logos/bailian.svg',
-  'nano-banana': '/logos/gemini.svg',
-  'grok-image': '/logos/grok.svg',
 };
 const VIDEO_PROVIDER_ICONS: Record<string, string> = {
-  seedance: '/logos/doubao.svg',
-  kling: '/logos/kling.svg',
-  veo: '/logos/gemini.svg',
-  sora: '/logos/openai.svg',
-  'grok-video': '/logos/grok.svg',
+  'qwen-video': '/logos/bailian.svg',
 };
 
 type TabId = 'image' | 'video' | 'tts' | 'asr';
@@ -129,7 +119,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
           groupName: p.name,
           groupIcon: IMAGE_PROVIDER_ICONS[p.id],
           available: true,
-          items: [...p.models, ...(imageProvidersConfig[p.id]?.customModels || [])].map((m) => ({
+          items: p.models.map((m) => ({
             id: m.id,
             name: m.name,
           })),
@@ -146,7 +136,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
           groupName: p.name,
           groupIcon: VIDEO_PROVIDER_ICONS[p.id],
           available: true,
-          items: [...p.models, ...(videoProvidersConfig[p.id]?.customModels || [])].map((m) => ({
+          items: p.models.map((m) => ({
             id: m.id,
             name: m.name,
           })),
@@ -154,11 +144,10 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
     [cfgOk, videoProvidersConfig],
   );
 
-  // ASR: built-in + custom providers
+  // ASR: Qwen provider
   const asrGroups = useMemo(() => {
     const groups: SelectGroupData[] = [];
 
-    // Built-in providers
     for (const p of Object.values(ASR_PROVIDERS)) {
       if (!cfgOk(asrProvidersConfig, p.id, p.requiresApiKey)) continue;
       groups.push({
@@ -170,20 +159,6 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
           id: l,
           name: l,
         })),
-      });
-    }
-
-    // Custom providers — only show if at least one model is configured
-    for (const [id, cfg] of Object.entries(asrProvidersConfig)) {
-      if (!isCustomASRProvider(id)) continue;
-      const customModels = cfg.customModels || [];
-      if (customModels.length === 0) continue;
-      const providerName = cfg.customName || id;
-      groups.push({
-        groupId: id,
-        groupName: providerName,
-        available: true,
-        items: CUSTOM_ASR_DEFAULT_LANGUAGES.map((l) => ({ id: l, name: l })),
       });
     }
 
@@ -398,8 +373,7 @@ function GroupedSelect({
   onSelect: (groupId: string, itemId: string) => void;
 }) {
   const composite = `${selectedGroupId}::${selectedItemId}`;
-  // When multiple groups share the same groupId (e.g. browser-native-tts split by language),
-  // find the sub-group that actually contains the selected item.
+  // Find the group that contains the selected item.
   const selectedGroup =
     groups.find(
       (g) => g.groupId === selectedGroupId && g.items.some((item) => item.id === selectedItemId),

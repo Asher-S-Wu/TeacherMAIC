@@ -21,17 +21,13 @@ import {
   getServerVideoProviders,
   getServerTTSProviders,
   resolveImageApiKey,
-  resolveImageBaseUrl,
   resolveVideoApiKey,
-  resolveVideoBaseUrl,
   resolveTTSApiKey,
-  resolveTTSBaseUrl,
 } from '@/lib/server/provider-config';
 import type { SceneOutline } from '@/lib/types/generation';
 import type { Scene } from '@/lib/types/stage';
 import type { SpeechAction } from '@/lib/types/action';
-import type { ImageProviderId } from '@/lib/media/types';
-import type { VideoProviderId } from '@/lib/media/types';
+import type { ImageProviderId, VideoGenerationOptions, VideoProviderId } from '@/lib/media/types';
 import type { TTSProviderId } from '@/lib/audio/types';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
 
@@ -96,7 +92,7 @@ export async function generateMediaForClassroom(
       const model = providerConfig?.models?.[0]?.id;
 
       const result = await generateImage(
-        { providerId, apiKey, baseUrl: resolveImageBaseUrl(providerId), model },
+        { providerId, apiKey, model },
         { prompt: req.prompt, aspectRatio: req.aspectRatio || '16:9' },
       );
 
@@ -136,11 +132,11 @@ export async function generateMediaForClassroom(
 
       const normalized = normalizeVideoOptions(providerId, {
         prompt: req.prompt,
-        aspectRatio: (req.aspectRatio as '16:9' | '4:3' | '1:1' | '9:16') || '16:9',
+        aspectRatio: (req.aspectRatio as VideoGenerationOptions['aspectRatio']) || '16:9',
       });
 
       const result = await generateVideo(
-        { providerId, apiKey, baseUrl: resolveVideoBaseUrl(providerId), model },
+        { providerId, apiKey, model },
         normalized,
       );
 
@@ -200,10 +196,7 @@ export async function generateTTSForClassroom(
   baseUrl: string,
   userId: ObjectId,
 ): Promise<void> {
-  // Resolve TTS provider (exclude browser-native-tts)
-  const ttsProviderIds = Object.keys(getServerTTSProviders()).filter(
-    (id) => id !== 'browser-native-tts',
-  );
+  const ttsProviderIds = Object.keys(getServerTTSProviders());
   if (ttsProviderIds.length === 0) {
     throw new Error('未配置服务器语音生成服务');
   }
@@ -213,9 +206,6 @@ export async function generateTTSForClassroom(
   if (!apiKey) {
     throw new Error(`语音生成服务缺少 API Key：${providerId}`);
   }
-  const ttsBaseUrl =
-    resolveTTSBaseUrl(providerId) ||
-    TTS_PROVIDERS[providerId as keyof typeof TTS_PROVIDERS]?.defaultBaseUrl;
   const voice = DEFAULT_TTS_VOICES[providerId as keyof typeof DEFAULT_TTS_VOICES] || 'default';
   const format =
     TTS_PROVIDERS[providerId as keyof typeof TTS_PROVIDERS]?.supportedFormats?.[0] || 'mp3';
@@ -240,7 +230,6 @@ export async function generateTTSForClassroom(
           providerId,
           modelId: DEFAULT_TTS_MODELS[providerId as keyof typeof DEFAULT_TTS_MODELS] || '',
           apiKey,
-          baseUrl: ttsBaseUrl,
           voice,
           speed: speechAction.speed,
         },

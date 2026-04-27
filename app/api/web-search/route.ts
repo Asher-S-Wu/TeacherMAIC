@@ -2,12 +2,12 @@
  * Web Search API
  *
  * POST /api/web-search
- * Simple JSON request/response using Tavily search.
+ * Simple JSON request/response using Bailian web search.
  */
 
 import { NextRequest } from 'next/server';
 import { callLLM } from '@/lib/ai/llm';
-import { searchWithTavily, formatSearchResultsAsContext } from '@/lib/web-search/tavily';
+import { searchWithBailian, formatSearchResultsAsContext } from '@/lib/web-search/bailian';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       return apiError(
         'MISSING_API_KEY',
         400,
-        'Tavily API key is not configured. Set it in Settings → Web Search or set TAVILY_API_KEY env var.',
+        '阿里云百炼 API Key 未配置。请在 Vercel 环境变量中配置 QWEN_API_KEY，或在设置 → 网络搜索中填写百炼 API Key。',
       );
     }
 
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       finalQueryLength: searchQuery.finalQueryLength,
     });
 
-    const result = await searchWithTavily({ query: searchQuery.query, apiKey });
+    const result = await searchWithBailian({ query: searchQuery.query, apiKey });
     const context = formatSearchResultsAsContext(result);
 
     return apiSuccess({

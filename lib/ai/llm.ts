@@ -18,30 +18,6 @@ export type { ThinkingConfig } from '@/lib/types/provider';
 type GenerateTextParams = Parameters<typeof generateText>[0];
 type StreamTextParams = Parameters<typeof streamText>[0];
 
-/** Global thinking override from environment variable */
-function getGlobalThinkingConfig(): ThinkingConfig | undefined {
-  if (process.env.LLM_THINKING_DISABLED === 'true') {
-    return { mode: 'disabled', enabled: false };
-  }
-  return undefined;
-}
-
-/**
- * Inject provider-specific thinking options into LLM call params.
- *
- * Kimi is reached through ZenMux's OpenAI-compatible API. The custom fetch
- * wrapper in providers.ts reads thinkingContext and injects the request body.
- *
- * Caller-supplied providerOptions are left untouched.
- */
-function injectProviderOptions<T extends GenerateTextParams | StreamTextParams>(
-  params: T,
-): T {
-  if ((params as Record<string, unknown>).providerOptions) return params; // caller explicitly set providerOptions
-
-  return params;
-}
-
 /**
  * Options for LLM call retry on validation failure.
  * This is separate from the AI SDK's built-in maxRetries (which handles network/5xx errors).
@@ -62,7 +38,7 @@ const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
  * @param params - Same parameters as AI SDK's `generateText`
  * @param source - A short label for log grouping (e.g. 'scene-stream', 'pbl-chat')
  * @param retryOptions - Optional retry-on-validation-failure settings
- * @param thinking - Optional per-call thinking config (overrides global LLM_THINKING_DISABLED)
+ * @param thinking - Optional per-call thinking config
  */
 export async function callLLM<T extends GenerateTextParams>(
   params: T,
@@ -80,16 +56,9 @@ export async function callLLM<T extends GenerateTextParams>(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      // Resolve effective thinking config: per-call > global env > undefined
-      const effectiveThinking = thinking ?? getGlobalThinkingConfig();
-      const injectedParams = injectProviderOptions(params);
-
       // Wrap in thinkingContext so the custom fetch wrapper in providers.ts
-      // can read the config and inject vendor-specific body params for
-      // OpenAI-compatible providers.
-      const result = await thinkingContext.run(effectiveThinking, () =>
-        generateText(injectedParams),
-      );
+      // can read the config and inject Qwen enable_thinking into the body.
+      const result = await thinkingContext.run(thinking, () => generateText(params));
 
       // Validate result (only when retries are configured)
       if (validate && !validate(result.text)) {
@@ -123,7 +92,7 @@ export async function callLLM<T extends GenerateTextParams>(
  *
  * @param params - Same parameters as AI SDK's `streamText`
  * @param source - A short label for log grouping
- * @param thinking - Optional per-call thinking config (overrides global LLM_THINKING_DISABLED)
+ * @param thinking - Optional per-call thinking config
  */
 export function streamLLM<T extends StreamTextParams>(
   params: T,
@@ -131,10 +100,7 @@ export function streamLLM<T extends StreamTextParams>(
   thinking?: ThinkingConfig,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): StreamTextResult<any, any> {
-  // Resolve effective thinking config and wrap in thinkingContext
-  const effectiveThinking = thinking ?? getGlobalThinkingConfig();
-  const injectedParams = injectProviderOptions(params);
-  const result = thinkingContext.run(effectiveThinking, () => streamText(injectedParams));
+  const result = thinkingContext.run(thinking, () => streamText(params));
 
   return result;
 }

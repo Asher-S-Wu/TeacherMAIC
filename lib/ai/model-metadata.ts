@@ -4,10 +4,10 @@ export function getModelMetadataKey(providerId: string, modelId: string): string
   return `${providerId}:${modelId}`;
 }
 
-function kimiToggleCapability(): ThinkingCapability {
+function qwenToggleCapability(): ThinkingCapability {
   return {
     control: 'toggle',
-    requestAdapter: 'kimi',
+    requestAdapter: 'qwen',
     defaultMode: 'enabled',
     toggleable: true,
     budgetAdjustable: false,
@@ -16,7 +16,7 @@ function kimiToggleCapability(): ThinkingCapability {
 }
 
 const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
-  [getModelMetadataKey('kimi', 'moonshotai/kimi-k2.6')]: kimiToggleCapability(),
+  [getModelMetadataKey('qwen', 'qwen3.6-plus')]: qwenToggleCapability(),
 };
 
 export function getCatalogThinkingCapability(

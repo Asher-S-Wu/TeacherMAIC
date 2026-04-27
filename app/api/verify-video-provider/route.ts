@@ -7,41 +7,37 @@
  *
  * Headers:
  *   x-video-provider: VideoProviderId
- *   x-video-model: string (optional)
  *   x-api-key: string (optional, server fallback)
- *   x-base-url: string (optional, server fallback)
  *
  * Response: { success: boolean, message: string }
  */
 
 import { NextRequest } from 'next/server';
 import { testVideoConnectivity } from '@/lib/media/video-providers';
-import { resolveVideoApiKey, resolveVideoBaseUrl } from '@/lib/server/provider-config';
+import { resolveVideoApiKey } from '@/lib/server/provider-config';
 import type { VideoProviderId } from '@/lib/media/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { createLogger } from '@/lib/logger';
-import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 
 const log = createLogger('VerifyVideoProvider');
+const QWEN_VIDEO_PROVIDER_ID: VideoProviderId = 'qwen-video';
+const QWEN_VIDEO_MODEL_ID = 'happyhorse-1.0-t2v';
 
 export async function POST(request: NextRequest) {
   try {
-    const providerId = (request.headers.get('x-video-provider') || 'seedance') as VideoProviderId;
-    const model = request.headers.get('x-video-model') || undefined;
+    const requestedProviderId = request.headers.get('x-video-provider') || QWEN_VIDEO_PROVIDER_ID;
+    if (requestedProviderId !== QWEN_VIDEO_PROVIDER_ID) {
+      return apiError('INVALID_REQUEST', 400, 'Only qwen-video is supported');
+    }
+    const providerId = QWEN_VIDEO_PROVIDER_ID;
+    const requestedModel = request.headers.get('x-video-model') || QWEN_VIDEO_MODEL_ID;
     const clientApiKey = request.headers.get('x-api-key') || undefined;
-    const clientBaseUrl = request.headers.get('x-base-url') || undefined;
 
-    if (clientBaseUrl && process.env.NODE_ENV === 'production') {
-      const ssrfError = await validateUrlForSSRF(clientBaseUrl);
-      if (ssrfError) {
-        return apiError('INVALID_URL', 403, ssrfError);
-      }
+    if (requestedModel !== QWEN_VIDEO_MODEL_ID) {
+      return apiError('INVALID_REQUEST', 400, 'Only happyhorse-1.0-t2v is supported');
     }
 
-    const apiKey = clientBaseUrl
-      ? clientApiKey || ''
-      : resolveVideoApiKey(providerId, clientApiKey);
-    const baseUrl = clientBaseUrl ? clientBaseUrl : resolveVideoBaseUrl(providerId, clientBaseUrl);
+    const apiKey = resolveVideoApiKey(providerId, clientApiKey);
 
     if (!apiKey) {
       return apiError('MISSING_API_KEY', 400, 'No API key configured');
@@ -50,8 +46,7 @@ export async function POST(request: NextRequest) {
     const result = await testVideoConnectivity({
       providerId,
       apiKey,
-      baseUrl,
-      model,
+      model: QWEN_VIDEO_MODEL_ID,
     });
 
     if (!result.success) {
@@ -61,7 +56,7 @@ export async function POST(request: NextRequest) {
     return apiSuccess({ message: result.message });
   } catch (err) {
     log.error(
-      `Video provider verification failed [provider=${request.headers.get('x-video-provider') ?? 'seedance'}]:`,
+      `Video provider verification failed [provider=${request.headers.get('x-video-provider') ?? 'qwen-video'}]:`,
       err,
     );
     return apiError('INTERNAL_ERROR', 500, `Connectivity test error: ${err}`);

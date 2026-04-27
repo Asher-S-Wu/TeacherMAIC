@@ -9,11 +9,11 @@
 
 import { NextRequest } from 'next/server';
 import { generateTTS } from '@/lib/audio/tts-providers';
-import { resolveTTSApiKey, resolveTTSBaseUrl } from '@/lib/server/provider-config';
+import { resolveTTSApiKey } from '@/lib/server/provider-config';
 import type { TTSProviderId } from '@/lib/audio/types';
+import { QWEN_TTS_MODEL_ID } from '@/lib/audio/constants';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
-import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 
 const log = createLogger('TTS API');
 
@@ -23,16 +23,13 @@ export async function POST(req: NextRequest) {
   let audioId: string | undefined;
   try {
     const body = await req.json();
-    const { text, ttsModelId, ttsSpeed, ttsApiKey, ttsBaseUrl, ttsProviderOptions } = body as {
+    const { text, ttsSpeed, ttsApiKey } = body as {
       text: string;
       audioId: string;
-      ttsProviderId: TTSProviderId;
-      ttsModelId?: string;
+      ttsProviderId: string;
       ttsVoice: string;
       ttsSpeed?: number;
       ttsApiKey?: string;
-      ttsBaseUrl?: string;
-      ttsProviderOptions?: Record<string, unknown>;
     };
     ttsProviderId = body.ttsProviderId;
     ttsVoice = body.ttsVoice;
@@ -47,39 +44,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Reject browser-native TTS — must be handled client-side
-    if (ttsProviderId === 'browser-native-tts') {
-      return apiError('INVALID_REQUEST', 400, 'browser-native-tts must be handled client-side');
+    if (ttsProviderId !== 'qwen-tts') {
+      return apiError('INVALID_REQUEST', 400, 'Only qwen-tts is supported');
     }
 
-    const clientBaseUrl = ttsBaseUrl || undefined;
-    if (clientBaseUrl) {
-      const ssrfError = await validateUrlForSSRF(clientBaseUrl);
-      if (ssrfError) {
-        return apiError('INVALID_URL', 403, ssrfError);
-      }
-    }
-
-    const apiKey = clientBaseUrl
-      ? ttsApiKey || ''
-      : resolveTTSApiKey(ttsProviderId, ttsApiKey || undefined);
-    const baseUrl = clientBaseUrl
-      ? clientBaseUrl
-      : resolveTTSBaseUrl(ttsProviderId, ttsBaseUrl || undefined);
+    const effectiveProviderId: TTSProviderId = 'qwen-tts';
+    const apiKey = resolveTTSApiKey(effectiveProviderId, ttsApiKey || undefined);
 
     // Build TTS config
     const config = {
-      providerId: ttsProviderId as TTSProviderId,
-      modelId: ttsModelId,
+      providerId: effectiveProviderId,
+      modelId: QWEN_TTS_MODEL_ID,
       voice: ttsVoice,
       speed: ttsSpeed ?? 1.0,
       apiKey,
-      baseUrl,
-      providerOptions: ttsProviderOptions,
     };
 
     log.info(
-      `Generating TTS: provider=${ttsProviderId}, model=${ttsModelId || 'default'}, voice=${ttsVoice}, audioId=${audioId}, textLen=${text.length}`,
+      `Generating TTS: provider=${ttsProviderId}, model=${QWEN_TTS_MODEL_ID}, voice=${ttsVoice}, audioId=${audioId}, textLen=${text.length}`,
     );
 
     // Generate audio

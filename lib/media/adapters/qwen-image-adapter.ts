@@ -5,8 +5,7 @@
  * Endpoint: https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation
  *
  * Supported models:
- * - qwen-image-max     (highest quality)
- * - z-image-turbo      (fast, good quality)
+ * - qwen-image-2.0-pro
  *
  * API docs: https://help.aliyun.com/zh/model-studio/developer-reference/text-to-image
  */
@@ -17,7 +16,7 @@ import type {
   ImageGenerationResult,
 } from '../types';
 
-const DEFAULT_MODEL = 'qwen-image-max';
+const DEFAULT_MODEL = 'qwen-image-2.0-pro';
 const DEFAULT_BASE_URL = 'https://dashscope.aliyuncs.com';
 
 /**
@@ -37,10 +36,9 @@ function resolveDashScopeSize(options: ImageGenerationOptions): string {
 export async function testQwenImageConnectivity(
   config: ImageGenerationConfig,
 ): Promise<{ success: boolean; message: string }> {
-  const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
   try {
     const response = await fetch(
-      `${baseUrl}/api/v1/services/aigc/multimodal-generation/generation`,
+      `${DEFAULT_BASE_URL}/api/v1/services/aigc/multimodal-generation/generation`,
       {
         method: 'POST',
         headers: {
@@ -48,7 +46,7 @@ export async function testQwenImageConnectivity(
           Authorization: `Bearer ${config.apiKey}`,
         },
         body: JSON.stringify({
-          model: config.model || DEFAULT_MODEL,
+          model: DEFAULT_MODEL,
           input: { messages: [{ role: 'user', content: [{ text: '' }] }] },
           parameters: { size: '1*1' },
         }),
@@ -71,36 +69,37 @@ export async function generateWithQwenImage(
   config: ImageGenerationConfig,
   options: ImageGenerationOptions,
 ): Promise<ImageGenerationResult> {
-  const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
-
-  const response = await fetch(`${baseUrl}/api/v1/services/aigc/multimodal-generation/generation`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.apiKey}`,
+  const response = await fetch(
+    `${DEFAULT_BASE_URL}/api/v1/services/aigc/multimodal-generation/generation`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        input: {
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  text: options.prompt,
+                },
+              ],
+            },
+          ],
+        },
+        parameters: {
+          negative_prompt: options.negativePrompt || undefined,
+          prompt_extend: true,
+          watermark: false,
+          size: resolveDashScopeSize(options),
+        },
+      }),
     },
-    body: JSON.stringify({
-      model: config.model || DEFAULT_MODEL,
-      input: {
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                text: options.prompt,
-              },
-            ],
-          },
-        ],
-      },
-      parameters: {
-        negative_prompt: options.negativePrompt || undefined,
-        prompt_extend: true,
-        watermark: false,
-        size: resolveDashScopeSize(options),
-      },
-    }),
-  });
+  );
 
   if (!response.ok) {
     const text = await response.text();

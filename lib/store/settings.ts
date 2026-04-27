@@ -11,7 +11,6 @@ import { DEFAULT_MODEL_ID, DEFAULT_PROVIDER_ID, PROVIDERS } from '@/lib/ai/provi
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { getThinkingConfigKey, supportsConfigurableThinking } from '@/lib/ai/thinking-config';
 import type { TTSProviderId, ASRProviderId, BuiltInTTSProviderId } from '@/lib/audio/types';
-import { isCustomTTSProvider, isCustomASRProvider } from '@/lib/audio/types';
 import { ASR_PROVIDERS, DEFAULT_TTS_VOICES, TTS_PROVIDERS } from '@/lib/audio/constants';
 import { PDF_PROVIDERS } from '@/lib/pdf/constants';
 import type { PDFProviderId } from '@/lib/pdf/types';
@@ -93,10 +92,7 @@ export interface SettingsState {
   // Provider configurations (unified JSON storage)
   providersConfig: ProvidersConfig;
 
-  // TTS settings (legacy, kept for backward compatibility)
-  ttsModel: string;
-
-  // Audio settings (new unified audio configuration)
+  // Audio settings
   ttsProviderId: TTSProviderId;
   ttsVoice: string;
   ttsSpeed: number;
@@ -111,14 +107,8 @@ export interface SettingsState {
       baseUrl: string;
       enabled: boolean;
       modelId?: string;
-      customModels?: Array<{ id: string; name: string }>;
-      providerOptions?: Record<string, unknown>;
       isServerConfigured?: boolean;
       serverBaseUrl?: string;
-      // Custom provider fields
-      customName?: string;
-      customDefaultBaseUrl?: string;
-      customVoices?: Array<{ id: string; name: string }>;
       isBuiltIn?: boolean;
       requiresApiKey?: boolean;
     }
@@ -131,13 +121,8 @@ export interface SettingsState {
       baseUrl: string;
       enabled: boolean;
       modelId?: string;
-      customModels?: Array<{ id: string; name: string }>;
-      providerOptions?: Record<string, unknown>;
       isServerConfigured?: boolean;
       serverBaseUrl?: string;
-      // Custom provider fields
-      customName?: string;
-      customDefaultBaseUrl?: string;
       isBuiltIn?: boolean;
       requiresApiKey?: boolean;
     }
@@ -167,7 +152,6 @@ export interface SettingsState {
       enabled: boolean;
       isServerConfigured?: boolean;
       serverBaseUrl?: string;
-      customModels?: Array<{ id: string; name: string }>;
     }
   >;
 
@@ -182,7 +166,6 @@ export interface SettingsState {
       enabled: boolean;
       isServerConfigured?: boolean;
       serverBaseUrl?: string;
-      customModels?: Array<{ id: string; name: string }>;
     }
   >;
 
@@ -235,7 +218,6 @@ export interface SettingsState {
     config: ThinkingConfig | undefined,
   ) => void;
   setProviderConfig: (providerId: ProviderId, config: Partial<ProvidersConfig[ProviderId]>) => void;
-  setTtsModel: (model: string) => void;
   setTTSMuted: (muted: boolean) => void;
   setTTSVolume: (volume: number) => void;
   setAutoPlayLecture: (autoPlay: boolean) => void;
@@ -263,9 +245,6 @@ export interface SettingsState {
       baseUrl: string;
       enabled: boolean;
       modelId: string;
-      customModels: Array<{ id: string; name: string }>;
-      customVoices: Array<{ id: string; name: string }>;
-      providerOptions: Record<string, unknown>;
     }>,
   ) => void;
   setASRProviderConfig: (
@@ -275,29 +254,10 @@ export interface SettingsState {
       baseUrl: string;
       enabled: boolean;
       modelId: string;
-      customModels: Array<{ id: string; name: string }>;
-      providerOptions: Record<string, unknown>;
     }>,
   ) => void;
   setTTSEnabled: (enabled: boolean) => void;
   setASREnabled: (enabled: boolean) => void;
-
-  // Custom audio provider actions
-  addCustomTTSProvider: (
-    id: TTSProviderId,
-    name: string,
-    baseUrl: string,
-    requiresApiKey: boolean,
-    defaultModel?: string,
-  ) => void;
-  removeCustomTTSProvider: (id: TTSProviderId) => void;
-  addCustomASRProvider: (
-    id: ASRProviderId,
-    name: string,
-    baseUrl: string,
-    requiresApiKey: boolean,
-  ) => void;
-  removeCustomASRProvider: (id: ASRProviderId) => void;
 
   // PDF actions
   setPDFProvider: (providerId: PDFProviderId) => void;
@@ -315,7 +275,6 @@ export interface SettingsState {
       apiKey: string;
       baseUrl: string;
       enabled: boolean;
-      customModels: Array<{ id: string; name: string }>;
     }>,
   ) => void;
 
@@ -328,7 +287,6 @@ export interface SettingsState {
       apiKey: string;
       baseUrl: string;
       enabled: boolean;
-      customModels: Array<{ id: string; name: string }>;
     }>,
   ) => void;
 
@@ -368,28 +326,19 @@ const getDefaultProvidersConfig = (): ProvidersConfig => {
 
 // Initialize default audio config
 const getDefaultAudioConfig = () => ({
-  ttsProviderId: 'browser-native-tts' as TTSProviderId,
-  ttsVoice: 'default',
+  ttsProviderId: 'qwen-tts' as TTSProviderId,
+  ttsVoice: DEFAULT_TTS_VOICES['qwen-tts'],
   ttsSpeed: 1.0,
-  asrProviderId: 'browser-native' as ASRProviderId,
+  asrProviderId: 'qwen-asr' as ASRProviderId,
   asrLanguage: 'zh',
   ttsProvidersConfig: {
-    'openai-tts': { apiKey: '', baseUrl: '', enabled: true },
-    'azure-tts': { apiKey: '', baseUrl: '', enabled: false },
-    'glm-tts': { apiKey: '', baseUrl: '', enabled: false },
-    'qwen-tts': { apiKey: '', baseUrl: '', enabled: false },
-    'doubao-tts': { apiKey: '', baseUrl: '', enabled: false },
-    'elevenlabs-tts': { apiKey: '', baseUrl: '', enabled: false },
-    'minimax-tts': { apiKey: '', baseUrl: '', modelId: 'speech-2.8-hd', enabled: false },
-    'browser-native-tts': { apiKey: '', baseUrl: '', enabled: true },
+    'qwen-tts': { apiKey: '', baseUrl: '', modelId: 'qwen3-tts-flash', enabled: true },
   } as Record<
     TTSProviderId,
     { apiKey: string; baseUrl: string; modelId?: string; enabled: boolean }
   >,
   asrProvidersConfig: {
-    'openai-whisper': { apiKey: '', baseUrl: '', enabled: true },
-    'browser-native': { apiKey: '', baseUrl: '', enabled: true },
-    'qwen-asr': { apiKey: '', baseUrl: '', enabled: false },
+    'qwen-asr': { apiKey: '', baseUrl: '', modelId: 'qwen3-asr-flash', enabled: true },
   } as Record<ASRProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -404,37 +353,27 @@ const getDefaultPDFConfig = () => ({
 
 // Initialize default Image config
 const getDefaultImageConfig = () => ({
-  imageProviderId: 'seedream' as ImageProviderId,
-  imageModelId: 'doubao-seedream-5-0-260128',
+  imageProviderId: 'qwen-image' as ImageProviderId,
+  imageModelId: 'qwen-image-2.0-pro',
   imageProvidersConfig: {
-    seedream: { apiKey: '', baseUrl: '', enabled: false },
-    'openai-image': { apiKey: '', baseUrl: '', enabled: false },
     'qwen-image': { apiKey: '', baseUrl: '', enabled: false },
-    'nano-banana': { apiKey: '', baseUrl: '', enabled: false },
-    'minimax-image': { apiKey: '', baseUrl: '', enabled: false },
-    'grok-image': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<ImageProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
 // Initialize default Video config
 const getDefaultVideoConfig = () => ({
-  videoProviderId: 'seedance' as VideoProviderId,
-  videoModelId: 'doubao-seedance-1-5-pro-251215',
+  videoProviderId: 'qwen-video' as VideoProviderId,
+  videoModelId: 'happyhorse-1.0-t2v',
   videoProvidersConfig: {
-    seedance: { apiKey: '', baseUrl: '', enabled: false },
-    kling: { apiKey: '', baseUrl: '', enabled: false },
-    veo: { apiKey: '', baseUrl: '', enabled: false },
-    sora: { apiKey: '', baseUrl: '', enabled: false },
-    'minimax-video': { apiKey: '', baseUrl: '', enabled: false },
-    'grok-video': { apiKey: '', baseUrl: '', enabled: false },
+    'qwen-video': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<VideoProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
 // Initialize default Web Search config
 const getDefaultWebSearchConfig = () => ({
-  webSearchProviderId: 'tavily' as WebSearchProviderId,
+  webSearchProviderId: 'bailian' as WebSearchProviderId,
   webSearchProvidersConfig: {
-    tavily: { apiKey: '', baseUrl: '', enabled: true },
+    bailian: { apiKey: '', baseUrl: '', enabled: true },
   } as Record<WebSearchProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -477,54 +416,60 @@ function ensureValidProviderSelections(state: Partial<SettingsState>): void {
   if (!hasProviderId(IMAGE_PROVIDERS, state.imageProviderId)) {
     state.imageProviderId = defaultImageConfig.imageProviderId;
   }
+  const imageModels = IMAGE_PROVIDERS[state.imageProviderId as ImageProviderId]?.models ?? [];
+  if (!imageModels.some((model) => model.id === state.imageModelId)) {
+    state.imageModelId = imageModels[0]?.id || defaultImageConfig.imageModelId;
+  }
 
   if (!hasProviderId(VIDEO_PROVIDERS, state.videoProviderId)) {
     state.videoProviderId = defaultVideoConfig.videoProviderId;
   }
-
-  if (
-    !hasProviderId(TTS_PROVIDERS, state.ttsProviderId) &&
-    !(
-      state.ttsProviderId &&
-      isCustomTTSProvider(state.ttsProviderId) &&
-      state.ttsProvidersConfig &&
-      state.ttsProviderId in state.ttsProvidersConfig
-    )
-  ) {
-    state.ttsProviderId = defaultAudioConfig.ttsProviderId;
+  const videoModels = VIDEO_PROVIDERS[state.videoProviderId as VideoProviderId]?.models ?? [];
+  if (!videoModels.some((model) => model.id === state.videoModelId)) {
+    state.videoModelId = videoModels[0]?.id || defaultVideoConfig.videoModelId;
   }
 
-  if (
-    !hasProviderId(ASR_PROVIDERS, state.asrProviderId) &&
-    !(
-      state.asrProviderId &&
-      isCustomASRProvider(state.asrProviderId) &&
-      state.asrProvidersConfig &&
-      state.asrProviderId in state.asrProvidersConfig
-    )
-  ) {
+  if (!hasProviderId(TTS_PROVIDERS, state.ttsProviderId)) {
+    state.ttsProviderId = defaultAudioConfig.ttsProviderId;
+  }
+  const ttsVoices = TTS_PROVIDERS[state.ttsProviderId as TTSProviderId]?.voices ?? [];
+  if (!ttsVoices.some((voice) => voice.id === state.ttsVoice)) {
+    state.ttsVoice = defaultAudioConfig.ttsVoice;
+  }
+
+  if (!hasProviderId(ASR_PROVIDERS, state.asrProviderId)) {
     state.asrProviderId = defaultAudioConfig.asrProviderId;
+  }
+  const asrLanguages = ASR_PROVIDERS[state.asrProviderId as ASRProviderId]?.supportedLanguages ?? [];
+  if (!asrLanguages.includes(state.asrLanguage || '')) {
+    state.asrLanguage = defaultAudioConfig.asrLanguage;
   }
 }
 
 function ensureBuiltInAudioProviders(state: Partial<SettingsState>): void {
   const defaultAudioConfig = getDefaultAudioConfig();
 
-  if (state.ttsProvidersConfig) {
-    for (const providerId of Object.keys(TTS_PROVIDERS) as BuiltInTTSProviderId[]) {
-      if (!state.ttsProvidersConfig[providerId]) {
-        state.ttsProvidersConfig[providerId] = defaultAudioConfig.ttsProvidersConfig[providerId];
-      }
-    }
-  }
+  const existingTTS = state.ttsProvidersConfig?.['qwen-tts'];
+  state.ttsProvidersConfig = {
+    'qwen-tts': {
+      ...defaultAudioConfig.ttsProvidersConfig['qwen-tts'],
+      apiKey: existingTTS?.apiKey || '',
+      enabled: existingTTS?.enabled ?? true,
+      isServerConfigured: existingTTS?.isServerConfigured,
+      serverBaseUrl: existingTTS?.serverBaseUrl,
+    },
+  } as SettingsState['ttsProvidersConfig'];
 
-  if (state.asrProvidersConfig) {
-    for (const providerId of Object.keys(ASR_PROVIDERS) as ASRProviderId[]) {
-      if (!state.asrProvidersConfig[providerId]) {
-        state.asrProvidersConfig[providerId] = defaultAudioConfig.asrProvidersConfig[providerId];
-      }
-    }
-  }
+  const existingASR = state.asrProvidersConfig?.['qwen-asr'];
+  state.asrProvidersConfig = {
+    'qwen-asr': {
+      ...defaultAudioConfig.asrProvidersConfig['qwen-asr'],
+      apiKey: existingASR?.apiKey || '',
+      enabled: existingASR?.enabled ?? true,
+      isServerConfigured: existingASR?.isServerConfigured,
+      serverBaseUrl: existingASR?.serverBaseUrl,
+    },
+  } as SettingsState['asrProvidersConfig'];
 }
 
 /**
@@ -566,14 +511,17 @@ function ensureBuiltInProviders(state: Partial<SettingsState>): void {
  * Called on every rehydrate so newly added image providers appear automatically.
  */
 function ensureBuiltInImageProviders(state: Partial<SettingsState>): void {
-  if (!state.imageProvidersConfig) return;
   const defaultConfig = getDefaultImageConfig().imageProvidersConfig;
-  Object.keys(IMAGE_PROVIDERS).forEach((pid) => {
-    const providerId = pid as ImageProviderId;
-    if (!state.imageProvidersConfig![providerId]) {
-      state.imageProvidersConfig![providerId] = defaultConfig[providerId];
-    }
-  });
+  const existing = state.imageProvidersConfig?.['qwen-image'];
+  state.imageProvidersConfig = {
+    'qwen-image': {
+      ...defaultConfig['qwen-image'],
+      apiKey: existing?.apiKey || '',
+      enabled: existing?.enabled ?? false,
+      isServerConfigured: existing?.isServerConfigured,
+      serverBaseUrl: existing?.serverBaseUrl,
+    },
+  } as SettingsState['imageProvidersConfig'];
 }
 
 /**
@@ -581,14 +529,31 @@ function ensureBuiltInImageProviders(state: Partial<SettingsState>): void {
  * Called on every rehydrate so newly added video providers appear automatically.
  */
 function ensureBuiltInVideoProviders(state: Partial<SettingsState>): void {
-  if (!state.videoProvidersConfig) return;
   const defaultConfig = getDefaultVideoConfig().videoProvidersConfig;
-  Object.keys(VIDEO_PROVIDERS).forEach((pid) => {
-    const providerId = pid as VideoProviderId;
-    if (!state.videoProvidersConfig![providerId]) {
-      state.videoProvidersConfig![providerId] = defaultConfig[providerId];
-    }
-  });
+  const existing = state.videoProvidersConfig?.['qwen-video'];
+  state.videoProvidersConfig = {
+    'qwen-video': {
+      ...defaultConfig['qwen-video'],
+      apiKey: existing?.apiKey || '',
+      enabled: existing?.enabled ?? false,
+      isServerConfigured: existing?.isServerConfigured,
+      serverBaseUrl: existing?.serverBaseUrl,
+    },
+  } as SettingsState['videoProvidersConfig'];
+}
+
+function ensureBuiltInWebSearchProviders(state: Partial<SettingsState>): void {
+  const defaultConfig = getDefaultWebSearchConfig().webSearchProvidersConfig;
+  const existing = state.webSearchProvidersConfig?.bailian;
+  state.webSearchProvidersConfig = {
+    bailian: {
+      ...defaultConfig.bailian,
+      apiKey: existing?.apiKey || '',
+      enabled: existing?.enabled ?? true,
+      isServerConfigured: existing?.isServerConfigured,
+      serverBaseUrl: existing?.serverBaseUrl,
+    },
+  } as SettingsState['webSearchProvidersConfig'];
 }
 
 type LegacySettingsMigration = {
@@ -596,7 +561,6 @@ type LegacySettingsMigration = {
   modelId?: string;
   thinkingConfigs?: Record<string, ThinkingConfig>;
   providersConfig?: ProvidersConfig;
-  ttsModel?: string;
   selectedAgentIds?: string[];
   maxTurns?: string | number;
 };
@@ -628,7 +592,6 @@ export const useSettingsStore = create<SettingsState>()(
           initialProvidersConfig,
         ),
         providersConfig: initialProvidersConfig,
-        ttsModel: migratedData?.ttsModel || 'openai-tts',
         selectedAgentIds: migratedData?.selectedAgentIds || ['default-1', 'default-2', 'default-3'],
         maxTurns: migratedData?.maxTurns?.toString() || '10',
         agentMode: 'auto' as const,
@@ -699,9 +662,6 @@ export const useSettingsStore = create<SettingsState>()(
               thinkingConfigs: pruneThinkingConfigs(state.thinkingConfigs, providersConfig),
             };
           }),
-
-        setTtsModel: (model) => set({ ttsModel: model }),
-
         setTTSMuted: (muted) => set({ ttsMuted: muted }),
 
         setTTSVolume: (volume) => set({ ttsVolume: Math.max(0, Math.min(1, volume)) }),
@@ -724,11 +684,8 @@ export const useSettingsStore = create<SettingsState>()(
         // Audio actions
         setTTSProvider: (providerId) =>
           set((state) => {
-            // If switching provider, set default voice for that provider
             const shouldUpdateVoice = state.ttsProviderId !== providerId;
-            const defaultVoice = isCustomTTSProvider(providerId)
-              ? state.ttsProvidersConfig[providerId]?.customVoices?.[0]?.id || 'default'
-              : DEFAULT_TTS_VOICES[providerId as BuiltInTTSProviderId] || 'default';
+            const defaultVoice = DEFAULT_TTS_VOICES[providerId as BuiltInTTSProviderId];
             return {
               ttsProviderId: providerId,
               ...(shouldUpdateVoice && { ttsVoice: defaultVoice }),
@@ -739,17 +696,10 @@ export const useSettingsStore = create<SettingsState>()(
 
         setTTSSpeed: (speed) => set({ ttsSpeed: speed }),
 
-        // Reset language when switching providers, since language code formats differ
-        // (e.g. browser-native uses BCP-47 "en-US", OpenAI Whisper uses ISO 639-1 "en")
         setASRProvider: (providerId) =>
           set((state) => {
-            let supportedLanguages: string[];
-            if (isCustomASRProvider(providerId)) {
-              supportedLanguages = ['auto'];
-            } else {
-              supportedLanguages =
-                ASR_PROVIDERS[providerId as keyof typeof ASR_PROVIDERS]?.supportedLanguages || [];
-            }
+            const supportedLanguages =
+              ASR_PROVIDERS[providerId as keyof typeof ASR_PROVIDERS]?.supportedLanguages || [];
             const isLanguageValid = supportedLanguages.includes(state.asrLanguage);
             return {
               asrProviderId: providerId,
@@ -845,71 +795,6 @@ export const useSettingsStore = create<SettingsState>()(
         setTTSEnabled: (enabled) => set({ ttsEnabled: enabled }),
         setASREnabled: (enabled) => set({ asrEnabled: enabled }),
 
-        // Custom audio provider actions
-        addCustomTTSProvider: (id, name, baseUrl, requiresApiKey, defaultModel) =>
-          set((state) => ({
-            ttsProvidersConfig: {
-              ...state.ttsProvidersConfig,
-              [id]: {
-                apiKey: '',
-                baseUrl: '',
-                enabled: true,
-                modelId: defaultModel || '',
-                customName: name,
-                customDefaultBaseUrl: baseUrl,
-                customVoices: [],
-                isBuiltIn: false,
-                requiresApiKey,
-              },
-            },
-            ttsProviderId: id,
-          })),
-
-        removeCustomTTSProvider: (id) =>
-          set((state) => {
-            if (!isCustomTTSProvider(id)) return state;
-            const { [id]: _, ...rest } = state.ttsProvidersConfig;
-            return {
-              ttsProvidersConfig: rest as typeof state.ttsProvidersConfig,
-              ...(state.ttsProviderId === id && {
-                ttsProviderId: 'browser-native-tts' as TTSProviderId,
-                ttsVoice: 'default',
-              }),
-            };
-          }),
-
-        addCustomASRProvider: (id, name, baseUrl, requiresApiKey) =>
-          set((state) => ({
-            asrProvidersConfig: {
-              ...state.asrProvidersConfig,
-              [id]: {
-                apiKey: '',
-                baseUrl: '',
-                enabled: true,
-                modelId: '',
-                customModels: [],
-                customName: name,
-                customDefaultBaseUrl: baseUrl,
-                isBuiltIn: false,
-                requiresApiKey,
-              },
-            },
-            asrProviderId: id,
-          })),
-
-        removeCustomASRProvider: (id) =>
-          set((state) => {
-            if (!isCustomASRProvider(id)) return state;
-            const { [id]: _, ...rest } = state.asrProvidersConfig;
-            return {
-              asrProvidersConfig: rest as typeof state.asrProvidersConfig,
-              ...(state.asrProviderId === id && {
-                asrProviderId: 'browser-native' as ASRProviderId,
-                asrLanguage: 'zh',
-              }),
-            };
-          }),
-
         // Web Search actions
         setWebSearchProvider: (providerId) => set({ webSearchProviderId: providerId }),
         setWebSearchProviderConfig: (providerId, config) =>
@@ -966,7 +851,15 @@ export const useSettingsStore = create<SettingsState>()(
               }
 
               // Merge TTS providers
-              const newTTSConfig = { ...state.ttsProvidersConfig };
+              const defaultAudio = getDefaultAudioConfig();
+              const newTTSConfig = {
+                'qwen-tts': {
+                  ...defaultAudio.ttsProvidersConfig['qwen-tts'],
+                  ...state.ttsProvidersConfig['qwen-tts'],
+                  modelId: 'qwen3-tts-flash',
+                  baseUrl: '',
+                },
+              } as SettingsState['ttsProvidersConfig'];
               for (const pid of Object.keys(newTTSConfig)) {
                 const key = pid as TTSProviderId;
                 if (newTTSConfig[key]) {
@@ -989,7 +882,14 @@ export const useSettingsStore = create<SettingsState>()(
               }
 
               // Merge ASR providers
-              const newASRConfig = { ...state.asrProvidersConfig };
+              const newASRConfig = {
+                'qwen-asr': {
+                  ...defaultAudio.asrProvidersConfig['qwen-asr'],
+                  ...state.asrProvidersConfig['qwen-asr'],
+                  modelId: 'qwen3-asr-flash',
+                  baseUrl: '',
+                },
+              } as SettingsState['asrProvidersConfig'];
               for (const pid of Object.keys(newASRConfig)) {
                 const key = pid as ASRProviderId;
                 if (newASRConfig[key]) {
@@ -1035,7 +935,14 @@ export const useSettingsStore = create<SettingsState>()(
               }
 
               // Merge Image providers
-              const newImageConfig = { ...state.imageProvidersConfig };
+              const defaultImage = getDefaultImageConfig();
+              const newImageConfig = {
+                'qwen-image': {
+                  ...defaultImage.imageProvidersConfig['qwen-image'],
+                  ...state.imageProvidersConfig['qwen-image'],
+                  baseUrl: '',
+                },
+              } as SettingsState['imageProvidersConfig'];
               for (const pid of Object.keys(newImageConfig)) {
                 const key = pid as ImageProviderId;
                 if (newImageConfig[key]) {
@@ -1058,7 +965,14 @@ export const useSettingsStore = create<SettingsState>()(
               }
 
               // Merge Video providers
-              const newVideoConfig = { ...state.videoProvidersConfig };
+              const defaultVideo = getDefaultVideoConfig();
+              const newVideoConfig = {
+                'qwen-video': {
+                  ...defaultVideo.videoProvidersConfig['qwen-video'],
+                  ...state.videoProvidersConfig['qwen-video'],
+                  baseUrl: '',
+                },
+              } as SettingsState['videoProvidersConfig'];
               for (const pid of Object.keys(newVideoConfig)) {
                 const key = pid as VideoProviderId;
                 if (newVideoConfig[key]) {
@@ -1134,13 +1048,13 @@ export const useSettingsStore = create<SettingsState>()(
                 state.ttsProviderId,
                 newTTSConfig,
                 ttsFallback,
-                'browser-native-tts' as TTSProviderId,
+                'qwen-tts' as TTSProviderId,
               );
               const validASRProvider = validateProvider(
                 state.asrProviderId,
                 newASRConfig,
                 asrFallback,
-                'browser-native' as ASRProviderId,
+                'qwen-asr' as ASRProviderId,
               );
               const validPDFProvider = validateProvider(
                 state.pdfProviderId,
@@ -1152,11 +1066,13 @@ export const useSettingsStore = create<SettingsState>()(
                 state.imageProviderId,
                 newImageConfig,
                 imageFallback,
+                'qwen-image' as ImageProviderId,
               );
               let validVideoProvider = validateProvider(
                 state.videoProviderId,
                 newVideoConfig,
                 videoFallback,
+                'qwen-video' as VideoProviderId,
               );
 
               // Auto-recover: when provider is empty but server has available ones
@@ -1227,7 +1143,9 @@ export const useSettingsStore = create<SettingsState>()(
                 }
 
                 // TTS: select first server provider if current is not server-configured
-                const serverTtsIds = Object.keys(data.tts) as TTSProviderId[];
+                const serverTtsIds = (Object.keys(data.tts) as TTSProviderId[]).filter(
+                  (id) => !!newTTSConfig[id],
+                );
                 if (
                   serverTtsIds.length > 0 &&
                   !newTTSConfig[state.ttsProviderId]?.isServerConfigured
@@ -1238,7 +1156,9 @@ export const useSettingsStore = create<SettingsState>()(
                 }
 
                 // ASR: select first server provider if current is not server-configured
-                const serverAsrIds = Object.keys(data.asr) as ASRProviderId[];
+                const serverAsrIds = (Object.keys(data.asr) as ASRProviderId[]).filter(
+                  (id) => !!newASRConfig[id],
+                );
                 if (
                   serverAsrIds.length > 0 &&
                   !newASRConfig[state.asrProviderId]?.isServerConfigured
@@ -1247,7 +1167,9 @@ export const useSettingsStore = create<SettingsState>()(
                 }
 
                 // Image: first server provider
-                const serverImageIds = Object.keys(data.image) as ImageProviderId[];
+                const serverImageIds = (Object.keys(data.image) as ImageProviderId[]).filter(
+                  (id) => !!newImageConfig[id],
+                );
                 if (
                   serverImageIds.length > 0 &&
                   !newImageConfig[state.imageProviderId]?.isServerConfigured
@@ -1261,7 +1183,9 @@ export const useSettingsStore = create<SettingsState>()(
                 }
 
                 // Video: first server provider
-                const serverVideoIds = Object.keys(data.video || {}) as VideoProviderId[];
+                const serverVideoIds = (Object.keys(data.video || {}) as VideoProviderId[]).filter(
+                  (id) => !!newVideoConfig[id],
+                );
                 if (
                   serverVideoIds.length > 0 &&
                   !newVideoConfig[state.videoProviderId]?.isServerConfigured
@@ -1381,19 +1305,7 @@ export const useSettingsStore = create<SettingsState>()(
         // Ensure image/video configs have all built-in providers
         ensureBuiltInImageProviders(state);
         ensureBuiltInVideoProviders(state);
-
-        // Migrate from old ttsModel to new ttsProviderId
-        if (state.ttsModel && !state.ttsProviderId) {
-          // Map old ttsModel values to new ttsProviderId
-          if (state.ttsModel === 'openai-tts') {
-            state.ttsProviderId = 'openai-tts';
-          } else if (state.ttsModel === 'azure-tts') {
-            state.ttsProviderId = 'azure-tts';
-          } else {
-            // Default to OpenAI
-            state.ttsProviderId = 'openai-tts';
-          }
-        }
+        ensureBuiltInWebSearchProviders(state);
 
         // Add default audio config if missing
         if (!state.ttsProvidersConfig || !state.asrProvidersConfig) {
@@ -1401,34 +1313,13 @@ export const useSettingsStore = create<SettingsState>()(
           Object.assign(state, defaultAudioConfig);
         }
         ensureBuiltInAudioProviders(state);
-
-        // Migrate global ttsModelId to per-provider
-        if ((state as Record<string, unknown>).ttsModelId) {
-          const pid = state.ttsProviderId;
-          if (pid && state.ttsProvidersConfig?.[pid]) {
-            state.ttsProvidersConfig[pid].modelId = (state as Record<string, unknown>)
-              .ttsModelId as string;
-          }
-          delete (state as Record<string, unknown>).ttsModelId;
-        }
-        // Same for asrModelId
-        if ((state as Record<string, unknown>).asrModelId) {
-          const pid = state.asrProviderId;
-          if (pid && state.asrProvidersConfig?.[pid]) {
-            state.asrProvidersConfig[pid].modelId = (state as Record<string, unknown>)
-              .asrModelId as string;
-          }
-          delete (state as Record<string, unknown>).asrModelId;
-        }
-        // Migrate MiniMax's model field to modelId
-        for (const [, cfg] of Object.entries(
-          (state.ttsProvidersConfig as Record<string, Record<string, unknown>>) || {},
-        )) {
-          if (cfg.model && !cfg.modelId) {
-            cfg.modelId = cfg.model;
-            delete cfg.model;
-          }
-        }
+        state.ttsProviderId = 'qwen-tts';
+        state.ttsVoice = DEFAULT_TTS_VOICES['qwen-tts'];
+        state.asrProviderId = 'qwen-asr';
+        state.asrLanguage = 'zh';
+        delete (state as Record<string, unknown>).ttsModel;
+        delete (state as Record<string, unknown>).ttsModelId;
+        delete (state as Record<string, unknown>).asrModelId;
 
         // Add default PDF config if missing
         if (!state.pdfProvidersConfig) {
@@ -1441,12 +1332,18 @@ export const useSettingsStore = create<SettingsState>()(
           const defaultImageConfig = getDefaultImageConfig();
           Object.assign(state, defaultImageConfig);
         }
+        ensureBuiltInImageProviders(state);
+        state.imageProviderId = 'qwen-image';
+        state.imageModelId = 'qwen-image-2.0-pro';
 
         // Add default Video config if missing
         if (!state.videoProvidersConfig) {
           const defaultVideoConfig = getDefaultVideoConfig();
           Object.assign(state, defaultVideoConfig);
         }
+        ensureBuiltInVideoProviders(state);
+        state.videoProviderId = 'qwen-video';
+        state.videoModelId = 'happyhorse-1.0-t2v';
 
         // v1 → v2: Replace deep research with web search
         if (version < 2) {
@@ -1489,21 +1386,13 @@ export const useSettingsStore = create<SettingsState>()(
         // Migrate Web Search: old flat fields → new provider-based config
         if (!state.webSearchProvidersConfig) {
           const stateRecord = state as Record<string, unknown>;
-          const oldApiKey = (stateRecord.webSearchApiKey as string) || '';
-          const oldIsServerConfigured =
-            (stateRecord.webSearchIsServerConfigured as boolean) || false;
-          state.webSearchProviderId = 'tavily' as WebSearchProviderId;
-          state.webSearchProvidersConfig = {
-            tavily: {
-              apiKey: oldApiKey,
-              baseUrl: '',
-              enabled: true,
-              isServerConfigured: oldIsServerConfigured,
-            },
-          } as SettingsState['webSearchProvidersConfig'];
+          state.webSearchProviderId = 'bailian' as WebSearchProviderId;
+          state.webSearchProvidersConfig = getDefaultWebSearchConfig()
+            .webSearchProvidersConfig as SettingsState['webSearchProvidersConfig'];
           delete stateRecord.webSearchApiKey;
           delete stateRecord.webSearchIsServerConfigured;
         }
+        ensureBuiltInWebSearchProviders(state);
 
         ensureValidProviderSelections(state);
         ensureBuiltInAudioProviders(state);
@@ -1519,6 +1408,7 @@ export const useSettingsStore = create<SettingsState>()(
         ensureBuiltInAudioProviders(merged as Partial<SettingsState>);
         ensureBuiltInImageProviders(merged as Partial<SettingsState>);
         ensureBuiltInVideoProviders(merged as Partial<SettingsState>);
+        ensureBuiltInWebSearchProviders(merged as Partial<SettingsState>);
         ensureValidProviderSelections(merged as Partial<SettingsState>);
         const typedMerged = merged as Partial<SettingsState>;
         typedMerged.thinkingConfigs = pruneThinkingConfigs(

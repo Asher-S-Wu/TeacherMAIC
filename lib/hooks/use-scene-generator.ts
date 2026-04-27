@@ -40,14 +40,11 @@ function getApiHeaders(): HeadersInit {
     'x-api-key': config.apiKey || '',
     // Image generation provider
     'x-image-provider': settings.imageProviderId || '',
-    'x-image-model': settings.imageModelId || '',
     'x-image-api-key': imageProviderConfig?.apiKey || '',
-    'x-image-base-url': imageProviderConfig?.baseUrl || '',
     // Video generation provider
     'x-video-provider': settings.videoProviderId || '',
     'x-video-model': settings.videoModelId || '',
     'x-video-api-key': videoProviderConfig?.apiKey || '',
-    'x-video-base-url': videoProviderConfig?.baseUrl || '',
     // Media generation toggles
     'x-image-generation-enabled': String(settings.imageGenerationEnabled ?? false),
     'x-video-generation-enabled': String(settings.videoGenerationEnabled ?? false),
@@ -130,7 +127,6 @@ export async function generateAndStoreTTS(
   signal?: AbortSignal,
 ): Promise<string | undefined> {
   const settings = useSettingsStore.getState();
-  if (settings.ttsProviderId === 'browser-native-tts') return undefined;
 
   const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
   const response = await fetch('/api/generate/tts', {
@@ -140,16 +136,9 @@ export async function generateAndStoreTTS(
       text,
       audioId,
       ttsProviderId: settings.ttsProviderId,
-      ttsModelId: ttsProviderConfig?.modelId,
       ttsVoice: settings.ttsVoice,
       ttsSpeed: settings.ttsSpeed,
       ttsApiKey: ttsProviderConfig?.apiKey || undefined,
-      ttsBaseUrl:
-        ttsProviderConfig?.serverBaseUrl ||
-        ttsProviderConfig?.baseUrl ||
-        ttsProviderConfig?.customDefaultBaseUrl ||
-        undefined,
-      ttsProviderOptions: ttsProviderConfig?.providerOptions,
     }),
     signal,
   });
@@ -388,7 +377,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
             const settings = useSettingsStore.getState();
 
             // TTS generation — failure means the whole scene fails
-            if (settings.ttsEnabled && settings.ttsProviderId !== 'browser-native-tts') {
+            if (settings.ttsEnabled) {
               const ttsResult = await generateTTSForScene(
                 scene,
                 params.languageDirective || params.stageInfo.language,
@@ -539,7 +528,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
 
         // Step 3: TTS
         const settings = useSettingsStore.getState();
-        if (settings.ttsEnabled && settings.ttsProviderId !== 'browser-native-tts') {
+        if (settings.ttsEnabled) {
           const ttsResult = await generateTTSForScene(
             actionsResult.scene,
             params.languageDirective || params.stageInfo.language,

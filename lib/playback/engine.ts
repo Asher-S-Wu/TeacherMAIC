@@ -36,17 +36,9 @@ import type {
 import type { AudioPlayer } from '@/lib/utils/audio-player';
 import { ActionEngine } from '@/lib/action/engine';
 import { useCanvasStore } from '@/lib/store/canvas';
-import { useSettingsStore } from '@/lib/store/settings';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('PlaybackEngine');
-
-/**
- * If more than 30% of characters are CJK, treat the text as Chinese.
- * Intentionally low: mixed Chinese text often contains punctuation,
- * numbers, and short Latin fragments (e.g. "AI课堂").
- */
-const CJK_LANG_THRESHOLD = 0.3;
 
 export class PlaybackEngine {
   private scenes: Scene[] = [];
@@ -76,11 +68,6 @@ export class PlaybackEngine {
   // Reading-time timer for speech actions without pre-generated audio (TTS disabled)
   private speechTimer: ReturnType<typeof setTimeout> | null = null;
   private speechTimerStart: number = 0; // Date.now() when timer was scheduled
-  // Browser-native TTS state (Web Speech API)
-  private browserTTSActive: boolean = false;
-  private browserTTSChunks: string[] = []; // sentence-level chunks for sequential playback
-  private browserTTSChunkIndex: number = 0; // current chunk being spoken
-  private browserTTSPausedChunks: string[] = []; // remaining chunks saved on pause (for cancel+re-speak)
   private speechTimerRemaining: number = 0; // remaining ms (set on pause)
 
   constructor(
@@ -161,16 +148,9 @@ export class PlaybackEngine {
         this.speechTimer = null;
       }
       this.setMode('paused');
-      // Freeze TTS — but skip if waiting on ProactiveCard (no active speech)
+      // Freeze audio — but skip if waiting on ProactiveCard (no active speech)
       if (!this.currentTrigger) {
-        if (this.browserTTSActive) {
-          // Cancel+re-speak pattern: save remaining chunks for resume.
-          // speechSynthesis.pause()/resume() is broken on Firefox, so we
-          // cancel now and re-speak from current chunk onward on resume.
-          this.browserTTSPausedChunks = this.browserTTSChunks.slice(this.browserTTSChunkIndex);
-          window.speechSynthesis?.cancel();
-          // Note: cancel fires onerror('canceled'), which we ignore (see playBrowserTTSChunk)
-        } else if (this.audioPlayer.isPlaying()) {
+        if (this.audioPlayer.isPlaying()) {
           this.audioPlayer.pause();
         }
       }
@@ -200,14 +180,7 @@ export class PlaybackEngine {
     } else {
       // Resume lecture
       this.setMode('playing');
-      if (this.browserTTSPausedChunks.length > 0) {
-        // Browser TTS was paused via cancel — re-speak remaining chunks
-        this.browserTTSActive = true;
-        this.browserTTSChunks = this.browserTTSPausedChunks;
-        this.browserTTSChunkIndex = 0;
-        this.browserTTSPausedChunks = [];
-        this.playBrowserTTSChunk();
-      } else if (this.audioPlayer.hasActiveAudio()) {
+      if (this.audioPlayer.hasActiveAudio()) {
         // Audio is paused — resume it; TTS onend will call processNext
         this.audioPlayer.resume();
       } else if (this.speechTimerRemaining > 0) {
@@ -232,7 +205,6 @@ export class PlaybackEngine {
     // synchronous onend callbacks (see handleUserInterrupt for details).
     this.setMode('idle');
     this.audioPlayer.stop();
-    this.cancelBrowserTTS();
     this.actionEngine.clearEffects();
     if (this.triggerDelayTimer) {
       clearTimeout(this.triggerDelayTimer);
@@ -351,14 +323,10 @@ export class PlaybackEngine {
       }
     }
 
-    // Set mode BEFORE stopping audio — speechSynthesis.cancel() may fire the
-    // onend callback synchronously, and the processNext guard checks
-    // `this.mode === 'playing'`.  Setting mode first prevents a spurious
-    // processNext that would advance actionIndex past the interrupted speech.
+    // Set mode BEFORE stopping audio so onend callbacks cannot advance playback.
     this.currentTopicState = 'active';
     this.setMode('live');
     this.audioPlayer.stop();
-    this.cancelBrowserTTS();
     this.callbacks.onUserInterrupt?.(text);
   }
 
@@ -494,18 +462,7 @@ export class PlaybackEngine {
           .play(speechAction.audioId || '', speechAction.audioUrl)
           .then((audioStarted) => {
             if (!audioStarted) {
-              // No pre-generated audio — try browser-native TTS if selected
-              const settings = useSettingsStore.getState();
-              if (
-                settings.ttsEnabled &&
-                settings.ttsProviderId === 'browser-native-tts' &&
-                typeof window !== 'undefined' &&
-                window.speechSynthesis
-              ) {
-                this.playBrowserTTS(speechAction);
-              } else {
-                scheduleReadingTimer();
-              }
+              scheduleReadingTimer();
             }
           })
           .catch((err) => {
@@ -598,148 +555,4 @@ export class PlaybackEngine {
     }
   }
 
-  // ==================== Browser Native TTS ====================
-
-  /**
-   * Split text into sentence-level chunks for sequential playback.
-   * Chrome has a bug where utterances >~15s are silently cut off and onend
-   * never fires, causing the engine to hang. Chunking avoids this.
-   */
-  private splitIntoChunks(text: string): string[] {
-    // Split on sentence-ending punctuation (Latin + CJK) and newlines
-    const chunks = text
-      .split(/(?<=[.!?。！？\n])\s*/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-    // If splitting produced nothing (no punctuation), return the original text
-    return chunks.length > 0 ? chunks : [text];
-  }
-
-  /**
-   * Play text using the Web Speech API (browser-native TTS).
-   * Splits text into sentence-level chunks to avoid Chrome's ~15s cutoff.
-   * Uses cancel+re-speak for pause/resume (Firefox compatibility).
-   */
-  private playBrowserTTS(speechAction: SpeechAction): void {
-    this.browserTTSChunks = this.splitIntoChunks(speechAction.text);
-    this.browserTTSChunkIndex = 0;
-    this.browserTTSPausedChunks = [];
-    this.browserTTSActive = true;
-    this.playBrowserTTSChunk();
-  }
-
-  /** Speak the current chunk; on completion, advance to next or finish. */
-  private async playBrowserTTSChunk(): Promise<void> {
-    if (this.browserTTSChunkIndex >= this.browserTTSChunks.length) {
-      // All chunks done
-      this.browserTTSActive = false;
-      this.browserTTSChunks = [];
-      this.callbacks.onSpeechEnd?.();
-      if (this.mode === 'playing') this.processNext();
-      return;
-    }
-
-    const settings = useSettingsStore.getState();
-    const chunkText = this.browserTTSChunks[this.browserTTSChunkIndex];
-    const utterance = new SpeechSynthesisUtterance(chunkText);
-
-    // Apply settings
-    const speed = this.callbacks.getPlaybackSpeed?.() ?? 1;
-    utterance.rate = (settings.ttsSpeed ?? 1) * speed;
-    utterance.volume = settings.ttsMuted ? 0 : (settings.ttsVolume ?? 1);
-
-    // Ensure voices are loaded (Chrome loads them asynchronously)
-    const voices = await this.ensureVoicesLoaded();
-
-    // Set voice: try user's configured voice, fall back to auto-detect language
-    let voiceFound = false;
-    if (settings.ttsVoice && settings.ttsVoice !== 'default') {
-      const voice = voices.find((v) => v.voiceURI === settings.ttsVoice);
-      if (voice) {
-        utterance.voice = voice;
-        utterance.lang = voice.lang;
-        voiceFound = true;
-      }
-    }
-    if (!voiceFound) {
-      // No usable voice configured — detect text language so the browser
-      // auto-selects an appropriate voice.
-      const cjkRatio =
-        chunkText.length > 0
-          ? (chunkText.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length / chunkText.length
-          : 0;
-      utterance.lang = cjkRatio > CJK_LANG_THRESHOLD ? 'zh-CN' : 'en-US';
-    }
-
-    utterance.onend = () => {
-      this.browserTTSChunkIndex++;
-      if (this.mode === 'playing') {
-        this.playBrowserTTSChunk(); // next chunk
-      }
-    };
-
-    utterance.onerror = (event) => {
-      // 'canceled' is expected when stop/pause is called — not a real error
-      if (event.error !== 'canceled') {
-        log.warn('Browser TTS chunk error:', event.error);
-        // Skip failed chunk, try next
-        this.browserTTSChunkIndex++;
-        if (this.mode === 'playing') {
-          this.playBrowserTTSChunk();
-        }
-      }
-      // On 'canceled': do nothing — pause handler already saved state
-    };
-
-    // Chrome bug workaround: cancel() before speak() to clear stale synthesis
-    // state that can produce garbled/broken audio output.
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-  }
-
-  /**
-   * Wait for speechSynthesis voices to load (Chrome loads them asynchronously).
-   * Caches result so subsequent calls return immediately.
-   */
-  private cachedVoices: SpeechSynthesisVoice[] | null = null;
-  private async ensureVoicesLoaded(): Promise<SpeechSynthesisVoice[]> {
-    if (this.cachedVoices && this.cachedVoices.length > 0) {
-      return this.cachedVoices;
-    }
-
-    let voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      this.cachedVoices = voices;
-      return voices;
-    }
-
-    // Chrome: voices load asynchronously — wait for the voiceschanged event
-    await new Promise<void>((resolve) => {
-      const onVoicesChanged = () => {
-        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-        resolve();
-      };
-      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
-      // Timeout after 2s to avoid hanging
-      setTimeout(() => {
-        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-        resolve();
-      }, 2000);
-    });
-
-    voices = window.speechSynthesis.getVoices();
-    this.cachedVoices = voices;
-    return voices;
-  }
-
-  /** Cancel any active browser-native TTS */
-  private cancelBrowserTTS(): void {
-    if (this.browserTTSActive) {
-      this.browserTTSActive = false;
-      this.browserTTSChunks = [];
-      this.browserTTSChunkIndex = 0;
-      this.browserTTSPausedChunks = [];
-      window.speechSynthesis?.cancel();
-    }
-  }
 }

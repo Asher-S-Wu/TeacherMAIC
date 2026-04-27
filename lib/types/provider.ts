@@ -5,7 +5,7 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId = 'kimi';
+export type BuiltInProviderId = 'qwen';
 
 /**
  * Provider ID
@@ -30,7 +30,7 @@ export type ThinkingMode = 'default' | 'disabled' | 'enabled' | 'auto';
 export type ThinkingEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
 
-export type ThinkingRequestAdapter = 'none' | 'kimi';
+export type ThinkingRequestAdapter = 'none' | 'qwen';
 
 /**
  * Describes a model's thinking/reasoning API control capability.
