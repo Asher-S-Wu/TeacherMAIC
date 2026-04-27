@@ -5,7 +5,6 @@ import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 import { useStageStore } from '@/lib/store/stage';
 import { useI18n } from '@/lib/hooks/use-i18n';
-import { db, getGeneratedAgentsByStageId } from '@/lib/utils/database';
 import {
   CLASSROOM_ZIP_FORMAT_VERSION,
   CLASSROOM_ZIP_EXTENSION,
@@ -36,18 +35,14 @@ export function useExportClassroom() {
       const JSZip = (await import('jszip')).default;
       const zip = new JSZip();
 
-      // 1. Read latest stage name from IndexedDB (may have been renamed on home page)
-      const freshStage = await db.stages.get(stage.id);
-      const latestName = freshStage?.name || stage.name;
-
-      // 2. Collect agents from DB
-      const agentRecords = await getGeneratedAgentsByStageId(stage.id);
+      const latestName = stage.name;
+      const agentRecords = stage.generatedAgentConfigs || [];
 
       // 3. Collect audio files
       const audioFiles = await collectAudioFiles(scenes);
 
       // 4. Collect media files (generated images/videos)
-      const mediaFiles = await collectMediaFiles(stage.id);
+      const mediaFiles = await collectMediaFiles(scenes);
 
       // 5. Build audioId → zipPath mapping for manifest
       const audioIdToPath = new Map<string, string>();
@@ -74,26 +69,9 @@ export function useExportClassroom() {
         priority: a.priority,
       }));
 
-      // Also include generatedAgentConfigs from stage if agents not in DB
-      if (manifestAgents.length === 0 && stage.generatedAgentConfigs?.length) {
-        for (const a of stage.generatedAgentConfigs) {
-          manifestAgents.push({
-            name: a.name,
-            role: a.role,
-            persona: a.persona,
-            avatar: a.avatar,
-            color: a.color,
-            priority: a.priority,
-          });
-        }
-      }
-
       // Build agent ID → index mapping for multiAgent references
       const agentIdToIndex = new Map<string, number>();
       agentRecords.forEach((a, i) => agentIdToIndex.set(a.id, i));
-      if (stage.generatedAgentConfigs?.length && agentRecords.length === 0) {
-        stage.generatedAgentConfigs.forEach((a, i) => agentIdToIndex.set(a.id, i));
-      }
 
       const manifestScenes: ManifestScene[] = scenes.map((scene) => ({
         type: scene.type,

@@ -21,8 +21,6 @@ import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 
 const log = createLogger('Scene Content API');
 
-export const maxDuration = 300;
-
 export async function POST(req: NextRequest) {
   let outlineTitle: string | undefined;
   let resolvedModelString: string | undefined;

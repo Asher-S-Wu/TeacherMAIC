@@ -15,8 +15,6 @@ import { AGENT_COLOR_PALETTE } from '@/lib/constants/agent-defaults';
 
 const log = createLogger('Agent Profiles API');
 
-export const maxDuration = 120;
-
 interface RequestBody {
   stageInfo: { name: string; description?: string };
   sceneOutlines?: { title: string; description?: string }[];

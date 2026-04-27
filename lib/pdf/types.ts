@@ -5,7 +5,7 @@
 /**
  * PDF Provider IDs
  */
-export type PDFProviderId = 'unpdf' | 'mineru' | 'mineru-cloud';
+export type PDFProviderId = 'unpdf' | 'mineru-cloud';
 
 /**
  * PDF Provider Configuration

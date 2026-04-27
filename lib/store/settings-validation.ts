@@ -16,7 +16,7 @@ export type ProviderCfgLike = {
 export function isProviderUsable(cfg: ProviderCfgLike | undefined): boolean {
   if (!cfg) return false;
   if (cfg.isServerConfigured) return true;
-  // Keyless providers (e.g. Ollama) need an explicit user-provided baseUrl
+  // Keyless providers need an explicit user-provided baseUrl.
   if (cfg.requiresApiKey === false) return !!cfg.baseUrl;
   return !!cfg.apiKey;
 }

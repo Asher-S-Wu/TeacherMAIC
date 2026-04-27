@@ -15,10 +15,10 @@ import type { MediaGenerationRequest } from '@/lib/media/types';
  */
 export interface PdfImage {
   id: string; // e.g., "img_1", "img_2"
-  src: string; // base64 data URL (empty when stored in IndexedDB)
+  src: string; // base64 data URL, or empty when the file is saved separately
   pageNumber: number; // Page number in PDF
   description?: string; // Optional description for AI context
-  storageId?: string; // Reference to IndexedDB (session_xxx_img_1)
+  storageId?: string; // Reference to account file storage
   width?: number; // Image width (px or normalized)
   height?: number; // Image height (px or normalized)
 }

@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   let model: string | undefined;
   try {
     const body = await req.json();
-    const { apiKey, baseUrl, providerType } = body;
+    const { apiKey } = body;
     model = body.model;
 
     if (!model) {
@@ -22,8 +22,6 @@ export async function POST(req: NextRequest) {
       const result = await resolveModel({
         modelString: model,
         apiKey: apiKey || '',
-        baseUrl: baseUrl || undefined,
-        providerType,
       });
       languageModel = result.model;
     } catch (error) {
@@ -57,7 +55,7 @@ export async function POST(req: NextRequest) {
       } else if (error.message.includes('429')) {
         errorMessage = 'API rate limit exceeded, please try again later';
       } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
-        errorMessage = 'Cannot connect to API server, please check the Base URL';
+        errorMessage = 'Cannot connect to the ZenMux API server';
       } else if (error.message.includes('timeout')) {
         errorMessage = 'Connection timed out, please check your network';
       } else {

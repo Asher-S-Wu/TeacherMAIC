@@ -19,14 +19,6 @@ export const PDF_PROVIDERS: Record<PDFProviderId, PDFProviderConfig> = {
     features: ['text', 'images', 'metadata'],
   },
 
-  mineru: {
-    id: 'mineru',
-    name: 'MinerU',
-    requiresApiKey: false,
-    icon: '/logos/mineru.png',
-    features: ['text', 'images', 'tables', 'formulas', 'layout-analysis'],
-  },
-
   'mineru-cloud': {
     id: 'mineru-cloud',
     name: 'MinerU (Cloud)',

@@ -60,7 +60,7 @@ export function Stage({
 
   const currentScene = getCurrentScene();
 
-  // Layout state from settings store (persisted via localStorage)
+  // Layout state from settings store
   const sidebarCollapsed = useSettingsStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useSettingsStore((s) => s.setSidebarCollapsed);
   const chatAreaWidth = useSettingsStore((s) => s.chatAreaWidth);

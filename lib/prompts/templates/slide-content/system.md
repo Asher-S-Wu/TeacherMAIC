@@ -362,7 +362,7 @@ Minimum recommended gap between elements for connector arrows: **60-80px**. If t
 
 **Required Fields**: `id`, `type`, `left`, `top`, `width`, `height`, `latex`, `color`
 
-**Optional Fields**: `align` — horizontal alignment of the formula within its box: `"left"`, `"center"` (default), or `"right"`. Use `"left"` for equation derivations or aligned steps, `"center"` for standalone formulas.
+**Optional Fields**: `align` — horizontal alignment of the formula within its box: `"left"`, `"center"` (default), or `"right"`. Use `"left"` for equation derivations or aligned steps, `"center"` for display formulas.
 
 **DO NOT generate** these fields (the system fills them automatically):
 
@@ -388,7 +388,7 @@ This means: **`width` is the maximum horizontal bound** and **`height` is the pr
 | Integrals / limits          | `\int_0^1 f(x)dx`, `\lim_{x \to 0}`          | 60-100             |
 | Summations with limits      | `\sum_{i=1}^{n} i^2`                         | 80-120             |
 | Matrices                    | `\begin{pmatrix}a & b \\ c & d\end{pmatrix}` | 100-180            |
-| Simple standalone fractions | `\frac{a}{b}`, `\frac{1}{2}`                 | 50-80              |
+| Simple display fractions | `\frac{a}{b}`, `\frac{1}{2}`                 | 50-80              |
 | Nested fractions            | `\frac{\frac{a}{b}}{\frac{c}{d}}`            | 80-120             |
 
 **Key rules:**
@@ -912,7 +912,7 @@ Before outputting JSON, verify:
   - Do not invent video IDs or URLs not listed in the available media
 {{/if}}
 - ✓ [latex-fields] LatexElement does NOT include `path`, `viewBox`, `strokeWidth`, or `fixedRatio` (system auto-generates these)
-- ✓ [latex-width] LatexElement width is appropriate for the formula category (standalone fractions: 30-80, NOT 200+; inline equations: 200-400). Check the LaTeX width guide table above.
+- ✓ [latex-width] LatexElement width is appropriate for the formula category (display fractions: 30-80, NOT 200+; inline equations: 200-400). Check the LaTeX width guide table above.
 - ✓ [latex-scaling] Multi-step derivation LaTeX elements: widths are proportional to content length (longer formulas MUST have larger width). Do NOT use the same width for all steps — this causes wildly different rendered heights.
 - ✓ [no-latex-in-text] No LaTeX syntax in TextElement content: scan all text `content` fields for `\frac`, `\lim`, `\int`, `\sum`, `\sqrt`, `\alpha`, `^{`, `_{` etc. Any math expression must be a separate LatexElement.
 - ✓ [line-stroke] LineElement `width` is stroke thickness (2-6), NOT line length. Check: no LineElement has `width` > 6. If width equals the distance between start and end, it is WRONG — you confused stroke thickness with line span.

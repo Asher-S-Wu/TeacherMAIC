@@ -1,13 +1,10 @@
 /**
  * Server-side Provider Configuration
  *
- * Loads provider configs from YAML (primary) + environment variables (fallback).
+ * Loads provider configs from Vercel environment variables.
  * Keys never leave the server — only provider IDs and metadata are exposed via API.
  */
 
-import fs from 'fs';
-import path from 'path';
-import yaml from 'js-yaml';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ServerProviderConfig');
@@ -20,7 +17,6 @@ interface ServerProviderEntry {
   apiKey: string;
   baseUrl?: string;
   models?: string[];
-  proxy?: string;
 }
 
 interface ServerConfig {
@@ -37,32 +33,11 @@ interface ServerConfig {
 // Env-var prefix mappings
 // ---------------------------------------------------------------------------
 
-const LLM_ENV_MAP: Record<string, string> = {
-  OPENAI: 'openai',
-  ANTHROPIC: 'anthropic',
-  GOOGLE: 'google',
-  DEEPSEEK: 'deepseek',
-  QWEN: 'qwen',
-  KIMI: 'kimi',
-  MINIMAX: 'minimax',
-  GLM: 'glm',
-  SILICONFLOW: 'siliconflow',
-  DOUBAO: 'doubao',
-  OPENROUTER: 'openrouter',
-  GROK: 'grok',
-  TENCENT: 'tencent-hunyuan',
-  TENCENT_HUNYUAN: 'tencent-hunyuan',
-  XIAOMI: 'xiaomi',
-  MIMO: 'xiaomi',
-  OLLAMA: 'ollama',
-};
-
 const TTS_ENV_MAP: Record<string, string> = {
   TTS_OPENAI: 'openai-tts',
   TTS_AZURE: 'azure-tts',
   TTS_GLM: 'glm-tts',
   TTS_QWEN: 'qwen-tts',
-  TTS_VOXCPM: 'voxcpm-tts',
   TTS_DOUBAO: 'doubao-tts',
   TTS_ELEVENLABS: 'elevenlabs-tts',
   TTS_MINIMAX: 'minimax-tts',
@@ -74,8 +49,6 @@ const ASR_ENV_MAP: Record<string, string> = {
 };
 
 const PDF_ENV_MAP: Record<string, string> = {
-  PDF_UNPDF: 'unpdf',
-  PDF_MINERU: 'mineru',
   PDF_MINERU_CLOUD: 'mineru-cloud',
 };
 
@@ -102,66 +75,12 @@ const WEB_SEARCH_ENV_MAP: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// YAML loading
-// ---------------------------------------------------------------------------
-
-type YamlData = Partial<{
-  providers: Record<string, Partial<ServerProviderEntry>>;
-  tts: Record<string, Partial<ServerProviderEntry>>;
-  asr: Record<string, Partial<ServerProviderEntry>>;
-  pdf: Record<string, Partial<ServerProviderEntry>>;
-  image: Record<string, Partial<ServerProviderEntry>>;
-  video: Record<string, Partial<ServerProviderEntry>>;
-  'web-search': Record<string, Partial<ServerProviderEntry>>;
-}>;
-
-function loadYamlFile(filename: string): YamlData {
-  try {
-    const filePath = path.join(process.cwd(), filename);
-    if (!fs.existsSync(filePath)) return {};
-    const raw = fs.readFileSync(filePath, 'utf-8');
-    const parsed = yaml.load(raw) as Record<string, unknown> | null;
-    if (!parsed || typeof parsed !== 'object') return {};
-    return parsed as YamlData;
-  } catch (e) {
-    log.warn(`[ServerProviderConfig] Failed to load ${filename}:`, e);
-    return {};
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Env-var helpers
 // ---------------------------------------------------------------------------
 
-function loadEnvSection(
-  envMap: Record<string, string>,
-  yamlSection: Record<string, Partial<ServerProviderEntry>> | undefined,
-  {
-    requiresBaseUrl = false,
-    keylessProviders = new Set<string>(),
-  }: { requiresBaseUrl?: boolean; keylessProviders?: Set<string> } = {},
-): Record<string, ServerProviderEntry> {
+function loadEnvSection(envMap: Record<string, string>): Record<string, ServerProviderEntry> {
   const result: Record<string, ServerProviderEntry> = {};
 
-  // First, add everything from YAML as defaults
-  if (yamlSection) {
-    for (const [id, entry] of Object.entries(yamlSection)) {
-      if (
-        requiresBaseUrl
-          ? !!entry?.baseUrl
-          : entry?.apiKey || (entry?.baseUrl && keylessProviders.has(id))
-      ) {
-        result[id] = {
-          apiKey: entry.apiKey || '',
-          baseUrl: entry.baseUrl,
-          models: entry.models,
-          proxy: entry.proxy,
-        };
-      }
-    }
-  }
-
-  // Then, apply env vars (env takes priority over YAML)
   for (const [prefix, providerId] of Object.entries(envMap)) {
     const envApiKey = process.env[`${prefix}_API_KEY`] || undefined;
     const envBaseUrl = process.env[`${prefix}_BASE_URL`] || undefined;
@@ -173,21 +92,7 @@ function loadEnvSection(
           .filter(Boolean)
       : undefined;
 
-    if (result[providerId]) {
-      // YAML entry exists — env vars override individual fields
-      if (envApiKey) result[providerId].apiKey = envApiKey;
-      if (envBaseUrl) result[providerId].baseUrl = envBaseUrl;
-      if (envModels) result[providerId].models = envModels;
-      continue;
-    }
-
-    // Activate on API key, or base URL alone for keyless providers (e.g. Ollama)
-    if (
-      requiresBaseUrl
-        ? !envBaseUrl
-        : !(envApiKey || (envBaseUrl && keylessProviders.has(providerId)))
-    )
-      continue;
+    if (!envApiKey) continue;
     result[providerId] = {
       apiKey: envApiKey || '',
       baseUrl: envBaseUrl,
@@ -198,28 +103,26 @@ function loadEnvSection(
   return result;
 }
 
+function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
+  const apiKey = process.env.ZENMUX_API_KEY || undefined;
+  return apiKey ? { kimi: { apiKey } } : {};
+}
+
 // ---------------------------------------------------------------------------
 // Module-level cache (process singleton)
 // ---------------------------------------------------------------------------
 
-const DEFAULT_FILENAME = 'server-providers.yml';
+let _config: ServerConfig | null = null;
 
-/** Cache keyed by YAML filename (empty string = default file). */
-const _configs: Map<string, ServerConfig> = new Map();
-
-function buildConfig(yamlData: YamlData): ServerConfig {
+function buildConfig(): ServerConfig {
   return {
-    providers: loadEnvSection(LLM_ENV_MAP, yamlData.providers, {
-      keylessProviders: new Set(['ollama']),
-    }),
-    tts: loadEnvSection(TTS_ENV_MAP, yamlData.tts, {
-      keylessProviders: new Set(['voxcpm-tts']),
-    }),
-    asr: loadEnvSection(ASR_ENV_MAP, yamlData.asr),
-    pdf: loadEnvSection(PDF_ENV_MAP, yamlData.pdf, { requiresBaseUrl: true }),
-    image: loadEnvSection(IMAGE_ENV_MAP, yamlData.image),
-    video: loadEnvSection(VIDEO_ENV_MAP, yamlData.video),
-    webSearch: loadEnvSection(WEB_SEARCH_ENV_MAP, yamlData['web-search']),
+    providers: loadLLMEnvSection(),
+    tts: loadEnvSection(TTS_ENV_MAP),
+    asr: loadEnvSection(ASR_ENV_MAP),
+    pdf: loadEnvSection(PDF_ENV_MAP),
+    image: loadEnvSection(IMAGE_ENV_MAP),
+    video: loadEnvSection(VIDEO_ENV_MAP),
+    webSearch: loadEnvSection(WEB_SEARCH_ENV_MAP),
   };
 }
 
@@ -241,14 +144,11 @@ function logConfig(config: ServerConfig, label: string): void {
 }
 
 function getConfig(): ServerConfig {
-  const cached = _configs.get('');
-  if (cached) return cached;
+  if (_config) return _config;
 
-  const yamlData = loadYamlFile(DEFAULT_FILENAME);
-  const config = buildConfig(yamlData);
-  logConfig(config, DEFAULT_FILENAME);
-  _configs.set('', config);
-  return config;
+  _config = buildConfig();
+  logConfig(_config, 'Vercel env');
+  return _config;
 }
 
 // ---------------------------------------------------------------------------
@@ -259,10 +159,8 @@ function getConfig(): ServerConfig {
 export function getServerProviders(): Record<string, { models?: string[]; baseUrl?: string }> {
   const cfg = getConfig();
   const result: Record<string, { models?: string[]; baseUrl?: string }> = {};
-  for (const [id, entry] of Object.entries(cfg.providers)) {
+  for (const id of Object.keys(cfg.providers)) {
     result[id] = {};
-    if (entry.models && entry.models.length > 0) result[id].models = entry.models;
-    if (entry.baseUrl) result[id].baseUrl = entry.baseUrl;
   }
   return result;
 }
@@ -273,15 +171,9 @@ export function resolveApiKey(providerId: string, clientKey?: string): string {
   return getConfig().providers[providerId]?.apiKey || '';
 }
 
-/** Resolve base URL: client > server > undefined */
-export function resolveBaseUrl(providerId: string, clientBaseUrl?: string): string | undefined {
-  if (clientBaseUrl) return clientBaseUrl;
-  return getConfig().providers[providerId]?.baseUrl;
-}
-
-/** Resolve proxy URL for a provider (server config only) */
-export function resolveProxy(providerId: string): string | undefined {
-  return getConfig().providers[providerId]?.proxy;
+/** LLM base URL is fixed by the built-in Kimi provider registry. */
+export function resolveBaseUrl(_providerId: string, _clientBaseUrl?: string): string | undefined {
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -425,10 +317,8 @@ export function getServerWebSearchProviders(): Record<string, { baseUrl?: string
   return result;
 }
 
-/** Resolve Tavily API key: client key > server key > TAVILY_API_KEY env > empty */
+/** Resolve Tavily API key: client key > server key > empty */
 export function resolveWebSearchApiKey(clientKey?: string): string {
   if (clientKey) return clientKey;
-  const serverKey = getConfig().webSearch.tavily?.apiKey;
-  if (serverKey) return serverKey;
-  return process.env.TAVILY_API_KEY || '';
+  return getConfig().webSearch.tavily?.apiKey || '';
 }

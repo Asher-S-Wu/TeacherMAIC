@@ -3,12 +3,12 @@
  *
  * Dispatches media generation API calls for all mediaGenerations across outlines.
  * Runs entirely on the frontend — calls /api/generate/image and /api/generate/video,
- * fetches result blobs, stores in IndexedDB, and updates the Zustand store.
+ * fetches result blobs, saves them to the signed-in account, and updates the Zustand store.
  */
 
 import { useMediaGenerationStore } from '@/lib/store/media-generation';
+import { useStageStore } from '@/lib/store/stage';
 import { useSettingsStore } from '@/lib/store/settings';
-import { db, mediaFileKey } from '@/lib/utils/database';
 import type { SceneOutline } from '@/lib/types/generation';
 import type { MediaGenerationRequest } from '@/lib/media/types';
 import { createLogger } from '@/lib/logger';
@@ -82,10 +82,6 @@ export async function retryMediaTask(elementId: string): Promise<void> {
     return;
   }
 
-  // Remove persisted failure record from DB so a fresh result can be written
-  const dbKey = mediaFileKey(task.stageId, elementId);
-  await db.mediaFiles.delete(dbKey).catch(() => {});
-
   store.markPendingForRetry(elementId);
   await generateSingleMedia(
     {
@@ -131,56 +127,71 @@ async function generateSingleMedia(
     const blob = await fetchAsBlob(resultUrl);
     const posterBlob = posterUrl ? await fetchAsBlob(posterUrl).catch(() => undefined) : undefined;
 
-    // Store in IndexedDB
-    await db.mediaFiles.put({
-      id: mediaFileKey(stageId, req.elementId),
-      stageId,
-      type: req.type,
-      blob,
-      mimeType,
-      size: blob.size,
-      poster: posterBlob,
-      prompt: req.prompt,
-      params: JSON.stringify({
-        aspectRatio: req.aspectRatio,
-        style: req.style,
-      }),
-      createdAt: Date.now(),
-    });
+    const resultFile = await uploadMediaBlob(blob, `${req.elementId}.${req.type === 'image' ? 'png' : 'mp4'}`, req.type);
+    const posterFile = posterBlob
+      ? await uploadMediaBlob(posterBlob, `${req.elementId}-poster.png`, 'poster')
+      : undefined;
 
-    // Update store with object URL
-    const objectUrl = URL.createObjectURL(blob);
-    const posterObjectUrl = posterBlob ? URL.createObjectURL(posterBlob) : undefined;
-    useMediaGenerationStore.getState().markDone(req.elementId, objectUrl, posterObjectUrl);
+    replacePlaceholderInStage(stageId, req.elementId, resultFile.url);
+    useMediaGenerationStore.getState().markDone(req.elementId, resultFile.url, posterFile?.url);
   } catch (err) {
     if (abortSignal?.aborted) return;
     const message = err instanceof Error ? err.message : String(err);
     const errorCode = err instanceof MediaApiError ? err.errorCode : undefined;
     log.error(`Failed ${req.elementId}:`, message);
     useMediaGenerationStore.getState().markFailed(req.elementId, message, errorCode);
-
-    // Persist non-retryable failures to IndexedDB so they survive page refresh
-    if (errorCode) {
-      await db.mediaFiles
-        .put({
-          id: mediaFileKey(stageId, req.elementId),
-          stageId,
-          type: req.type,
-          blob: new Blob(), // empty placeholder
-          mimeType: req.type === 'image' ? 'image/png' : 'video/mp4',
-          size: 0,
-          prompt: req.prompt,
-          params: JSON.stringify({
-            aspectRatio: req.aspectRatio,
-            style: req.style,
-          }),
-          error: message,
-          errorCode,
-          createdAt: Date.now(),
-        })
-        .catch(() => {}); // best-effort
-    }
   }
+}
+
+async function uploadMediaBlob(
+  blob: Blob,
+  filename: string,
+  kind: string,
+): Promise<{ id: string; url: string }> {
+  const formData = new FormData();
+  formData.append('file', new File([blob], filename, { type: blob.type || 'application/octet-stream' }));
+  formData.append('kind', kind);
+  const response = await fetch('/api/files', {
+    method: 'POST',
+    body: formData,
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.success) {
+    throw new Error(data?.error || 'Media upload failed');
+  }
+  return data.file;
+}
+
+function replacePlaceholderInStage(stageId: string, elementId: string, url: string): void {
+  const store = useStageStore.getState();
+  const stage = store.stage;
+  if (!stage || stage.id !== stageId) return;
+
+  const nextScenes = store.scenes.map((scene) => {
+    if (scene.content?.type !== 'slide') return scene;
+    const canvas = scene.content.canvas;
+    let changed = false;
+    const elements = canvas.elements.map((element) => {
+      if ('src' in element && element.src === elementId) {
+        changed = true;
+        return { ...element, src: url };
+      }
+      return element;
+    });
+    if (!changed) return scene;
+    return {
+      ...scene,
+      content: {
+        ...scene.content,
+        canvas: {
+          ...canvas,
+          elements,
+        },
+      },
+    };
+  });
+
+  store.setScenes(nextScenes);
 }
 
 async function callImageApi(

@@ -2,6 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 
+const draftMemory = new Map<string, unknown>();
+
 interface UseDraftCacheOptions {
   key: string;
   debounceMs?: number;
@@ -17,18 +19,7 @@ export function useDraftCache<T>({
   key,
   debounceMs = 500,
 }: UseDraftCacheOptions): UseDraftCacheReturn<T> {
-  const [cachedValue] = useState<T | undefined>(() => {
-    if (typeof window === 'undefined') return undefined;
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw !== null) {
-        return JSON.parse(raw) as T;
-      }
-    } catch {
-      /* ignore parse errors */
-    }
-    return undefined;
-  });
+  const [cachedValue] = useState<T | undefined>(() => draftMemory.get(key) as T | undefined);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingValueRef = useRef<T | undefined>(undefined);
   const keyRef = useRef(key);
@@ -43,11 +34,7 @@ export function useDraftCache<T>({
       timerRef.current = null;
     }
     if (pendingValueRef.current !== undefined) {
-      try {
-        localStorage.setItem(keyRef.current, JSON.stringify(pendingValueRef.current));
-      } catch {
-        /* ignore quota errors */
-      }
+      draftMemory.set(keyRef.current, pendingValueRef.current);
       pendingValueRef.current = undefined;
     }
   }, []);
@@ -60,11 +47,7 @@ export function useDraftCache<T>({
       }
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
-        try {
-          localStorage.setItem(keyRef.current, JSON.stringify(value));
-        } catch {
-          /* ignore quota errors */
-        }
+        draftMemory.set(keyRef.current, value);
         pendingValueRef.current = undefined;
       }, debounceMs);
     },
@@ -77,11 +60,7 @@ export function useDraftCache<T>({
       timerRef.current = null;
     }
     pendingValueRef.current = undefined;
-    try {
-      localStorage.removeItem(keyRef.current);
-    } catch {
-      /* ignore */
-    }
+    draftMemory.delete(keyRef.current);
   }, []);
 
   // Flush pending write on unmount

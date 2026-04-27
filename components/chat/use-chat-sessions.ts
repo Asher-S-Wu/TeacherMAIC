@@ -86,7 +86,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
   const stageIdRef = useRef(stageId);
 
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
-    // Restore sessions from store (loaded from IndexedDB)
+    // Restore sessions from the classroom store.
     const stored = useStageStore.getState().chats;
     return stored.map((s) =>
       s.status === 'active' ? { ...s, status: 'interrupted' as SessionStatus } : s,
@@ -112,7 +112,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
 
   // Reload sessions when stage changes (course switch)
   // This synchronous setState is intentional: it resets derived state from
-  // an external store (IndexedDB) when the stageId dependency changes.
+  // the classroom store when the stageId dependency changes.
   useEffect(() => {
     if (stageId === stageIdRef.current) return;
     stageIdRef.current = stageId;
@@ -448,9 +448,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         };
         userProfile?: { nickname?: string; bio?: string };
         apiKey: string;
-        baseUrl?: string;
         model?: string;
-        providerType?: string;
         thinkingConfig?: ThinkingConfig;
       },
       controller: AbortController,
@@ -485,9 +483,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
           config: requestTemplate.config,
           userProfile: requestTemplate.userProfile,
           apiKey: requestTemplate.apiKey,
-          baseUrl: requestTemplate.baseUrl,
           model: requestTemplate.model,
-          providerType: requestTemplate.providerType,
           thinkingConfig: requestTemplate.thinkingConfig,
         },
         {
@@ -901,9 +897,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
               bio: userProfileState.bio || undefined,
             },
             apiKey: mc.apiKey,
-            baseUrl: mc.baseUrl,
             model: mc.modelString,
-            providerType: mc.providerType,
             thinkingConfig: mc.thinkingConfig,
           },
           controller,
@@ -1113,9 +1107,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
               bio: userProfileState.bio || undefined,
             },
             apiKey: mc.apiKey,
-            baseUrl: mc.baseUrl,
             model: mc.modelString,
-            providerType: mc.providerType,
             thinkingConfig: mc.thinkingConfig,
           },
           controller,
@@ -1256,9 +1248,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
               bio: userProfileState.bio || undefined,
             },
             apiKey: mc.apiKey,
-            baseUrl: mc.baseUrl,
             model: mc.modelString,
-            providerType: mc.providerType,
             thinkingConfig: mc.thinkingConfig,
           },
           controller,

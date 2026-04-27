@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logger';
 import { generateClassroom, type GenerateClassroomInput } from '@/lib/server/classroom-generation';
+import type { ObjectId } from 'mongodb';
 import {
   markClassroomGenerationJobFailed,
   markClassroomGenerationJobRunning,
@@ -14,6 +15,7 @@ export function runClassroomGenerationJob(
   jobId: string,
   input: GenerateClassroomInput,
   baseUrl: string,
+  userId: ObjectId,
 ): Promise<void> {
   const existing = runningJobs.get(jobId);
   if (existing) {
@@ -26,6 +28,7 @@ export function runClassroomGenerationJob(
 
       const result = await generateClassroom(input, {
         baseUrl,
+        userId,
         onProgress: async (progress) => {
           await updateClassroomGenerationJobProgress(jobId, progress);
         },

@@ -2,20 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   X,
-  Trash2,
   Box,
   Settings,
   CheckCircle2,
@@ -30,11 +19,10 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
-import { toast } from 'sonner';
 import { type ProviderId } from '@/lib/ai/providers';
-import { PROVIDERS, MONO_LOGO_PROVIDERS } from '@/lib/ai/providers';
+import { MONO_LOGO_PROVIDERS } from '@/lib/ai/providers';
 import { cn } from '@/lib/utils';
-import { createCustomProviderSettings, getProviderTypeLabel } from './utils';
+import { getProviderTypeLabel } from './utils';
 import { ProviderList } from './provider-list';
 import { ProviderConfigPanel } from './provider-config-panel';
 import { PDFSettings } from './pdf-settings';
@@ -56,11 +44,9 @@ import { WebSearchSettings } from './web-search-settings';
 import { WEB_SEARCH_PROVIDERS } from '@/lib/web-search/constants';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
 import { GeneralSettings } from './general-settings';
-import { ModelEditDialog } from './model-edit-dialog';
-import { AddProviderDialog, type NewProviderData } from './add-provider-dialog';
 import { AddAudioProviderDialog, type NewAudioProviderData } from './add-audio-provider-dialog';
 import { isCustomTTSProvider, isCustomASRProvider } from '@/lib/audio/types';
-import type { SettingsSection, EditingModel } from '@/lib/types/settings';
+import type { SettingsSection } from '@/lib/types/settings';
 
 // ─── Provider List Column (reusable) ───
 function ProviderListColumn<T extends string>({
@@ -141,7 +127,6 @@ function getTTSProviderName(providerId: TTSProviderId, t: (key: string) => strin
     'azure-tts': t('settings.providerAzureTTS'),
     'glm-tts': t('settings.providerGLMTTS'),
     'qwen-tts': t('settings.providerQwenTTS'),
-    'voxcpm-tts': t('settings.providerVoxCPMTTS'),
     'doubao-tts': t('settings.providerDoubaoTTS'),
     'elevenlabs-tts': t('settings.providerElevenLabsTTS'),
     'minimax-tts': t('settings.providerMiniMaxTTS'),
@@ -211,7 +196,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
 
   // Get settings from store
   const providerId = useSettingsStore((state) => state.providerId);
-  const _modelId = useSettingsStore((state) => state.modelId);
   const providersConfig = useSettingsStore((state) => state.providersConfig);
   const pdfProviderId = useSettingsStore((state) => state.pdfProviderId);
   const pdfProvidersConfig = useSettingsStore((state) => state.pdfProvidersConfig);
@@ -227,9 +211,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   const asrProvidersConfig = useSettingsStore((state) => state.asrProvidersConfig);
 
   // Store actions
-  const setModel = useSettingsStore((state) => state.setModel);
   const setProviderConfig = useSettingsStore((state) => state.setProviderConfig);
-  const setProvidersConfig = useSettingsStore((state) => state.setProvidersConfig);
   const setTTSProvider = useSettingsStore((state) => state.setTTSProvider);
   const setASRProvider = useSettingsStore((state) => state.setASRProvider);
 
@@ -251,15 +233,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
     }
   }, [open, initialSection]);
 
-  // Model editing state
-  const [editingModel, setEditingModel] = useState<EditingModel | null>(null);
-  const [showModelDialog, setShowModelDialog] = useState(false);
-
-  // Provider deletion confirmation
-  const [providerToDelete, setProviderToDelete] = useState<ProviderId | null>(null);
-
   // Add provider dialog
-  const [showAddProviderDialog, setShowAddProviderDialog] = useState(false);
   const [showAddTTSProviderDialog, setShowAddTTSProviderDialog] = useState(false);
   const [showAddASRProviderDialog, setShowAddASRProviderDialog] = useState(false);
   const addCustomTTSProvider = useSettingsStore((state) => state.addCustomTTSProvider);
@@ -342,13 +316,10 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   const handleProviderConfigChange = (
     pid: ProviderId,
     apiKey: string,
-    baseUrl: string,
-    requiresApiKey: boolean,
   ) => {
     setProviderConfig(pid, {
       apiKey,
-      baseUrl,
-      requiresApiKey,
+      requiresApiKey: true,
     });
   };
 
@@ -363,149 +334,11 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
         name: providersConfig[selectedProviderId].name,
         type: providersConfig[selectedProviderId].type,
         defaultBaseUrl: providersConfig[selectedProviderId].defaultBaseUrl,
-        alternateBaseUrls: PROVIDERS[selectedProviderId]?.alternateBaseUrls,
         icon: providersConfig[selectedProviderId].icon,
         requiresApiKey: providersConfig[selectedProviderId].requiresApiKey,
         models: providersConfig[selectedProviderId].models,
       }
     : undefined;
-
-  // Handle model editing
-  const handleEditModel = (pid: ProviderId, modelIndex: number) => {
-    const allModels = providersConfig[pid]?.models || [];
-    setEditingModel({
-      providerId: pid,
-      modelIndex,
-      model: { ...allModels[modelIndex] },
-    });
-    setShowModelDialog(true);
-  };
-
-  const handleAddModel = () => {
-    setEditingModel({
-      providerId: selectedProviderId,
-      modelIndex: null,
-      model: {
-        id: '',
-        name: '',
-        capabilities: {
-          streaming: true,
-          tools: true,
-          vision: false,
-        },
-      },
-    });
-    setShowModelDialog(true);
-  };
-
-  const handleDeleteModel = (pid: ProviderId, modelIndex: number) => {
-    const currentModels = providersConfig[pid]?.models || [];
-    const newModels = currentModels.filter((_, i) => i !== modelIndex);
-    setProviderConfig(pid, { models: newModels });
-  };
-
-  const handleAutoSaveModel = () => {
-    if (!editingModel) return;
-    const { providerId: pid, modelIndex, model } = editingModel;
-    if (!model.id.trim()) return;
-    const currentModels = providersConfig[pid]?.models || [];
-    let newModels: typeof currentModels;
-    let newModelIndex = modelIndex;
-
-    if (modelIndex === null) {
-      const existingIndex = currentModels.findIndex((m) => m.id === model.id);
-      if (existingIndex >= 0) {
-        newModels = [...currentModels];
-        newModels[existingIndex] = model;
-        newModelIndex = existingIndex;
-      } else {
-        newModels = [...currentModels, model];
-        newModelIndex = newModels.length - 1;
-      }
-      setProviderConfig(pid, { models: newModels });
-      setEditingModel({ ...editingModel, modelIndex: newModelIndex });
-    } else {
-      newModels = [...currentModels];
-      newModels[modelIndex] = model;
-      setProviderConfig(pid, { models: newModels });
-    }
-  };
-
-  const handleSaveModel = () => {
-    if (!editingModel) return;
-    const { providerId: pid, modelIndex, model } = editingModel;
-    if (!model.id.trim()) {
-      toast.error(t('settings.modelIdRequired'));
-      return;
-    }
-    const currentModels = providersConfig[pid]?.models || [];
-    let newModels: typeof currentModels;
-    if (modelIndex === null) {
-      newModels = [...currentModels, model];
-    } else {
-      newModels = [...currentModels];
-      newModels[modelIndex] = model;
-    }
-    setProviderConfig(pid, { models: newModels });
-    setShowModelDialog(false);
-    setEditingModel(null);
-  };
-
-  // Handle provider management
-  const handleAddProvider = (providerData: NewProviderData) => {
-    if (!providerData.name.trim()) {
-      toast.error(t('settings.providerNameRequired'));
-      return;
-    }
-    const newProviderId = `custom-${Date.now()}` as ProviderId;
-    const updatedConfig = {
-      ...providersConfig,
-      [newProviderId]: createCustomProviderSettings(providerData),
-    };
-    setProvidersConfig(updatedConfig);
-    setShowAddProviderDialog(false);
-    setSelectedProviderId(newProviderId);
-  };
-
-  const handleDeleteProvider = (pid: ProviderId) => {
-    if (providersConfig[pid]?.isBuiltIn) {
-      toast.error(t('settings.cannotDeleteBuiltIn'));
-      return;
-    }
-    setProviderToDelete(pid);
-  };
-
-  const confirmDeleteProvider = () => {
-    if (!providerToDelete) return;
-    const pid = providerToDelete;
-    const updatedConfig = { ...providersConfig };
-    delete updatedConfig[pid];
-    setProvidersConfig(updatedConfig);
-    if (selectedProviderId === pid) {
-      const firstRemainingPid = Object.keys(updatedConfig)[0] as ProviderId | undefined;
-      setSelectedProviderId(firstRemainingPid || 'openai');
-    }
-    if (providerId === pid) {
-      const firstRemainingPid = Object.keys(updatedConfig)[0] as ProviderId | undefined;
-      const firstModel = firstRemainingPid
-        ? updatedConfig[firstRemainingPid]?.serverModels?.[0] ||
-          updatedConfig[firstRemainingPid]?.models?.[0]?.id
-        : undefined;
-      if (firstRemainingPid && firstModel) {
-        setModel(firstRemainingPid, firstModel);
-      } else {
-        setModel('openai' as ProviderId, 'gpt-5.4-mini');
-      }
-    }
-    setProviderToDelete(null);
-  };
-
-  const handleResetProvider = (pid: ProviderId) => {
-    const provider = PROVIDERS[pid];
-    if (!provider) return;
-    setProviderConfig(pid, { models: [...provider.models] });
-    toast.success(t('settings.resetSuccess'));
-  };
 
   // Get all providers from providersConfig
   const allProviders = Object.entries(providersConfig).map(([id, config]) => ({
@@ -830,7 +663,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 providers={allProviders}
                 selectedProviderId={selectedProviderId}
                 onSelect={handleProviderSelect}
-                onAddProvider={() => setShowAddProviderDialog(true)}
                 width={providerListWidth}
               />
               <div
@@ -998,17 +830,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             <div className="flex items-center justify-between p-5 border-b">
               <div className="flex items-center gap-3">{getHeaderContent()}</div>
               <div className="flex items-center gap-2">
-                {activeSection === 'providers' &&
-                  !providersConfig[selectedProviderId]?.isBuiltIn && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-destructive hover:text-destructive"
-                      onClick={() => handleDeleteProvider(selectedProviderId)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
                 <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -1023,20 +844,11 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 <ProviderConfigPanel
                   provider={selectedProvider}
                   initialApiKey={providersConfig[selectedProviderId]?.apiKey || ''}
-                  initialBaseUrl={providersConfig[selectedProviderId]?.baseUrl || ''}
-                  initialRequiresApiKey={
-                    providersConfig[selectedProviderId]?.requiresApiKey ?? true
-                  }
                   providersConfig={providersConfig}
-                  onConfigChange={(apiKey, baseUrl, requiresApiKey) =>
-                    handleProviderConfigChange(selectedProviderId, apiKey, baseUrl, requiresApiKey)
+                  onConfigChange={(apiKey) =>
+                    handleProviderConfigChange(selectedProviderId, apiKey)
                   }
                   onSave={handleProviderConfigSave}
-                  onEditModel={(index) => handleEditModel(selectedProviderId, index)}
-                  onDeleteModel={(index) => handleDeleteModel(selectedProviderId, index)}
-                  onAddModel={handleAddModel}
-                  onResetToDefault={() => handleResetProvider(selectedProviderId)}
-                  isBuiltIn={providersConfig[selectedProviderId]?.isBuiltIn ?? true}
                 />
               )}
 
@@ -1081,29 +893,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
         </div>
       </DialogContent>
 
-      {/* Edit Model Dialog */}
-      <ModelEditDialog
-        open={showModelDialog}
-        onOpenChange={setShowModelDialog}
-        editingModel={editingModel}
-        setEditingModel={setEditingModel}
-        onSave={handleSaveModel}
-        onAutoSave={handleAutoSaveModel}
-        providerId={selectedProviderId}
-        apiKey={providersConfig[selectedProviderId]?.apiKey || ''}
-        baseUrl={providersConfig[selectedProviderId]?.baseUrl}
-        providerType={providersConfig[selectedProviderId]?.type}
-        requiresApiKey={providersConfig[selectedProviderId]?.requiresApiKey}
-        isServerConfigured={providersConfig[selectedProviderId]?.isServerConfigured}
-      />
-
-      {/* Add Provider Dialog */}
-      <AddProviderDialog
-        open={showAddProviderDialog}
-        onOpenChange={setShowAddProviderDialog}
-        onAdd={handleAddProvider}
-      />
-
       {/* Add TTS Provider Dialog */}
       <AddAudioProviderDialog
         open={showAddTTSProviderDialog}
@@ -1119,25 +908,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
         onAdd={handleAddASRProvider}
         type="asr"
       />
-
-      {/* Delete Provider Confirmation */}
-      <AlertDialog
-        open={providerToDelete !== null}
-        onOpenChange={(open) => !open && setProviderToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('settings.deleteProvider')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('settings.deleteProviderConfirm')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('settings.cancelEdit')}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteProvider}>
-              {t('settings.deleteProvider')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Dialog>
   );
 }

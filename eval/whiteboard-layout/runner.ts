@@ -20,32 +20,36 @@ import { createRunDir } from '../shared/run-dir';
 // Usage:
 //   EVAL_CHAT_MODEL=<provider:model> \
 //   EVAL_SCORER_MODEL=<provider:model> \
-//   pnpm eval:whiteboard --scenario physics-force-decomposition
+//   pnpm eval:whiteboard --base-url https://your-project.vercel.app --scenario physics-force-decomposition
 
 const { values: args } = parseArgs({
   options: {
     scenario: { type: 'string' },
     repeat: { type: 'string', default: '1' },
-    'base-url': { type: 'string', default: 'http://localhost:3000' },
+    'base-url': { type: 'string' },
     'output-dir': { type: 'string', default: 'eval/whiteboard-layout/results' },
     rescore: { type: 'string' }, // Path to existing run dir — rescore only, no chat
   },
 });
 
-const BASE_URL = args['base-url']!;
+const BASE_URL = args['base-url'];
 const CHAT_MODEL_RAW = process.env.EVAL_CHAT_MODEL || process.env.DEFAULT_MODEL;
 const SCORER_MODEL_RAW = process.env.EVAL_SCORER_MODEL;
 const ENABLE_THINKING =
   process.env.EVAL_ENABLE_THINKING === '1' || process.env.EVAL_ENABLE_THINKING === 'true';
+if (!BASE_URL) {
+  console.error('Error: --base-url must point to the deployed Vercel URL.');
+  process.exit(1);
+}
 if (!CHAT_MODEL_RAW) {
   console.error(
-    'Error: EVAL_CHAT_MODEL (or DEFAULT_MODEL) must be set. Example: EVAL_CHAT_MODEL=openai:gpt-4.1',
+    'Error: EVAL_CHAT_MODEL (or DEFAULT_MODEL) must be set. Example: EVAL_CHAT_MODEL=kimi:moonshotai/kimi-k2.6',
   );
   process.exit(1);
 }
 if (!SCORER_MODEL_RAW) {
   console.error(
-    'Error: EVAL_SCORER_MODEL must be set. Example: EVAL_SCORER_MODEL=google:gemini-2.5-flash',
+    'Error: EVAL_SCORER_MODEL must be set. Example: EVAL_SCORER_MODEL=kimi:moonshotai/kimi-k2.6',
   );
   process.exit(1);
 }

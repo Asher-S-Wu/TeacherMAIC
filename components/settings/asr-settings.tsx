@@ -250,7 +250,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
                 spellCheck={false}
                 placeholder={
                   isCustom
-                    ? providerConfig?.customDefaultBaseUrl || 'http://localhost:8000/v1'
+                    ? providerConfig?.customDefaultBaseUrl || 'https://api.example.com/v1'
                     : asrProvider?.defaultBaseUrl || t('settings.enterCustomBaseUrl')
                 }
                 value={asrProvidersConfig[selectedProviderId]?.baseUrl || ''}

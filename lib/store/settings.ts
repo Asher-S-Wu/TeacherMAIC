@@ -1,19 +1,18 @@
 /**
  * Settings Store
- * Global settings state synchronized with localStorage
+ * Global settings state synchronized with the signed-in account
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 import type { ProviderId } from '@/lib/ai/providers';
 import type { ProvidersConfig } from '@/lib/types/settings';
-import { PROVIDERS } from '@/lib/ai/providers';
+import { DEFAULT_MODEL_ID, DEFAULT_PROVIDER_ID, PROVIDERS } from '@/lib/ai/providers';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { getThinkingConfigKey, supportsConfigurableThinking } from '@/lib/ai/thinking-config';
 import type { TTSProviderId, ASRProviderId, BuiltInTTSProviderId } from '@/lib/audio/types';
 import { isCustomTTSProvider, isCustomASRProvider } from '@/lib/audio/types';
 import { ASR_PROVIDERS, DEFAULT_TTS_VOICES, TTS_PROVIDERS } from '@/lib/audio/constants';
-import { DEFAULT_VOXCPM_BACKEND, VOXCPM_MODEL_ID, VOXCPM_VLLM_MODEL_ID } from '@/lib/audio/voxcpm';
 import { PDF_PROVIDERS } from '@/lib/pdf/constants';
 import type { PDFProviderId } from '@/lib/pdf/types';
 import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
@@ -25,6 +24,41 @@ import { createLogger } from '@/lib/logger';
 import { validateProvider, validateModel } from '@/lib/store/settings-validation';
 
 const log = createLogger('Settings');
+
+const accountSettingsStorage: StateStorage = {
+  getItem: async (name) => {
+    if (typeof window === 'undefined') return null;
+    const res = await fetch(`/api/user-settings/${encodeURIComponent(name)}`, {
+      cache: 'no-store',
+    });
+    if (res.status === 401) return null;
+    if (!res.ok) {
+      throw new Error('设置读取失败');
+    }
+    const data = (await res.json()) as { value?: unknown };
+    return typeof data.value === 'string' ? data.value : null;
+  },
+  setItem: async (name, value) => {
+    if (typeof window === 'undefined') return;
+    const res = await fetch(`/api/user-settings/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value }),
+    });
+    if (!res.ok) {
+      throw new Error('设置保存失败');
+    }
+  },
+  removeItem: async (name) => {
+    if (typeof window === 'undefined') return;
+    const res = await fetch(`/api/user-settings/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      throw new Error('设置删除失败');
+    }
+  },
+};
 
 function pruneThinkingConfigs(
   thinkingConfigs: Record<string, ThinkingConfig> | undefined,
@@ -188,7 +222,7 @@ export interface SettingsState {
   agentMode: 'preset' | 'auto';
   autoAgentCount: number;
 
-  // Layout preferences (persisted via localStorage)
+  // Layout preferences
   sidebarCollapsed: boolean;
   chatAreaCollapsed: boolean;
   chatAreaWidth: number;
@@ -201,7 +235,6 @@ export interface SettingsState {
     config: ThinkingConfig | undefined,
   ) => void;
   setProviderConfig: (providerId: ProviderId, config: Partial<ProvidersConfig[ProviderId]>) => void;
-  setProvidersConfig: (config: ProvidersConfig) => void;
   setTtsModel: (model: string) => void;
   setTTSMuted: (muted: boolean) => void;
   setTTSVolume: (volume: number) => void;
@@ -321,7 +354,6 @@ const getDefaultProvidersConfig = (): ProvidersConfig => {
     const provider = PROVIDERS[pid as ProviderId];
     config[pid as ProviderId] = {
       apiKey: '',
-      baseUrl: '',
       models: provider.models,
       name: provider.name,
       type: provider.type,
@@ -346,13 +378,6 @@ const getDefaultAudioConfig = () => ({
     'azure-tts': { apiKey: '', baseUrl: '', enabled: false },
     'glm-tts': { apiKey: '', baseUrl: '', enabled: false },
     'qwen-tts': { apiKey: '', baseUrl: '', enabled: false },
-    'voxcpm-tts': {
-      apiKey: '',
-      baseUrl: '',
-      modelId: VOXCPM_VLLM_MODEL_ID,
-      enabled: false,
-      providerOptions: { backend: DEFAULT_VOXCPM_BACKEND },
-    },
     'doubao-tts': { apiKey: '', baseUrl: '', enabled: false },
     'elevenlabs-tts': { apiKey: '', baseUrl: '', enabled: false },
     'minimax-tts': { apiKey: '', baseUrl: '', modelId: 'speech-2.8-hd', enabled: false },
@@ -373,7 +398,6 @@ const getDefaultPDFConfig = () => ({
   pdfProviderId: 'unpdf' as PDFProviderId,
   pdfProvidersConfig: {
     unpdf: { apiKey: '', baseUrl: '', enabled: true },
-    mineru: { apiKey: '', baseUrl: '', enabled: false },
     'mineru-cloud': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<PDFProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
@@ -433,6 +457,15 @@ function ensureValidProviderSelections(state: Partial<SettingsState>): void {
   const defaultVideoConfig = getDefaultVideoConfig();
   const defaultWebSearchConfig = getDefaultWebSearchConfig();
 
+  if (!hasProviderId(PROVIDERS, state.providerId)) {
+    state.providerId = DEFAULT_PROVIDER_ID;
+  }
+
+  const activeProvider = state.providerId ? PROVIDERS[state.providerId] : undefined;
+  if (!activeProvider?.models.some((model) => model.id === state.modelId)) {
+    state.modelId = activeProvider?.models[0]?.id || DEFAULT_MODEL_ID;
+  }
+
   if (!hasProviderId(PDF_PROVIDERS, state.pdfProviderId)) {
     state.pdfProviderId = defaultPdfConfig.pdfProviderId;
   }
@@ -483,16 +516,6 @@ function ensureBuiltInAudioProviders(state: Partial<SettingsState>): void {
         state.ttsProvidersConfig[providerId] = defaultAudioConfig.ttsProvidersConfig[providerId];
       }
     }
-    const voxcpmConfig = state.ttsProvidersConfig['voxcpm-tts'];
-    if (voxcpmConfig) {
-      if (!voxcpmConfig.modelId || voxcpmConfig.modelId === VOXCPM_MODEL_ID) {
-        voxcpmConfig.modelId = VOXCPM_VLLM_MODEL_ID;
-      }
-      voxcpmConfig.providerOptions = {
-        backend: DEFAULT_VOXCPM_BACKEND,
-        ...(voxcpmConfig.providerOptions || {}),
-      };
-    }
   }
 
   if (state.asrProvidersConfig) {
@@ -512,48 +535,30 @@ function ensureBuiltInAudioProviders(state: Partial<SettingsState>): void {
 function ensureBuiltInProviders(state: Partial<SettingsState>): void {
   if (!state.providersConfig) return;
   const defaultConfig = getDefaultProvidersConfig();
+  const nextConfig = {} as ProvidersConfig;
+
   Object.keys(PROVIDERS).forEach((pid) => {
     const providerId = pid as ProviderId;
-    if (!state.providersConfig![providerId]) {
-      // New provider: add with defaults
-      state.providersConfig![providerId] = defaultConfig[providerId];
+    const existing = state.providersConfig![providerId];
+    if (!existing) {
+      nextConfig[providerId] = defaultConfig[providerId];
     } else {
-      // Existing provider: refresh built-in models from the registry and
-      // keep user-added models after the built-in list.
       const provider = PROVIDERS[providerId];
-      const existing = state.providersConfig![providerId];
-
-      const builtInModelIds = new Set(provider.models.map((m) => m.id));
-      const customModels = (existing.models || []).filter((m) => !builtInModelIds.has(m.id));
-      const mergedModels = [...provider.models, ...customModels];
-
-      state.providersConfig![providerId] = {
-        ...existing,
-        models: mergedModels,
-        name: existing.name || provider.name,
-        type: existing.type || provider.type,
-        defaultBaseUrl: existing.defaultBaseUrl || provider.defaultBaseUrl,
-        icon: provider.icon || existing.icon,
-        requiresApiKey: existing.requiresApiKey ?? provider.requiresApiKey,
-        isBuiltIn: existing.isBuiltIn ?? true,
+      nextConfig[providerId] = {
+        apiKey: existing.apiKey || '',
+        models: [...provider.models],
+        name: provider.name,
+        type: provider.type,
+        defaultBaseUrl: provider.defaultBaseUrl,
+        icon: provider.icon,
+        requiresApiKey: provider.requiresApiKey,
+        isBuiltIn: true,
+        isServerConfigured: existing.isServerConfigured,
       };
     }
   });
-}
 
-/**
- * Custom providers created before #414 stored their actual endpoint in
- * defaultBaseUrl while leaving baseUrl empty. Promote that persisted value
- * during rehydrate so downstream request builders keep using baseUrl only.
- */
-export function promoteLegacyCustomProviderBaseUrls(state: Partial<SettingsState>): void {
-  if (!state.providersConfig) return;
-
-  Object.values(state.providersConfig).forEach((config) => {
-    if (!config.isBuiltIn && !config.baseUrl && config.defaultBaseUrl) {
-      config.baseUrl = config.defaultBaseUrl;
-    }
-  });
+  state.providersConfig = nextConfig;
 }
 
 /**
@@ -586,73 +591,19 @@ function ensureBuiltInVideoProviders(state: Partial<SettingsState>): void {
   });
 }
 
-// Migrate from old localStorage format
-const migrateFromOldStorage = () => {
-  if (typeof window === 'undefined') return null;
+type LegacySettingsMigration = {
+  providerId?: ProviderId;
+  modelId?: string;
+  thinkingConfigs?: Record<string, ThinkingConfig>;
+  providersConfig?: ProvidersConfig;
+  ttsModel?: string;
+  selectedAgentIds?: string[];
+  maxTurns?: string | number;
+};
 
-  // Check if new storage already exists
-  const newStorage = localStorage.getItem('settings-storage');
-  if (newStorage) return null; // Already migrated or new install
-
-  // Read old localStorage keys
-  const oldLlmModel = localStorage.getItem('llmModel');
-  const oldProvidersConfig = localStorage.getItem('providersConfig');
-  const oldTtsModel = localStorage.getItem('ttsModel');
-  const oldSelectedAgents = localStorage.getItem('selectedAgentIds');
-  const oldMaxTurns = localStorage.getItem('maxTurns');
-
-  if (!oldLlmModel && !oldProvidersConfig) return null; // No old data
-
-  // Parse model selection
-  let providerId: ProviderId = 'openai';
-  let modelId = 'gpt-5.4-mini';
-  if (oldLlmModel) {
-    const [pid, mid] = oldLlmModel.split(':');
-    if (pid && mid) {
-      providerId = pid as ProviderId;
-      modelId = mid;
-    }
-  }
-
-  // Parse providers config
-  let providersConfig = getDefaultProvidersConfig();
-  if (oldProvidersConfig) {
-    try {
-      const parsed = JSON.parse(oldProvidersConfig);
-      providersConfig = { ...providersConfig, ...parsed };
-    } catch (e) {
-      log.error('Failed to parse old providersConfig:', e);
-    }
-  }
-
-  // Parse other settings
-  let ttsModel = 'openai-tts';
-  if (oldTtsModel) ttsModel = oldTtsModel;
-
-  let selectedAgentIds = ['default-1', 'default-2', 'default-3'];
-  if (oldSelectedAgents) {
-    try {
-      const parsed = JSON.parse(oldSelectedAgents);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        selectedAgentIds = parsed;
-      }
-    } catch (e) {
-      log.error('Failed to parse old selectedAgentIds:', e);
-    }
-  }
-
-  let maxTurns = '10';
-  if (oldMaxTurns) maxTurns = oldMaxTurns;
-
-  return {
-    providerId,
-    modelId,
-    thinkingConfigs: {},
-    providersConfig,
-    ttsModel,
-    selectedAgentIds,
-    maxTurns,
-  };
+// 旧浏览器本地设置不自动迁移到账户。
+const migrateFromOldStorage = (): LegacySettingsMigration | null => {
+  return null;
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -670,8 +621,8 @@ export const useSettingsStore = create<SettingsState>()(
 
       return {
         // Initial state (use migrated data if available)
-        providerId: migratedData?.providerId || 'openai',
-        modelId: migratedData?.modelId || '',
+        providerId: migratedData?.providerId || DEFAULT_PROVIDER_ID,
+        modelId: migratedData?.modelId || DEFAULT_MODEL_ID,
         thinkingConfigs: pruneThinkingConfigs(
           migratedData?.thinkingConfigs || {},
           initialProvidersConfig,
@@ -748,12 +699,6 @@ export const useSettingsStore = create<SettingsState>()(
               thinkingConfigs: pruneThinkingConfigs(state.thinkingConfigs, providersConfig),
             };
           }),
-
-        setProvidersConfig: (config) =>
-          set((state) => ({
-            providersConfig: config,
-            thinkingConfigs: pruneThinkingConfigs(state.thinkingConfigs, config),
-          })),
 
         setTtsModel: (model) => set({ ttsModel: model }),
 
@@ -984,7 +929,7 @@ export const useSettingsStore = create<SettingsState>()(
             const res = await fetch('/api/server-providers');
             if (!res.ok) return;
             const data = (await res.json()) as {
-              providers: Record<string, { models?: string[]; baseUrl?: string }>;
+              providers: Record<string, object>;
               tts: Record<string, { baseUrl?: string }>;
               asr: Record<string, { baseUrl?: string }>;
               pdf: Record<string, { baseUrl?: string }>;
@@ -995,36 +940,27 @@ export const useSettingsStore = create<SettingsState>()(
 
             set((state) => {
               // Merge LLM providers
-              const newProvidersConfig = { ...state.providersConfig };
-              // First reset all server flags
-              for (const pid of Object.keys(newProvidersConfig)) {
+              const newProvidersConfig = getDefaultProvidersConfig();
+              for (const pid of Object.keys(PROVIDERS)) {
                 const key = pid as ProviderId;
-                if (newProvidersConfig[key]) {
-                  newProvidersConfig[key] = {
-                    ...newProvidersConfig[key],
-                    isServerConfigured: false,
-                    serverModels: undefined,
-                    serverBaseUrl: undefined,
-                  };
-                }
+                const provider = PROVIDERS[key];
+                const existing = state.providersConfig[key];
+                newProvidersConfig[key] = {
+                  ...newProvidersConfig[key],
+                  apiKey: existing?.apiKey || '',
+                  isServerConfigured: false,
+                  models: [...provider.models],
+                };
               }
               // Set flags for server-configured providers
-              for (const [pid, info] of Object.entries(data.providers)) {
+              for (const pid of Object.keys(data.providers)) {
                 const key = pid as ProviderId;
-                if (newProvidersConfig[key]) {
-                  const currentModels = newProvidersConfig[key].models;
-                  // When server specifies allowed models, filter the models list
-                  // while preserving custom IDs from env/YAML in server order.
-                  const currentModelMap = new Map(currentModels.map((m) => [m.id, m]));
-                  const filteredModels = info.models?.length
-                    ? info.models.map((id) => currentModelMap.get(id) ?? { id, name: id })
-                    : currentModels;
+                const provider = PROVIDERS[key];
+                if (provider && newProvidersConfig[key]) {
                   newProvidersConfig[key] = {
                     ...newProvidersConfig[key],
                     isServerConfigured: true,
-                    serverModels: info.models,
-                    serverBaseUrl: info.baseUrl,
-                    models: filteredModels,
+                    models: [...provider.models],
                   };
                 }
               }
@@ -1192,6 +1128,7 @@ export const useSettingsStore = create<SettingsState>()(
                 state.providerId,
                 newProvidersConfig,
                 llmFallback,
+                DEFAULT_PROVIDER_ID,
               );
               const validTTSProvider = validateProvider(
                 state.ttsProviderId,
@@ -1282,12 +1219,10 @@ export const useSettingsStore = create<SettingsState>()(
               let autoVideoEnabled: boolean | undefined;
 
               if (!state.autoConfigApplied) {
-                // PDF: unpdf → mineru-cloud or mineru if server has it
+                // PDF: unpdf → mineru-cloud if server has it
                 if (state.pdfProviderId === 'unpdf') {
                   if (newPDFConfig['mineru-cloud']?.isServerConfigured) {
                     autoPdfProvider = 'mineru-cloud' as PDFProviderId;
-                  } else if (newPDFConfig.mineru?.isServerConfigured) {
-                    autoPdfProvider = 'mineru' as PDFProviderId;
                   }
                 }
 
@@ -1346,11 +1281,7 @@ export const useSettingsStore = create<SettingsState>()(
               if (!state.providerId && !state.modelId) {
                 for (const [pid, cfg] of Object.entries(newProvidersConfig)) {
                   if (cfg.isServerConfigured) {
-                    // Prefer server-restricted models, fall back to built-in list
-                    const serverModels = cfg.serverModels;
-                    const modelId = serverModels?.length
-                      ? serverModels[0]
-                      : PROVIDERS[pid as ProviderId]?.models[0]?.id;
+                    const modelId = PROVIDERS[pid as ProviderId]?.models[0]?.id;
                     if (modelId) {
                       autoProviderId = pid as ProviderId;
                       autoModelId = modelId;
@@ -1435,20 +1366,17 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'settings-storage',
       version: 2,
+      storage: createJSONStorage(() => accountSettingsStorage),
+      skipHydration: true,
       // Migrate persisted state
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Partial<SettingsState>;
 
-        // v0 → v1: clear hardcoded default model so user must actively select
-        if (version === 0) {
-          if (state.providerId === 'openai' && state.modelId === 'gpt-4o-mini') {
-            state.modelId = '';
-          }
-        }
-
         // Ensure providersConfig has all built-in providers (also in merge below)
+        if (!state.providersConfig) {
+          state.providersConfig = getDefaultProvidersConfig();
+        }
         ensureBuiltInProviders(state);
-        promoteLegacyCustomProviderBaseUrls(state);
 
         // Ensure image/video configs have all built-in providers
         ensureBuiltInImageProviders(state);
@@ -1588,7 +1516,6 @@ export const useSettingsStore = create<SettingsState>()(
       merge: (persistedState, currentState) => {
         const merged = { ...currentState, ...(persistedState as object) };
         ensureBuiltInProviders(merged as Partial<SettingsState>);
-        promoteLegacyCustomProviderBaseUrls(merged as Partial<SettingsState>);
         ensureBuiltInAudioProviders(merged as Partial<SettingsState>);
         ensureBuiltInImageProviders(merged as Partial<SettingsState>);
         ensureBuiltInVideoProviders(merged as Partial<SettingsState>);

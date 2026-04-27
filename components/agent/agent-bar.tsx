@@ -10,8 +10,6 @@ import { useSettingsStore } from '@/lib/store/settings';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { resolveAgentVoice, getAvailableProvidersWithVoices } from '@/lib/audio/voice-resolver';
 import { playBrowserTTSPreview } from '@/lib/audio/browser-tts-preview';
-import { getVoxCPMProviderOptions, useVoxCPMVoiceProfiles } from '@/lib/audio/voxcpm-voices';
-import { VOXCPM_AUTO_VOICE_ID, VOXCPM_TTS_PROVIDER_ID } from '@/lib/audio/voxcpm';
 import {
   Sparkles,
   ChevronDown,
@@ -57,10 +55,6 @@ function getFilteredModelGroups(provider: ProviderWithVoices, query: string) {
     .filter((group) => group.voices.length > 0);
 }
 
-function isNonPreviewableVoice(providerId: TTSProviderId, voiceId: string): boolean {
-  return providerId === VOXCPM_TTS_PROVIDER_ID && voiceId === VOXCPM_AUTO_VOICE_ID;
-}
-
 function AgentVoicePill({
   agent,
   agentIndex,
@@ -72,7 +66,7 @@ function AgentVoicePill({
   availableProviders: ProviderWithVoices[];
   disabled?: boolean;
 }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const updateAgent = useAgentRegistry((s) => s.updateAgent);
   const ttsProvidersConfig = useSettingsStore((s) => s.ttsProvidersConfig);
   const resolved = resolveAgentVoice(agent, agentIndex, availableProviders);
@@ -93,7 +87,7 @@ function AgentVoicePill({
     for (const p of availableProviders) {
       if (p.providerId === resolved.providerId) {
         const v = p.voices.find((voice) => voice.id === resolved.voiceId);
-        if (v) return v.id === VOXCPM_AUTO_VOICE_ID ? t('settings.voxcpmAutoVoice') : v.name;
+        if (v) return v.name;
       }
     }
     return resolved.voiceId;
@@ -141,18 +135,6 @@ function AgentVoicePill({
         const controller = new AbortController();
         previewAbortRef.current = controller;
         const providerConfig = ttsProvidersConfig[providerId];
-        const providerOptions =
-          providerId === 'voxcpm-tts'
-            ? {
-                ...(providerConfig?.providerOptions || {}),
-                ...(await getVoxCPMProviderOptions(voiceId, {
-                  agentName: agent.name,
-                  role: agent.role,
-                  persona: agent.persona,
-                  locale,
-                })),
-              }
-            : undefined;
         const res = await fetch('/api/generate/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -168,7 +150,7 @@ function AgentVoicePill({
               providerConfig?.serverBaseUrl ||
               providerConfig?.baseUrl ||
               providerConfig?.customDefaultBaseUrl,
-            ttsProviderOptions: providerOptions,
+            ttsProviderOptions: providerConfig?.providerOptions,
           }),
           signal: controller.signal,
         });
@@ -185,16 +167,7 @@ function AgentVoicePill({
         setPreviewingId(null);
       }
     },
-    [
-      agent.name,
-      agent.persona,
-      agent.role,
-      locale,
-      previewingId,
-      stopPreview,
-      t,
-      ttsProvidersConfig,
-    ],
+    [previewingId, stopPreview, t, ttsProvidersConfig],
   );
 
   // Cleanup on unmount
@@ -278,7 +251,7 @@ function AgentVoicePill({
                     (resolved.modelId || '') === (group.modelId || '');
                   const previewKey = `${provider.providerId}::${voice.id}`;
                   const isPreviewing = previewingId === previewKey;
-                  const canPreview = !isNonPreviewableVoice(provider.providerId, voice.id);
+                  const canPreview = true;
                   return (
                     <div
                       key={previewKey}
@@ -304,9 +277,7 @@ function AgentVoicePill({
                           isActive ? 'text-primary font-medium' : 'text-foreground',
                         )}
                       >
-                        {voice.id === VOXCPM_AUTO_VOICE_ID
-                          ? t('settings.voxcpmAutoVoice')
-                          : voice.name}
+                        {voice.name}
                       </button>
                       {canPreview && (
                         <button
@@ -352,7 +323,7 @@ function TeacherVoicePill({
   availableProviders: ProviderWithVoices[];
   disabled?: boolean;
 }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const ttsProviderId = useSettingsStore((s) => s.ttsProviderId);
   const ttsVoice = useSettingsStore((s) => s.ttsVoice);
   const setTTSProvider = useSettingsStore((s) => s.setTTSProvider);
@@ -376,7 +347,7 @@ function TeacherVoicePill({
     for (const p of availableProviders) {
       if (p.providerId === ttsProviderId) {
         const v = p.voices.find((voice) => voice.id === ttsVoice);
-        if (v) return v.id === VOXCPM_AUTO_VOICE_ID ? t('settings.voxcpmAutoVoice') : v.name;
+        if (v) return v.name;
       }
     }
     return ttsVoice || 'default';
@@ -423,17 +394,6 @@ function TeacherVoicePill({
         const controller = new AbortController();
         previewAbortRef.current = controller;
         const providerConfig = ttsProvidersConfig[providerId];
-        const providerOptions =
-          providerId === 'voxcpm-tts'
-            ? {
-                ...(providerConfig?.providerOptions || {}),
-                ...(await getVoxCPMProviderOptions(voiceId, {
-                  agentName: 'Teacher',
-                  role: 'teacher',
-                  locale,
-                })),
-              }
-            : undefined;
         const res = await fetch('/api/generate/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -449,7 +409,7 @@ function TeacherVoicePill({
               providerConfig?.serverBaseUrl ||
               providerConfig?.baseUrl ||
               providerConfig?.customDefaultBaseUrl,
-            ttsProviderOptions: providerOptions,
+            ttsProviderOptions: providerConfig?.providerOptions,
           }),
           signal: controller.signal,
         });
@@ -465,7 +425,7 @@ function TeacherVoicePill({
         setPreviewingId(null);
       }
     },
-    [locale, previewingId, stopPreview, t, ttsProvidersConfig],
+    [previewingId, stopPreview, t, ttsProvidersConfig],
   );
 
   useEffect(() => () => stopPreview(), [stopPreview]);
@@ -573,9 +533,7 @@ function TeacherVoicePill({
                           isActive ? 'text-primary font-medium' : 'text-foreground',
                         )}
                       >
-                        {voice.id === VOXCPM_AUTO_VOICE_ID
-                          ? t('settings.voxcpmAutoVoice')
-                          : voice.name}
+                        {voice.name}
                       </button>
                       {canPreview && (
                         <button
@@ -624,7 +582,6 @@ export function AgentBar() {
 
   const [open, setOpen] = useState(false);
   const [browserVoices, setBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const { profiles: voxcpmProfiles } = useVoxCPMVoiceProfiles();
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Load browser native TTS voices
@@ -642,7 +599,7 @@ export function AgentBar() {
   const selectedAgents = agents.filter((a) => selectedAgentIds.includes(a.id));
   const nonTeacherSelected = selectedAgents.filter((a) => a.role !== 'teacher');
 
-  const serverProviders = getAvailableProvidersWithVoices(ttsProvidersConfig, voxcpmProfiles);
+  const serverProviders = getAvailableProvidersWithVoices(ttsProvidersConfig);
   const availableProviders: ProviderWithVoices[] = [
     ...serverProviders,
     ...(browserVoices.length > 0

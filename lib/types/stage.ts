@@ -29,7 +29,7 @@ export interface Stage {
   /**
    * Server-generated agent configurations.
    * Embedded in persisted classroom JSON so clients can hydrate
-   * the agent registry without relying on IndexedDB pre-population.
+   * the agent registry from saved classroom data.
    * Only present for API-generated classrooms.
    */
   generatedAgentConfigs?: Array<{

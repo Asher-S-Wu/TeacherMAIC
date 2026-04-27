@@ -1,10 +1,9 @@
 /**
  * User Profile Store
- * Persists avatar, nickname & bio to localStorage
+ * Keeps avatar, nickname & bio in memory and saves changes to the account.
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 /** Predefined avatar options */
 export const AVATAR_OPTIONS = [
@@ -27,18 +26,31 @@ export interface UserProfileState {
   setBio: (bio: string) => void;
 }
 
-export const useUserProfileStore = create<UserProfileState>()(
-  persist(
-    (set) => ({
-      avatar: AVATAR_OPTIONS[0],
-      nickname: '',
-      bio: '',
-      setAvatar: (avatar) => set({ avatar }),
-      setNickname: (nickname) => set({ nickname }),
-      setBio: (bio) => set({ bio }),
-    }),
-    {
-      name: 'user-profile-storage',
-    },
-  ),
-);
+function saveProfile(profile: Partial<Pick<UserProfileState, 'avatar' | 'nickname' | 'bio'>>) {
+  void fetch('/api/auth/profile', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(profile),
+  }).catch(() => {});
+}
+
+export const useUserProfileStore = create<UserProfileState>()((set, get) => ({
+  avatar: AVATAR_OPTIONS[0],
+  nickname: '',
+  bio: '',
+  setAvatar: (avatar) => {
+    set({ avatar });
+    const { nickname, bio } = get();
+    saveProfile({ avatar, nickname, bio });
+  },
+  setNickname: (nickname) => {
+    set({ nickname });
+    const { avatar, bio } = get();
+    saveProfile({ avatar, nickname, bio });
+  },
+  setBio: (bio) => {
+    set({ bio });
+    const { avatar, nickname } = get();
+    saveProfile({ avatar, nickname, bio });
+  },
+}));

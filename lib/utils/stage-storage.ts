@@ -1,16 +1,13 @@
 /**
- * Stage Storage Manager
+ * Account-backed classroom storage.
  *
- * Manages multiple stage data in IndexedDB
- * Each stage has its own storage key based on stageId
+ * All classroom data is saved through MongoDB API routes. Browser IndexedDB is
+ * not used for account data.
  */
 
-import { Stage, Scene } from '../types/stage';
-import { ChatSession } from '../types/chat';
-import { db } from './database';
-import { saveChatSessions, loadChatSessions, deleteChatSessions } from './chat-storage';
-import { clearPlaybackState } from './playback-storage';
-import { clearAllForScene } from '@/lib/quiz/persistence';
+import type { Stage, Scene } from '../types/stage';
+import type { ChatSession } from '../types/chat';
+import type { SceneOutline } from '@/lib/types/generation';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('StageStorage');
@@ -20,6 +17,7 @@ export interface StageStoreData {
   scenes: Scene[];
   currentSceneId: string | null;
   chats: ChatSession[];
+  outlines?: SceneOutline[];
 }
 
 export interface StageListItem {
@@ -32,223 +30,86 @@ export interface StageListItem {
   interactiveMode?: boolean;
 }
 
-/**
- * Save stage data to IndexedDB
- */
-export async function saveStageData(stageId: string, data: StageStoreData): Promise<void> {
-  try {
-    const now = Date.now();
-
-    // Save to stages table
-    await db.stages.put({
-      id: stageId,
-      name: data.stage.name || 'Untitled Stage',
-      description: data.stage.description,
-      createdAt: data.stage.createdAt || now,
-      updatedAt: now,
-      languageDirective: data.stage.languageDirective,
-      style: data.stage.style,
-      currentSceneId: data.currentSceneId || undefined,
-      agentIds: data.stage.agentIds,
-      interactiveMode: data.stage.interactiveMode,
-    });
-
-    // Delete old scenes first to avoid orphaned data
-    await db.scenes.where('stageId').equals(stageId).delete();
-
-    // Save new scenes
-    if (data.scenes && data.scenes.length > 0) {
-      await db.scenes.bulkPut(
-        data.scenes.map((scene, index) => ({
-          ...scene,
-          stageId,
-          order: scene.order ?? index,
-          createdAt: scene.createdAt || now,
-          updatedAt: scene.updatedAt || now,
-        })),
-      );
-    }
-
-    // Save chat sessions to independent table
-    if (data.chats) {
-      await saveChatSessions(stageId, data.chats);
-    }
-
-    log.info(`Saved stage: ${stageId}`);
-  } catch (error) {
-    log.error('Failed to save stage:', error);
-    throw error;
+async function readJson<T>(response: Response): Promise<T> {
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.success) {
+    throw new Error(data?.error || `请求失败：${response.status}`);
   }
+  return data as T;
 }
 
-/**
- * Load stage data from IndexedDB
- */
+export async function saveStageData(
+  stageId: string,
+  data: StageStoreData & { outlines?: SceneOutline[] },
+): Promise<void> {
+  const response = await fetch(`/api/classrooms/${encodeURIComponent(stageId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      stage: data.stage,
+      scenes: data.scenes,
+      currentSceneId: data.currentSceneId,
+      chats: data.chats,
+      outlines: data.outlines || [],
+    }),
+  });
+  await readJson(response);
+  log.info(`Saved stage: ${stageId}`);
+}
+
 export async function loadStageData(stageId: string): Promise<StageStoreData | null> {
-  try {
-    // Load stage
-    const stage = await db.stages.get(stageId);
-    if (!stage) {
-      log.info(`Stage not found: ${stageId}`);
-      return null;
-    }
-
-    // Load scenes
-    const scenes = await db.scenes.where('stageId').equals(stageId).sortBy('order');
-
-    // Load chat sessions from independent table
-    const chats = await loadChatSessions(stageId);
-
-    log.info(`Loaded stage: ${stageId}, scenes: ${scenes.length}, chats: ${chats.length}`);
-
-    return {
-      stage,
-      scenes,
-      currentSceneId: stage.currentSceneId || scenes[0]?.id || null,
-      chats,
-    };
-  } catch (error) {
-    log.error('Failed to load stage:', error);
-    return null;
-  }
+  const response = await fetch(`/api/classrooms/${encodeURIComponent(stageId)}`);
+  if (response.status === 404) return null;
+  const data = await readJson<{ classroom: StageStoreData & { outlines?: SceneOutline[] } }>(
+    response,
+  );
+  log.info(`Loaded stage: ${stageId}`);
+  return data.classroom;
 }
 
-/**
- * Delete stage and all related data
- */
 export async function deleteStageData(stageId: string): Promise<void> {
-  try {
-    // Collect scene ids before deletion so we can sweep per-scene localStorage
-    // keys (quiz draft / submitted answers / graded results).
-    const sceneIds = (await db.scenes.where('stageId').equals(stageId).toArray()).map((s) => s.id);
-
-    // Delete stage
-    await db.stages.delete(stageId);
-
-    // Delete scenes
-    await db.scenes.where('stageId').equals(stageId).delete();
-
-    // Delete chat sessions and playback state
-    await deleteChatSessions(stageId);
-    await clearPlaybackState(stageId);
-
-    // Sweep quiz persistence keys for each deleted scene.
-    for (const sceneId of sceneIds) {
-      clearAllForScene(sceneId);
-    }
-
-    log.info(`Deleted stage: ${stageId}`);
-  } catch (error) {
-    log.error('Failed to delete stage:', error);
-    throw error;
-  }
+  const response = await fetch(`/api/classrooms/${encodeURIComponent(stageId)}`, {
+    method: 'DELETE',
+  });
+  await readJson(response);
+  log.info(`Deleted stage: ${stageId}`);
 }
 
-/**
- * List all stages
- */
 export async function listStages(): Promise<StageListItem[]> {
-  try {
-    const stages = await db.stages.orderBy('updatedAt').reverse().toArray();
-
-    const stageList: StageListItem[] = await Promise.all(
-      stages.map(async (stage) => {
-        const sceneCount = await db.scenes.where('stageId').equals(stage.id).count();
-
-        return {
-          id: stage.id,
-          name: stage.name,
-          description: stage.description,
-          sceneCount,
-          createdAt: stage.createdAt,
-          updatedAt: stage.updatedAt,
-          interactiveMode: stage.interactiveMode,
-        };
-      }),
-    );
-
-    return stageList;
-  } catch (error) {
-    log.error('Failed to list stages:', error);
-    return [];
-  }
+  const response = await fetch('/api/classrooms');
+  const data = await readJson<{ classrooms: StageListItem[] }>(response);
+  return data.classrooms;
 }
 
-/**
- * Get first slide scene's canvas data for each stage (for thumbnail preview).
- * Also resolves gen_img_* placeholders from mediaFiles so thumbnails show real images.
- * Returns a map of stageId -> Slide (canvas data with resolved images)
- */
 export async function getFirstSlideByStages(
   stageIds: string[],
 ): Promise<Record<string, import('../types/slides').Slide>> {
   const result: Record<string, import('../types/slides').Slide> = {};
-  try {
-    await Promise.all(
-      stageIds.map(async (stageId) => {
-        const scenes = await db.scenes.where('stageId').equals(stageId).sortBy('order');
-        const firstSlide = scenes.find((s) => s.content?.type === 'slide');
-        if (firstSlide && firstSlide.content.type === 'slide') {
-          const slide = structuredClone(firstSlide.content.canvas);
-
-          // Resolve gen_img_* placeholders from mediaFiles
-          const placeholderEls = slide.elements.filter(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (el: any) => el.type === 'image' && /^gen_(img|vid)_[\w-]+$/i.test(el.src as string),
-          );
-          if (placeholderEls.length > 0) {
-            const mediaRecords = await db.mediaFiles.where('stageId').equals(stageId).toArray();
-            const mediaMap = new Map(
-              mediaRecords.map((r) => {
-                // Key format: stageId:elementId → extract elementId
-                const elementId = r.id.includes(':') ? r.id.split(':').slice(1).join(':') : r.id;
-                return [elementId, r.blob] as const;
-              }),
-            );
-            for (const el of placeholderEls as Array<{ src: string }>) {
-              const blob = mediaMap.get(el.src);
-              if (blob) {
-                el.src = URL.createObjectURL(blob);
-              } else {
-                // Clear unresolved placeholder so BaseImageElement won't subscribe
-                // to the global media store (which may have stale data from another course)
-                el.src = '';
-              }
-            }
-          }
-
-          result[stageId] = slide;
-        }
-      }),
-    );
-  } catch (error) {
-    log.error('Failed to load thumbnails:', error);
-  }
+  await Promise.all(
+    stageIds.map(async (stageId) => {
+      const data = await loadStageData(stageId);
+      const firstSlide = data?.scenes.find((s) => s.content?.type === 'slide');
+      if (firstSlide?.content.type === 'slide') {
+        result[stageId] = firstSlide.content.canvas;
+      }
+    }),
+  );
   return result;
 }
 
-/**
- * Rename a stage (updates only the name field in IndexedDB)
- */
 export async function renameStage(stageId: string, newName: string): Promise<void> {
-  try {
-    await db.stages.update(stageId, { name: newName, updatedAt: Date.now() });
-    log.info(`Renamed stage ${stageId} to "${newName}"`);
-  } catch (error) {
-    log.error('Failed to rename stage:', error);
-    throw error;
-  }
+  const response = await fetch(`/api/classrooms/${encodeURIComponent(stageId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: newName }),
+  });
+  await readJson(response);
+  log.info(`Renamed stage ${stageId} to "${newName}"`);
 }
 
-/**
- * Check if stage exists
- */
 export async function stageExists(stageId: string): Promise<boolean> {
-  try {
-    const stage = await db.stages.get(stageId);
-    return !!stage;
-  } catch (error) {
-    log.error('Failed to check stage existence:', error);
-    return false;
-  }
+  const response = await fetch(`/api/classrooms/${encodeURIComponent(stageId)}`);
+  if (response.status === 404) return false;
+  await readJson(response);
+  return true;
 }

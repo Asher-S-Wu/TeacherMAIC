@@ -1,49 +1,84 @@
 import type { Action, SpeechAction } from '@/lib/types/action';
 import type { ManifestAction } from './classroom-zip-types';
-import { db } from '@/lib/utils/database';
-import type { AudioFileRecord, MediaFileRecord } from '@/lib/utils/database';
 import type { Scene } from '@/lib/types/stage';
 
 // ─── Export: Collect Media ─────────────────────────────────────
 
+export interface AccountAudioRecord {
+  id: string;
+  blob: Blob;
+  format: string;
+  duration?: number;
+  voice?: string;
+}
+
+export interface AccountMediaRecord {
+  id: string;
+  blob: Blob;
+  mimeType: string;
+  size: number;
+  prompt: string;
+  poster?: Blob;
+}
+
 export interface CollectedAudio {
   zipPath: string;
-  record: AudioFileRecord;
+  record: AccountAudioRecord;
 }
 
 export interface CollectedMedia {
   zipPath: string;
-  record: MediaFileRecord;
+  record: AccountMediaRecord;
   elementId: string;
 }
 
 export async function collectAudioFiles(scenes: Scene[]): Promise<CollectedAudio[]> {
-  const audioIds = new Set<string>();
+  const audioRefs = new Map<string, string>();
   for (const scene of scenes) {
     for (const action of scene.actions ?? []) {
-      if (action.type === 'speech' && (action as SpeechAction).audioId) {
-        audioIds.add((action as SpeechAction).audioId!);
+      if (action.type === 'speech' && (action as SpeechAction).audioId && (action as SpeechAction).audioUrl) {
+        audioRefs.set((action as SpeechAction).audioId!, (action as SpeechAction).audioUrl!);
       }
     }
   }
   const collected: CollectedAudio[] = [];
-  for (const audioId of audioIds) {
-    const record = await db.audioFiles.get(audioId);
-    if (record) {
-      const ext = record.format || 'mp3';
-      collected.push({ zipPath: `audio/${audioId}.${ext}`, record });
-    }
+  for (const [audioId, audioUrl] of audioRefs) {
+    const response = await fetch(audioUrl);
+    if (!response.ok) continue;
+    const blob = await response.blob();
+    const format = blob.type.split('/')[1] || 'mp3';
+    collected.push({
+      zipPath: `audio/${audioId}.${format}`,
+      record: { id: audioId, blob, format },
+    });
   }
   return collected;
 }
 
-export async function collectMediaFiles(stageId: string): Promise<CollectedMedia[]> {
-  const records = await db.mediaFiles.where('stageId').equals(stageId).toArray();
+export async function collectMediaFiles(scenes: Scene[]): Promise<CollectedMedia[]> {
   const collected: CollectedMedia[] = [];
-  for (const record of records) {
-    const elementId = record.id.includes(':') ? record.id.split(':').slice(1).join(':') : record.id;
-    const ext = record.mimeType?.split('/')[1] || 'jpg';
-    collected.push({ zipPath: `media/${elementId}.${ext}`, record, elementId });
+  for (const scene of scenes) {
+    if (scene.content?.type !== 'slide') continue;
+    for (const element of scene.content.canvas.elements) {
+      if (!('src' in element) || typeof element.src !== 'string') continue;
+      if (!element.src.startsWith('/api/files/')) continue;
+      const response = await fetch(element.src);
+      if (!response.ok) continue;
+      const blob = await response.blob();
+      const mimeType = blob.type || (element.type === 'video' ? 'video/mp4' : 'image/jpeg');
+      const ext = mimeType.split('/')[1] || 'jpg';
+      collected.push({
+        zipPath: `media/${element.id}.${ext}`,
+        record: {
+          id: element.src.split('/').pop() || element.id,
+          blob,
+          mimeType,
+          size: blob.size,
+          prompt: '',
+        },
+        elementId: element.id,
+      });
+    }
   }
   return collected;
 }

@@ -9,7 +9,7 @@
  *   EVAL_JUDGE_MODEL      Model for LLM-as-judge
  *
  * Usage:
- *   EVAL_INFERENCE_MODEL=<provider:model> EVAL_JUDGE_MODEL=<provider:model> \
+ *   EVAL_INFERENCE_MODEL=kimi:moonshotai/kimi-k2.6 EVAL_JUDGE_MODEL=kimi:moonshotai/kimi-k2.6 \
  *   pnpm eval:outline-language
  *
  * Output: eval/outline-language/results/<inference-model>/<timestamp>/report.md
@@ -46,13 +46,13 @@ function requireModelEnv(): { inferenceModelStr: string; judgeModelStr: string }
   const judgeModelStr = process.env.EVAL_JUDGE_MODEL;
   if (!inferenceModelStr) {
     console.error(
-      'Error: EVAL_INFERENCE_MODEL (or DEFAULT_MODEL) must be set. Example: EVAL_INFERENCE_MODEL=openai:gpt-4.1',
+      'Error: EVAL_INFERENCE_MODEL (or DEFAULT_MODEL) must be set. Example: EVAL_INFERENCE_MODEL=kimi:moonshotai/kimi-k2.6',
     );
     process.exit(1);
   }
   if (!judgeModelStr) {
     console.error(
-      'Error: EVAL_JUDGE_MODEL must be set. Example: EVAL_JUDGE_MODEL=anthropic:claude-haiku-4-5',
+      'Error: EVAL_JUDGE_MODEL must be set. Example: EVAL_JUDGE_MODEL=kimi:moonshotai/kimi-k2.6',
     );
     process.exit(1);
   }

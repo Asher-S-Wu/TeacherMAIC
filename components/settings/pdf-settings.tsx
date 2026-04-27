@@ -44,14 +44,11 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
   const isServerConfigured = !!pdfProvidersConfig[selectedProviderId]?.isServerConfigured;
   const providerConfig = pdfProvidersConfig[selectedProviderId];
   const hasApiKey = !!providerConfig?.apiKey;
-  const hasBaseUrl = !!providerConfig?.baseUrl;
 
   const isCloud = selectedProviderId === 'mineru-cloud';
-  const isSelfHosted = selectedProviderId === 'mineru';
-  const needsRemoteConfig = isSelfHosted || isCloud;
+  const needsRemoteConfig = isCloud;
 
-  // For cloud: test requires API key (user-entered or server-configured); for self-hosted: test requires base URL
-  const canTest = isCloud ? hasApiKey || isServerConfigured : hasBaseUrl || isServerConfigured;
+  const canTest = hasApiKey || isServerConfigured;
 
   // Reset state when provider changes
   const [prevSelectedProviderId, setPrevSelectedProviderId] = useState(selectedProviderId);
@@ -106,7 +103,7 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
       {(needsRemoteConfig || isServerConfigured) && (
         <>
           <div className="grid grid-cols-2 gap-4">
-            {/* API Key — shown first for cloud, second for self-hosted */}
+            {/* API Key */}
             {isCloud && (
               <div className="space-y-2">
                 <Label className="text-sm">{t('settings.pdfApiKey')}</Label>
@@ -159,15 +156,13 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
             )}
 
             {/* Base URL */}
-            {(isSelfHosted || isCloud) && (
+            {isCloud && (
               <div className="space-y-2">
                 <Label className="text-sm">
                   {t('settings.pdfBaseUrl')}
-                  {isCloud && (
-                    <span className="text-muted-foreground ml-1 font-normal">
-                      ({t('settings.optional')})
-                    </span>
-                  )}
+                  <span className="text-muted-foreground ml-1 font-normal">
+                    ({t('settings.optional')})
+                  </span>
                 </Label>
                 <div className="flex gap-2">
                   <Input
@@ -176,71 +171,13 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
-                    placeholder={isCloud ? 'https://mineru.net/api/v4' : 'http://localhost:8080'}
+                    placeholder="https://mineru.net/api/v4"
                     value={providerConfig?.baseUrl || ''}
                     onChange={(e) =>
                       setPDFProviderConfig(selectedProviderId, { baseUrl: e.target.value })
                     }
                     className="text-sm"
                   />
-                  {/* Test button for self-hosted (next to base URL) */}
-                  {isSelfHosted && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleTestConnection}
-                      disabled={testStatus === 'testing' || !canTest}
-                      className="gap-1.5 shrink-0"
-                    >
-                      {testStatus === 'testing' ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <>
-                          <Zap className="h-3.5 w-3.5" />
-                          {t('settings.testConnection')}
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* API Key for self-hosted (optional, second column) */}
-            {isSelfHosted && (
-              <div className="space-y-2">
-                <Label className="text-sm">
-                  {t('settings.pdfApiKey')}
-                  <span className="text-muted-foreground ml-1 font-normal">
-                    ({t('settings.optional')})
-                  </span>
-                </Label>
-                <div className="relative">
-                  <Input
-                    name={`pdf-api-key-${selectedProviderId}`}
-                    type={showApiKey ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    placeholder={
-                      isServerConfigured
-                        ? t('settings.optionalOverride')
-                        : t('settings.enterApiKey')
-                    }
-                    value={providerConfig?.apiKey || ''}
-                    onChange={(e) =>
-                      setPDFProviderConfig(selectedProviderId, { apiKey: e.target.value })
-                    }
-                    className="font-mono text-sm pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
                 </div>
               </div>
             )}
@@ -266,23 +203,13 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
           )}
 
           {/* Request URL Preview */}
-          {(() => {
-            if (isCloud) {
-              const base = providerConfig?.baseUrl || 'https://mineru.net/api/v4';
-              return (
-                <p className="text-xs text-muted-foreground break-all">
-                  {t('settings.requestUrl')}: {base}/file-urls/batch
-                </p>
-              );
-            }
-            const effectiveBaseUrl = providerConfig?.baseUrl || '';
-            if (!effectiveBaseUrl) return null;
-            return (
-              <p className="text-xs text-muted-foreground break-all">
-                {t('settings.requestUrl')}: {effectiveBaseUrl}/file_parse
-              </p>
-            );
-          })()}
+          {isCloud && (
+            <p className="text-xs text-muted-foreground break-all">
+              {t('settings.requestUrl')}:{' '}
+              {(providerConfig?.baseUrl || 'https://mineru.net/api/v4').replace(/\/+$/, '')}
+              /file-urls/batch
+            </p>
+          )}
         </>
       )}
 

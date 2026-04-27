@@ -1,6 +1,6 @@
 /**
  * Shared MinerU result parser.
- * Used by both self-hosted (pdf-providers.ts) and cloud (mineru-cloud.ts) paths.
+ * Used by the MinerU Cloud path.
  * Normalizes MinerU output (markdown + images dict + content_list) into ParsedPdfContent.
  */
 
@@ -97,7 +97,7 @@ export function extractMinerUResult(fileResult: Record<string, unknown>): Parsed
     images,
     metadata: {
       pageCount,
-      parser: 'mineru',
+      parser: 'mineru-cloud',
       imageMapping,
       pdfImages,
     },

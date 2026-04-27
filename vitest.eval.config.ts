@@ -9,6 +9,5 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.eval.test.ts'],
-    setupFiles: ['tests/setup-env.ts'],
   },
 });

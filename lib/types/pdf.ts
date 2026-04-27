@@ -40,9 +40,9 @@ export interface ParsedPdfContent {
     fileName?: string;
     fileSize?: number;
     pageCount: number;
-    parser?: string; // 'unpdf' | 'mineru'
+    parser?: string; // 'unpdf' | 'mineru-cloud'
     processingTime?: number;
-    taskId?: string; // MinerU task ID
+    taskId?: string; // Cloud parsing task ID
     /** Image ID to base64 URL mapping (used in generation pipeline) */
     imageMapping?: Record<string, string>; // e.g., { "img_1": "data:image/png;base64,..." }
     /** PdfImage array with page numbers (used in generation pipeline) */

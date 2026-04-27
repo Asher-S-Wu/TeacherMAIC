@@ -4,7 +4,7 @@
  * Server-side proxy for fetching remote media URLs (images/videos).
  * Required because browser fetch() to remote CDN URLs fails with CORS errors.
  * The media orchestrator uses this to download generated media as blobs
- * for IndexedDB persistence.
+ * before saving media into the signed-in account.
  *
  * POST /api/proxy-media
  * Body: { url: string }
@@ -17,8 +17,6 @@ import { apiError } from '@/lib/server/api-response';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ProxyMedia');
-
-export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   let url: string | undefined;

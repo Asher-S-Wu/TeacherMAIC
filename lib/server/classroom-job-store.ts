@@ -1,16 +1,11 @@
-import { promises as fs } from 'fs';
-import path from 'path';
+import { ObjectId } from 'mongodb';
 import type {
   ClassroomGenerationProgress,
   ClassroomGenerationStep,
   GenerateClassroomInput,
   GenerateClassroomResult,
 } from '@/lib/server/classroom-generation';
-import {
-  CLASSROOM_JOBS_DIR,
-  ensureClassroomJobsDir,
-  writeJsonFileAtomic,
-} from '@/lib/server/classroom-storage';
+import { getCollections, getMongo, type ClassroomJobDoc } from '@/lib/server/mongodb';
 
 export type ClassroomGenerationJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
@@ -40,10 +35,6 @@ export interface ClassroomGenerationJob {
   error?: string;
 }
 
-function jobFilePath(jobId: string) {
-  return path.join(CLASSROOM_JOBS_DIR, `${jobId}.json`);
-}
-
 function buildInputSummary(input: GenerateClassroomInput): ClassroomGenerationJob['inputSummary'] {
   return {
     requirementPreview:
@@ -54,43 +45,44 @@ function buildInputSummary(input: GenerateClassroomInput): ClassroomGenerationJo
   };
 }
 
-/** Simple per-job mutex to serialize read-modify-write on the same job file. */
-const jobLocks = new Map<string, Promise<void>>();
+const STALE_JOB_TIMEOUT_MS = 30 * 60 * 1000;
 
-async function withJobLock<T>(jobId: string, fn: () => Promise<T>): Promise<T> {
-  const prev = jobLocks.get(jobId) ?? Promise.resolve();
-  let resolve: () => void;
-  const next = new Promise<void>((r) => {
-    resolve = r;
-  });
-  jobLocks.set(jobId, next);
-  try {
-    await prev;
-    return await fn();
-  } finally {
-    resolve!();
-    if (jobLocks.get(jobId) === next) jobLocks.delete(jobId);
-  }
+function toPublicJob(job: ClassroomJobDoc): ClassroomGenerationJob {
+  return {
+    id: job.id,
+    status: job.status,
+    step: job.step as ClassroomGenerationJob['step'],
+    progress: job.progress,
+    message: job.message,
+    createdAt: job.createdAt.toISOString(),
+    updatedAt: job.updatedAt.toISOString(),
+    ...(job.startedAt ? { startedAt: job.startedAt.toISOString() } : {}),
+    ...(job.completedAt ? { completedAt: job.completedAt.toISOString() } : {}),
+    inputSummary: job.inputSummary,
+    scenesGenerated: job.scenesGenerated,
+    ...(job.totalScenes !== undefined ? { totalScenes: job.totalScenes } : {}),
+    ...(job.result ? { result: job.result } : {}),
+    ...(job.error ? { error: job.error } : {}),
+  };
 }
 
-/** Max age (ms) before a "running" job without an active runner is considered stale. */
-const STALE_JOB_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-
-function markStaleIfNeeded(job: ClassroomGenerationJob): ClassroomGenerationJob {
+async function markStaleIfNeeded(job: ClassroomJobDoc): Promise<ClassroomJobDoc> {
   if (job.status !== 'running') return job;
-  const updatedAt = new Date(job.updatedAt).getTime();
-  if (Date.now() - updatedAt > STALE_JOB_TIMEOUT_MS) {
-    return {
-      ...job,
-      status: 'failed',
-      step: 'failed',
-      message: 'Job appears stale (no progress update for 30 minutes)',
-      error: 'Stale job: process may have restarted during generation',
-      completedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  }
-  return job;
+  if (Date.now() - job.updatedAt.getTime() <= STALE_JOB_TIMEOUT_MS) return job;
+
+  const { db } = await getMongo();
+  const c = getCollections(db);
+  const now = new Date();
+  const patch = {
+    status: 'failed' as const,
+    step: 'failed',
+    message: '任务长时间没有进度，已停止',
+    error: '任务进程可能已重启',
+    completedAt: now,
+    updatedAt: now,
+  };
+  await c.classroomJobs.updateOne({ _id: job._id }, { $set: patch });
+  return { ...job, ...patch };
 }
 
 export function isValidClassroomJobId(jobId: string): boolean {
@@ -100,81 +92,84 @@ export function isValidClassroomJobId(jobId: string): boolean {
 export async function createClassroomGenerationJob(
   jobId: string,
   input: GenerateClassroomInput,
+  userId: ObjectId,
 ): Promise<ClassroomGenerationJob> {
-  const now = new Date().toISOString();
-  const job: ClassroomGenerationJob = {
+  const { db } = await getMongo();
+  const now = new Date();
+  const job: ClassroomJobDoc = {
+    _id: new ObjectId(),
+    userId,
     id: jobId,
     status: 'queued',
     step: 'queued',
     progress: 0,
-    message: 'Classroom generation job queued',
+    message: '课堂生成任务已排队',
     createdAt: now,
     updatedAt: now,
     inputSummary: buildInputSummary(input),
     scenesGenerated: 0,
   };
 
-  await ensureClassroomJobsDir();
-  await writeJsonFileAtomic(jobFilePath(jobId), job);
-  return job;
+  await getCollections(db).classroomJobs.insertOne(job);
+  return toPublicJob(job);
 }
 
 export async function readClassroomGenerationJob(
   jobId: string,
+  userId: ObjectId,
 ): Promise<ClassroomGenerationJob | null> {
-  try {
-    const content = await fs.readFile(jobFilePath(jobId), 'utf-8');
-    const job = JSON.parse(content) as ClassroomGenerationJob;
-    return markStaleIfNeeded(job);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return null;
-    }
-    throw error;
-  }
+  const { db } = await getMongo();
+  const job = await getCollections(db).classroomJobs.findOne({ id: jobId, userId });
+  if (!job) return null;
+  return toPublicJob(await markStaleIfNeeded(job));
 }
 
-export async function updateClassroomGenerationJob(
+async function updateClassroomGenerationJob(
   jobId: string,
-  patch: Partial<ClassroomGenerationJob>,
+  patch: Partial<ClassroomJobDoc>,
 ): Promise<ClassroomGenerationJob> {
-  return withJobLock(jobId, async () => {
-    const existing = await readClassroomGenerationJob(jobId);
-    if (!existing) {
-      throw new Error(`Classroom generation job not found: ${jobId}`);
-    }
-
-    const updated: ClassroomGenerationJob = {
-      ...existing,
-      ...patch,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await writeJsonFileAtomic(jobFilePath(jobId), updated);
-    return updated;
-  });
+  const { db } = await getMongo();
+  const c = getCollections(db);
+  const updatedAt = new Date();
+  const result = await c.classroomJobs.findOneAndUpdate(
+    { id: jobId },
+    { $set: { ...patch, updatedAt } },
+    { returnDocument: 'after' },
+  );
+  if (!result) {
+    throw new Error(`课堂生成任务不存在: ${jobId}`);
+  }
+  return toPublicJob(result);
 }
 
 export async function markClassroomGenerationJobRunning(
   jobId: string,
 ): Promise<ClassroomGenerationJob> {
-  return withJobLock(jobId, async () => {
-    const existing = await readClassroomGenerationJob(jobId);
-    if (!existing) {
-      throw new Error(`Classroom generation job not found: ${jobId}`);
-    }
-
-    const updated: ClassroomGenerationJob = {
-      ...existing,
-      status: 'running',
-      startedAt: existing.startedAt || new Date().toISOString(),
-      message: 'Classroom generation started',
-      updatedAt: new Date().toISOString(),
-    };
-
-    await writeJsonFileAtomic(jobFilePath(jobId), updated);
-    return updated;
-  });
+  const { db } = await getMongo();
+  const c = getCollections(db);
+  const now = new Date();
+  const result = await c.classroomJobs.findOneAndUpdate(
+    { id: jobId },
+    {
+      $set: {
+        status: 'running',
+        message: '课堂生成已开始',
+        updatedAt: now,
+      },
+      $setOnInsert: {
+        startedAt: now,
+      },
+    },
+    { returnDocument: 'after' },
+  );
+  if (!result) {
+    throw new Error(`课堂生成任务不存在: ${jobId}`);
+  }
+  if (!result.startedAt) {
+    await c.classroomJobs.updateOne({ id: jobId }, { $set: { startedAt: now } });
+    result.startedAt = now;
+  }
+  return toPublicJob(result);
 }
 
 export async function updateClassroomGenerationJobProgress(
@@ -199,8 +194,8 @@ export async function markClassroomGenerationJobSucceeded(
     status: 'succeeded',
     step: 'completed',
     progress: 100,
-    message: 'Classroom generation completed',
-    completedAt: new Date().toISOString(),
+    message: '课堂生成完成',
+    completedAt: new Date(),
     scenesGenerated: result.scenesCount,
     result: {
       classroomId: result.id,
@@ -217,8 +212,17 @@ export async function markClassroomGenerationJobFailed(
   return updateClassroomGenerationJob(jobId, {
     status: 'failed',
     step: 'failed',
-    message: 'Classroom generation failed',
-    completedAt: new Date().toISOString(),
+    message: '课堂生成失败',
+    completedAt: new Date(),
     error,
   });
+}
+
+export async function readClassroomGenerationJobOwner(jobId: string): Promise<ObjectId | null> {
+  const { db } = await getMongo();
+  const job = await getCollections(db).classroomJobs.findOne(
+    { id: jobId },
+    { projection: { userId: 1 } },
+  );
+  return job?.userId ?? null;
 }

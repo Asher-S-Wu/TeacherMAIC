@@ -16,15 +16,15 @@ describe('createRunDir', () => {
   });
 
   it('creates <base>/<sanitized-model>/<timestamp>/ and returns the path', () => {
-    const runDir = createRunDir(tempRoot, 'openai:gpt-4.1');
-    expect(runDir.startsWith(join(tempRoot, 'openai-gpt-4.1'))).toBe(true);
+    const runDir = createRunDir(tempRoot, 'kimi:moonshotai/kimi-k2.6');
+    expect(runDir.startsWith(join(tempRoot, 'kimi-moonshotai-kimi-k2.6'))).toBe(true);
     expect(existsSync(runDir)).toBe(true);
   });
 
   it('sanitizes both : and / from the model string', () => {
-    const runDir = createRunDir(tempRoot, 'google:gemini-2.5-flash/latest');
-    expect(runDir).toContain('google-gemini-2.5-flash-latest');
-    expect(runDir).not.toMatch(/[:/]gemini/);
+    const runDir = createRunDir(tempRoot, 'kimi:moonshotai/kimi-k2.6/latest');
+    expect(runDir).toContain('kimi-moonshotai-kimi-k2.6-latest');
+    expect(runDir).not.toMatch(/[:/]kimi/);
   });
 
   it('timestamp segment has no colons or dots', () => {

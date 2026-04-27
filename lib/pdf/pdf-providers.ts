@@ -6,8 +6,7 @@
  *
  * Currently Supported Providers:
  * - unpdf: Built-in Node.js PDF parser with text and image extraction
- * - MinerU: Advanced commercial service with OCR, formula, and table extraction
- *   (https://mineru.ai or self-hosted)
+ * - MinerU Cloud: Advanced cloud service with OCR, formula, and table extraction
  *
  * HOW TO ADD A NEW PROVIDER:
  *
@@ -143,7 +142,6 @@ import type { PDFParserConfig } from './types';
 import type { ParsedPdfContent } from '@/lib/types/pdf';
 import { PDF_PROVIDERS } from './constants';
 import { createLogger } from '@/lib/logger';
-import { extractMinerUResult } from './mineru-parser';
 import { parseWithMinerUCloud } from './mineru-cloud';
 
 const log = createLogger('PDFProviders');
@@ -172,10 +170,6 @@ export async function parsePDF(
   switch (config.providerId) {
     case 'unpdf':
       result = await parseWithUnpdf(pdfBuffer);
-      break;
-
-    case 'mineru':
-      result = await parseWithMinerU(config, pdfBuffer);
       break;
 
     case 'mineru-cloud':
@@ -266,91 +260,6 @@ async function parseWithUnpdf(pdfBuffer: Buffer): Promise<ParsedPdfContent> {
       pdfImages: pdfImagesMeta,
     },
   };
-}
-
-/**
- * Parse PDF using self-hosted MinerU service (mineru-api)
- *
- * Official MinerU API endpoint:
- * POST /file_parse  (multipart/form-data)
- *
- * Response format:
- * { results: { "document.pdf": { md_content, images, content_list, ... } } }
- *
- * @see https://github.com/opendatalab/MinerU
- */
-async function parseWithMinerU(
-  config: PDFParserConfig,
-  pdfBuffer: Buffer,
-): Promise<ParsedPdfContent> {
-  if (!config.baseUrl) {
-    throw new Error(
-      'MinerU base URL is required. ' +
-        'Please deploy MinerU locally or specify the server URL. ' +
-        'See: https://github.com/opendatalab/MinerU',
-    );
-  }
-
-  log.info('[MinerU] Parsing PDF with MinerU server:', config.baseUrl);
-
-  const fileName = 'document.pdf';
-
-  // Create FormData for file upload
-  const formData = new FormData();
-
-  // Convert Buffer to Blob
-  const arrayBuffer = pdfBuffer.buffer.slice(
-    pdfBuffer.byteOffset,
-    pdfBuffer.byteOffset + pdfBuffer.byteLength,
-  );
-  const blob = new Blob([arrayBuffer as ArrayBuffer], {
-    type: 'application/pdf',
-  });
-  formData.append('files', blob, fileName);
-
-  // MinerU API form fields
-  // Defaults already: return_md=true, formula_enable=true, table_enable=true
-  formData.append('parse_method', 'auto');
-  // hybrid-auto-engine: best accuracy, uses VLM for layout understanding (requires GPU)
-  // pipeline: basic mode, no VLM, faster but lower quality image extraction
-  formData.append('backend', 'hybrid-auto-engine');
-  formData.append('return_content_list', 'true');
-  formData.append('return_images', 'true');
-
-  // API key (if required by deployment)
-  const headers: Record<string, string> = {};
-  if (config.apiKey) {
-    headers['Authorization'] = `Bearer ${config.apiKey}`;
-  }
-
-  // POST /file_parse
-  const response = await fetch(`${config.baseUrl}/file_parse`, {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => response.statusText);
-    throw new Error(`MinerU API error (${response.status}): ${errorText}`);
-  }
-
-  const json = await response.json();
-
-  // Response: { results: { "<fileName>": { md_content, images, content_list, ... } } }
-  const fileResult = json.results?.[fileName];
-  if (!fileResult) {
-    const keys = json.results ? Object.keys(json.results) : [];
-    // Try first available key in case filename doesn't match exactly
-    const fallback = keys.length > 0 ? json.results[keys[0]] : null;
-    if (!fallback) {
-      throw new Error(`MinerU returned no results. Response keys: ${JSON.stringify(keys)}`);
-    }
-    log.warn(`[MinerU] Filename mismatch, using key "${keys[0]}" instead of "${fileName}"`);
-    return extractMinerUResult(fallback);
-  }
-
-  return extractMinerUResult(fileResult);
 }
 
 /**

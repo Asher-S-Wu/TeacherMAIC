@@ -147,7 +147,6 @@ export interface CreateSessionRequest {
 export interface SendMessageRequest {
   content: string;
   apiKey?: string;
-  baseUrl?: string;
   model?: string;
   storeState: {
     stage: unknown;
@@ -276,11 +275,9 @@ export interface StatelessChatRequest {
     nickname?: string;
     bio?: string;
   };
-  /** OpenAI-compatible API credentials */
+  /** ZenMux API credentials */
   apiKey: string;
-  baseUrl?: string;
   model?: string;
-  providerType?: string;
   /**
    * Opt-in: enable provider-side thinking for this request. Default is
    * `{ enabled: false }` (low-latency chat). Eval harness sets this to

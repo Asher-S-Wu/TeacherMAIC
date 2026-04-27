@@ -8,7 +8,7 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import { useStageStore } from '@/lib/store';
 import type { Scene, SceneType } from '@/lib/types/stage';
 import { summarizeScenes } from '@/lib/classroom/complete-summary';
-import { readAnswersForSummary } from '@/lib/quiz/persistence';
+import { hydrateSubmittedState, readAnswersForSummary } from '@/lib/quiz/persistence';
 
 const SCENE_TYPE_ICONS: Record<SceneType, typeof FileText> = {
   slide: FileText,
@@ -310,9 +310,24 @@ export function ClassroomCompletePage({ scenes, title }: ClassroomCompletePagePr
   const prefersReducedMotion = useReducedMotion();
 
   // Computed once on mount: re-grading on every render would be wasteful and
-  // the underlying localStorage values only change when the user revisits a
+  // the underlying saved values only change when the user revisits a
   // quiz scene (which unmounts this page).
-  const summary = useMemo(() => summarizeScenes(scenes, readAnswersForSummary), [scenes]);
+  const [quizHydrated, setQuizHydrated] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const quizSceneIds = scenes.filter((scene) => scene.type === 'quiz').map((scene) => scene.id);
+    Promise.all(quizSceneIds.map((sceneId) => hydrateSubmittedState(sceneId))).then(() => {
+      if (!cancelled) setQuizHydrated((value) => value + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [scenes]);
+
+  const summary = useMemo(
+    () => summarizeScenes(scenes, readAnswersForSummary),
+    [scenes, quizHydrated],
+  );
 
   const dateLabel = useMemo(() => {
     try {

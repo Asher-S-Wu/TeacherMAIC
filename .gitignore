@@ -45,10 +45,6 @@ yarn-error.log*
 .env*
 !.env.example
 
-# server provider config (contains API keys)
-server-providers.yml
-server-providers-*.yml
-
 # vercel
 .vercel
 

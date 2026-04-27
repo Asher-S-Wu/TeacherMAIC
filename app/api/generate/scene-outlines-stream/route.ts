@@ -37,8 +37,6 @@ import { createLogger } from '@/lib/logger';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 const log = createLogger('Outlines Stream');
 
-export const maxDuration = 300;
-
 /**
  * Extract the languageDirective from the streamed wrapper JSON.
  * Matches `"languageDirective":"<value>"` in partial JSON like:

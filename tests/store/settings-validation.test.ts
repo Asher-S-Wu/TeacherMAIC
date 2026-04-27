@@ -36,7 +36,7 @@ describe('isProviderUsable', () => {
   });
 
   it('returns true for keyless provider with explicit baseUrl', () => {
-    expect(isProviderUsable({ requiresApiKey: false, baseUrl: 'http://localhost:11434/v1' })).toBe(
+    expect(isProviderUsable({ requiresApiKey: false, baseUrl: 'https://api.example.com/v1' })).toBe(
       true,
     );
   });
@@ -125,18 +125,22 @@ describe('validateProvider', () => {
 
 describe('validateModel', () => {
   it('keeps model when still in available list', () => {
-    expect(validateModel('gpt-4o', [{ id: 'gpt-4o' }, { id: 'gpt-4o-mini' }])).toBe('gpt-4o');
+    expect(validateModel('moonshotai/kimi-k2.6', [{ id: 'moonshotai/kimi-k2.6' }])).toBe(
+      'moonshotai/kimi-k2.6',
+    );
   });
 
   it('falls back to first model when current is not in list', () => {
-    expect(validateModel('gpt-4-turbo', [{ id: 'gpt-4o' }, { id: 'gpt-4o-mini' }])).toBe('gpt-4o');
+    expect(validateModel('old-model', [{ id: 'moonshotai/kimi-k2.6' }])).toBe(
+      'moonshotai/kimi-k2.6',
+    );
   });
 
   it('returns empty string when list is empty', () => {
-    expect(validateModel('gpt-4o', [])).toBe('');
+    expect(validateModel('moonshotai/kimi-k2.6', [])).toBe('');
   });
 
   it('returns current id unchanged when it is empty', () => {
-    expect(validateModel('', [{ id: 'gpt-4o' }])).toBe('');
+    expect(validateModel('', [{ id: 'moonshotai/kimi-k2.6' }])).toBe('');
   });
 });

@@ -225,7 +225,7 @@ export interface VideoProviderConfig {
   /** Supported output resolutions */
   supportedResolutions?: Array<'480p' | '720p' | '1080p'>;
   /** Maximum video duration in seconds */
-  maxDuration?: number;
+  maxVideoDuration?: number;
 }
 
 /**

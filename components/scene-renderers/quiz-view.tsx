@@ -26,7 +26,9 @@ import { gradeChoiceQuestions, isShortAnswer, type QuestionResult } from '@/lib/
 import {
   clearSubmitted,
   draftKey,
+  hydrateSubmittedState,
   readSubmittedState,
+  writeDraftAnswers,
   writeSubmittedAnswers,
   writeSubmittedResults,
   type SubmittedState,
@@ -55,8 +57,6 @@ async function gradeShortAnswerQuestion(
       'x-model': modelConfig.modelString,
       'x-api-key': modelConfig.apiKey,
     };
-    if (modelConfig.baseUrl) headers['x-base-url'] = modelConfig.baseUrl;
-    if (modelConfig.providerType) headers['x-provider-type'] = modelConfig.providerType;
 
     const res = await fetch('/api/quiz-grade', {
       method: 'POST',
@@ -649,7 +649,7 @@ function ScoreBanner({
 export function QuizView({ questions, sceneId }: QuizViewProps) {
   const { t, locale } = useI18n();
 
-  // Rehydrate submitted state from localStorage on first mount. Runs once.
+  // Rehydrate submitted state from the account on first mount.
   const [initialSubmitted] = useState<SubmittedState>(() => readSubmittedState(sceneId));
 
   const [phase, setPhase] = useState<Phase>(() => {
@@ -663,6 +663,23 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
   const [results, setResults] = useState<QuestionResult[]>(() =>
     initialSubmitted?.kind === 'reviewing' ? initialSubmitted.results : [],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    hydrateSubmittedState(sceneId).then((submitted) => {
+      if (cancelled || !submitted) return;
+      setAnswers(submitted.answers);
+      if (submitted.kind === 'reviewing') {
+        setResults(submitted.results);
+        setPhase('reviewing');
+      } else {
+        setPhase('answering');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sceneId]);
 
   // Draft cache for quiz answers, keyed by sceneId to isolate across classrooms
   const {
@@ -707,10 +724,11 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
       setAnswers((prev) => {
         const next = { ...prev, [questionId]: value };
         updateAnswersCache(next);
+        writeDraftAnswers(sceneId, next);
         return next;
       });
     },
-    [updateAnswersCache],
+    [sceneId, updateAnswersCache],
   );
 
   const handleSubmit = useCallback(() => {

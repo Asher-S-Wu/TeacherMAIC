@@ -197,18 +197,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
 
   setOutlines: (outlines) => {
     set({ outlines });
-    // Persist outlines to IndexedDB
-    const stageId = get().stage?.id;
-    if (stageId) {
-      import('@/lib/utils/database').then(({ db }) => {
-        db.stageOutlines.put({
-          stageId,
-          outlines,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
-      });
-    }
+    debouncedSave();
   },
 
   setGenerationStatus: (generationStatus) => set({ generationStatus }),
@@ -248,7 +237,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
 
   // Storage methods
   saveToStorage: async () => {
-    const { stage, scenes, currentSceneId, chats } = get();
+    const { stage, scenes, currentSceneId, chats, outlines } = get();
     if (!stage?.id) {
       log.warn('Cannot save: stage.id is required');
       return;
@@ -261,6 +250,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
         scenes,
         currentSceneId,
         chats,
+        outlines,
       });
     } catch (error) {
       log.error('Failed to save to storage:', error);
@@ -269,23 +259,19 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
 
   loadFromStorage: async (stageId: string) => {
     try {
-      // Skip IndexedDB load if the store already has this stage with scenes
+      // Skip API load if the store already has this stage with scenes
       // (e.g. navigated from generation-preview with fresh in-memory data)
       const currentState = get();
       if (currentState.stage?.id === stageId && currentState.scenes.length > 0) {
-        log.info('Stage already loaded in memory, skipping IndexedDB load:', stageId);
+        log.info('Stage already loaded in memory, skipping API load:', stageId);
         return;
       }
 
       const { loadStageData } = await import('@/lib/utils/stage-storage');
       const data = await loadStageData(stageId);
 
-      // Load outlines for resume-on-refresh
-      const { db } = await import('@/lib/utils/database');
-      const outlinesRecord = await db.stageOutlines.get(stageId);
-      const outlines = outlinesRecord?.outlines || [];
-
       if (data) {
+        const outlines = data.outlines || [];
         set({
           stage: data.stage,
           scenes: data.scenes,

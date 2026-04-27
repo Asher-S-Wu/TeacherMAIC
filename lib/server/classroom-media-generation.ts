@@ -2,13 +2,13 @@
  * Server-side media and TTS generation for classrooms.
  *
  * Generates image/video files and TTS audio for a classroom,
- * writes them to disk, and returns serving URL mappings.
+ * saves them to MongoDB GridFS, and returns serving URL mappings.
  */
 
-import { promises as fs } from 'fs';
 import path from 'path';
 import { createLogger } from '@/lib/logger';
-import { CLASSROOMS_DIR } from '@/lib/server/classroom-storage';
+import type { ObjectId } from 'mongodb';
+import { saveBufferForUser } from '@/lib/server/file-storage';
 import { generateImage } from '@/lib/media/image-providers';
 import { generateVideo, normalizeVideoOptions } from '@/lib/media/video-providers';
 import { generateTTS } from '@/lib/audio/tts-providers';
@@ -34,17 +34,12 @@ import type { ImageProviderId } from '@/lib/media/types';
 import type { VideoProviderId } from '@/lib/media/types';
 import type { TTSProviderId } from '@/lib/audio/types';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
-import { VOXCPM_AUTO_VOICE_ID, VOXCPM_TTS_PROVIDER_ID } from '@/lib/audio/voxcpm';
 
 const log = createLogger('ClassroomMedia');
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-async function ensureDir(dir: string) {
-  await fs.mkdir(dir, { recursive: true });
-}
 
 const DOWNLOAD_TIMEOUT_MS = 120_000; // 2 minutes
 const DOWNLOAD_MAX_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -59,10 +54,6 @@ async function downloadToBuffer(url: string): Promise<Buffer> {
   return Buffer.from(await resp.arrayBuffer());
 }
 
-function mediaServingUrl(baseUrl: string, classroomId: string, subPath: string): string {
-  return `${baseUrl}/api/classroom-media/${classroomId}/${subPath}`;
-}
-
 // ---------------------------------------------------------------------------
 // Image / Video generation
 // ---------------------------------------------------------------------------
@@ -71,10 +62,8 @@ export async function generateMediaForClassroom(
   outlines: SceneOutline[],
   classroomId: string,
   baseUrl: string,
+  userId: ObjectId,
 ): Promise<Record<string, string>> {
-  const mediaDir = path.join(CLASSROOMS_DIR, classroomId, 'media');
-  await ensureDir(mediaDir);
-
   // Collect all media generation requests from outlines
   const requests = outlines.flatMap((o) => o.mediaGenerations ?? []);
   if (requests.length === 0) return {};
@@ -89,78 +78,81 @@ export async function generateMediaForClassroom(
   // but run the two types in parallel (providers often have limited concurrency).
   const imageRequests = requests.filter((r) => r.type === 'image' && imageProviderIds.length > 0);
   const videoRequests = requests.filter((r) => r.type === 'video' && videoProviderIds.length > 0);
+  if (requests.some((r) => r.type === 'image') && imageProviderIds.length === 0) {
+    throw new Error('未配置图片生成服务');
+  }
+  if (requests.some((r) => r.type === 'video') && videoProviderIds.length === 0) {
+    throw new Error('未配置视频生成服务');
+  }
 
   const generateImages = async () => {
     for (const req of imageRequests) {
-      try {
-        const providerId = imageProviderIds[0] as ImageProviderId;
-        const apiKey = resolveImageApiKey(providerId);
-        if (!apiKey) {
-          log.warn(`No API key for image provider "${providerId}", skipping ${req.elementId}`);
-          continue;
-        }
-        const providerConfig = IMAGE_PROVIDERS[providerId];
-        const model = providerConfig?.models?.[0]?.id;
-
-        const result = await generateImage(
-          { providerId, apiKey, baseUrl: resolveImageBaseUrl(providerId), model },
-          { prompt: req.prompt, aspectRatio: req.aspectRatio || '16:9' },
-        );
-
-        let buf: Buffer;
-        let ext: string;
-        if (result.base64) {
-          buf = Buffer.from(result.base64, 'base64');
-          ext = 'png';
-        } else if (result.url) {
-          buf = await downloadToBuffer(result.url);
-          const urlExt = path.extname(new URL(result.url).pathname).replace('.', '');
-          ext = ['png', 'jpg', 'jpeg', 'webp'].includes(urlExt) ? urlExt : 'png';
-        } else {
-          log.warn(`Image generation returned no data for ${req.elementId}`);
-          continue;
-        }
-
-        const filename = `${req.elementId}.${ext}`;
-        await fs.writeFile(path.join(mediaDir, filename), buf);
-        mediaMap[req.elementId] = mediaServingUrl(baseUrl, classroomId, `media/${filename}`);
-        log.info(`Generated image: ${filename}`);
-      } catch (err) {
-        log.warn(`Image generation failed for ${req.elementId}:`, err);
+      const providerId = imageProviderIds[0] as ImageProviderId;
+      const apiKey = resolveImageApiKey(providerId);
+      if (!apiKey) {
+        throw new Error(`图片生成服务缺少 API Key：${providerId}`);
       }
+      const providerConfig = IMAGE_PROVIDERS[providerId];
+      const model = providerConfig?.models?.[0]?.id;
+
+      const result = await generateImage(
+        { providerId, apiKey, baseUrl: resolveImageBaseUrl(providerId), model },
+        { prompt: req.prompt, aspectRatio: req.aspectRatio || '16:9' },
+      );
+
+      let buf: Buffer;
+      let ext: string;
+      if (result.base64) {
+        buf = Buffer.from(result.base64, 'base64');
+        ext = 'png';
+      } else if (result.url) {
+        buf = await downloadToBuffer(result.url);
+        const urlExt = path.extname(new URL(result.url).pathname).replace('.', '');
+        ext = ['png', 'jpg', 'jpeg', 'webp'].includes(urlExt) ? urlExt : 'png';
+      } else {
+        throw new Error(`图片生成没有返回文件：${req.elementId}`);
+      }
+
+      const filename = `${req.elementId}.${ext}`;
+      const saved = await saveBufferForUser(userId, buf, filename, `image/${ext}`, 'media', {
+        classroomId,
+        elementId: req.elementId,
+        mediaType: 'image',
+      });
+      mediaMap[req.elementId] = `${baseUrl}${saved.url}`;
+      log.info(`Generated image: ${filename}`);
     }
   };
 
   const generateVideos = async () => {
     for (const req of videoRequests) {
-      try {
-        const providerId = videoProviderIds[0] as VideoProviderId;
-        const apiKey = resolveVideoApiKey(providerId);
-        if (!apiKey) {
-          log.warn(`No API key for video provider "${providerId}", skipping ${req.elementId}`);
-          continue;
-        }
-        const providerConfig = VIDEO_PROVIDERS[providerId];
-        const model = providerConfig?.models?.[0]?.id;
-
-        const normalized = normalizeVideoOptions(providerId, {
-          prompt: req.prompt,
-          aspectRatio: (req.aspectRatio as '16:9' | '4:3' | '1:1' | '9:16') || '16:9',
-        });
-
-        const result = await generateVideo(
-          { providerId, apiKey, baseUrl: resolveVideoBaseUrl(providerId), model },
-          normalized,
-        );
-
-        const buf = await downloadToBuffer(result.url);
-        const filename = `${req.elementId}.mp4`;
-        await fs.writeFile(path.join(mediaDir, filename), buf);
-        mediaMap[req.elementId] = mediaServingUrl(baseUrl, classroomId, `media/${filename}`);
-        log.info(`Generated video: ${filename}`);
-      } catch (err) {
-        log.warn(`Video generation failed for ${req.elementId}:`, err);
+      const providerId = videoProviderIds[0] as VideoProviderId;
+      const apiKey = resolveVideoApiKey(providerId);
+      if (!apiKey) {
+        throw new Error(`视频生成服务缺少 API Key：${providerId}`);
       }
+      const providerConfig = VIDEO_PROVIDERS[providerId];
+      const model = providerConfig?.models?.[0]?.id;
+
+      const normalized = normalizeVideoOptions(providerId, {
+        prompt: req.prompt,
+        aspectRatio: (req.aspectRatio as '16:9' | '4:3' | '1:1' | '9:16') || '16:9',
+      });
+
+      const result = await generateVideo(
+        { providerId, apiKey, baseUrl: resolveVideoBaseUrl(providerId), model },
+        normalized,
+      );
+
+      const buf = await downloadToBuffer(result.url);
+      const filename = `${req.elementId}.mp4`;
+      const saved = await saveBufferForUser(userId, buf, filename, 'video/mp4', 'media', {
+        classroomId,
+        elementId: req.elementId,
+        mediaType: 'video',
+      });
+      mediaMap[req.elementId] = `${baseUrl}${saved.url}`;
+      log.info(`Generated video: ${filename}`);
     }
   };
 
@@ -206,24 +198,20 @@ export async function generateTTSForClassroom(
   scenes: Scene[],
   classroomId: string,
   baseUrl: string,
+  userId: ObjectId,
 ): Promise<void> {
-  const audioDir = path.join(CLASSROOMS_DIR, classroomId, 'audio');
-  await ensureDir(audioDir);
-
   // Resolve TTS provider (exclude browser-native-tts)
   const ttsProviderIds = Object.keys(getServerTTSProviders()).filter(
     (id) => id !== 'browser-native-tts',
   );
   if (ttsProviderIds.length === 0) {
-    log.warn('No server TTS provider configured, skipping TTS generation');
-    return;
+    throw new Error('未配置服务器语音生成服务');
   }
 
   const providerId = ttsProviderIds[0] as TTSProviderId;
   const apiKey = resolveTTSApiKey(providerId);
   if (!apiKey) {
-    log.warn(`No API key for TTS provider "${providerId}", skipping TTS generation`);
-    return;
+    throw new Error(`语音生成服务缺少 API Key：${providerId}`);
   }
   const ttsBaseUrl =
     resolveTTSBaseUrl(providerId) ||
@@ -231,11 +219,6 @@ export async function generateTTSForClassroom(
   const voice = DEFAULT_TTS_VOICES[providerId as keyof typeof DEFAULT_TTS_VOICES] || 'default';
   const format =
     TTS_PROVIDERS[providerId as keyof typeof TTS_PROVIDERS]?.supportedFormats?.[0] || 'mp3';
-  if (providerId === VOXCPM_TTS_PROVIDER_ID && voice === VOXCPM_AUTO_VOICE_ID) {
-    log.warn('VoxCPM Auto Voice requires agent context; skipping server-side TTS generation');
-    return;
-  }
-
   for (const scene of scenes) {
     if (!scene.actions) continue;
 
@@ -252,28 +235,34 @@ export async function generateTTSForClassroom(
       // Include scene order in audioId to prevent collision across scenes
       const audioId = `tts_s${sceneOrder}_${action.id}`;
 
-      try {
-        const result = await generateTTS(
-          {
-            providerId,
-            modelId: DEFAULT_TTS_MODELS[providerId as keyof typeof DEFAULT_TTS_MODELS] || '',
-            apiKey,
-            baseUrl: ttsBaseUrl,
-            voice,
-            speed: speechAction.speed,
-          },
-          speechAction.text,
-        );
+      const result = await generateTTS(
+        {
+          providerId,
+          modelId: DEFAULT_TTS_MODELS[providerId as keyof typeof DEFAULT_TTS_MODELS] || '',
+          apiKey,
+          baseUrl: ttsBaseUrl,
+          voice,
+          speed: speechAction.speed,
+        },
+        speechAction.text,
+      );
 
-        const filename = `${audioId}.${result.format || format}`;
-        await fs.writeFile(path.join(audioDir, filename), result.audio);
+      const filename = `${audioId}.${result.format || format}`;
+      const saved = await saveBufferForUser(
+        userId,
+        result.audio,
+        filename,
+        `audio/${result.format || format}`,
+        'audio',
+        {
+          classroomId,
+          audioId,
+        },
+      );
 
-        speechAction.audioId = audioId;
-        speechAction.audioUrl = mediaServingUrl(baseUrl, classroomId, `audio/${filename}`);
-        log.info(`Generated TTS: ${filename} (${result.audio.length} bytes)`);
-      } catch (err) {
-        log.warn(`TTS generation failed for action ${action.id}:`, err);
-      }
+      speechAction.audioId = audioId;
+      speechAction.audioUrl = `${baseUrl}${saved.url}`;
+      log.info(`Generated TTS: ${filename} (${result.audio.length} bytes)`);
     }
   }
 }

@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
-import { clearDatabase } from '@/lib/utils/database';
 import { toast } from 'sonner';
 import { createLogger } from '@/lib/logger';
 
@@ -36,11 +35,6 @@ export function GeneralSettings() {
     if (!isConfirmValid) return;
     setClearing(true);
     try {
-      // 1. Clear IndexedDB
-      await clearDatabase();
-      // 2. Clear localStorage
-      localStorage.clear();
-      // 3. Clear sessionStorage
       sessionStorage.clear();
 
       toast.success(t('settings.clearCacheSuccess'));

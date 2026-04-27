@@ -6,6 +6,7 @@ import {
 } from '@/lib/server/classroom-job-store';
 import { buildRequestOrigin } from '@/lib/server/classroom-storage';
 import { createLogger } from '@/lib/logger';
+import { requireCurrentUser } from '@/lib/server/auth';
 
 const log = createLogger('ClassroomJob API');
 
@@ -14,6 +15,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest, context: { params: Promise<{ jobId: string }> }) {
   let resolvedJobId: string | undefined;
   try {
+    const user = await requireCurrentUser();
     const { jobId } = await context.params;
     resolvedJobId = jobId;
 
@@ -21,7 +23,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ jobId: 
       return apiError('INVALID_REQUEST', 400, 'Invalid classroom generation job id');
     }
 
-    const job = await readClassroomGenerationJob(jobId);
+    const job = await readClassroomGenerationJob(jobId, user._id);
     if (!job) {
       return apiError('INVALID_REQUEST', 404, 'Classroom generation job not found');
     }

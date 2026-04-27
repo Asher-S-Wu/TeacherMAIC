@@ -62,8 +62,6 @@ export function usePBLChat({ projectConfig, userRole, onConfigUpdate }: UsePBLCh
           'x-model': modelConfig.modelString,
           'x-api-key': modelConfig.apiKey,
         };
-        if (modelConfig.baseUrl) headers['x-base-url'] = modelConfig.baseUrl;
-        if (modelConfig.providerType) headers['x-provider-type'] = modelConfig.providerType;
 
         // Strip @mention prefix from message text if present
         const cleanMessage = text.replace(/^@\w+\s*/i, '').trim() || text;

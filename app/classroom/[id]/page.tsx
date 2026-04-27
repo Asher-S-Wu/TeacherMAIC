@@ -35,39 +35,13 @@ export default function ClassroomDetailPage() {
   const loadClassroom = useCallback(async () => {
     try {
       await loadFromStorage(classroomId);
-
-      // If IndexedDB had no data, try server-side storage (API-generated classrooms)
-      if (!useStageStore.getState().stage) {
-        log.info('No IndexedDB data, trying server-side storage for:', classroomId);
-        try {
-          const res = await fetch(`/api/classroom?id=${encodeURIComponent(classroomId)}`);
-          if (res.ok) {
-            const json = await res.json();
-            if (json.success && json.classroom) {
-              const { stage, scenes } = json.classroom;
-              useStageStore.getState().setStage(stage);
-              useStageStore.setState({
-                scenes,
-                currentSceneId: scenes[0]?.id ?? null,
-              });
-              log.info('Loaded from server-side storage:', classroomId);
-
-              // Hydrate server-generated agents into IndexedDB + registry.
-              // Don't set selectedAgentIds here — the general agent
-              // restoration logic below (Path 2) handles it uniformly.
-              if (stage.generatedAgentConfigs?.length) {
-                const { saveGeneratedAgents } = await import('@/lib/orchestration/registry/store');
-                await saveGeneratedAgents(stage.id, stage.generatedAgentConfigs);
-                log.info('Hydrated server-generated agents for stage:', stage.id);
-              }
-            }
-          }
-        } catch (fetchErr) {
-          log.warn('Server-side storage fetch failed:', fetchErr);
-        }
+      const loadedStage = useStageStore.getState().stage;
+      if (loadedStage?.generatedAgentConfigs?.length) {
+        const { saveGeneratedAgents } = await import('@/lib/orchestration/registry/store');
+        await saveGeneratedAgents(loadedStage.id, loadedStage.generatedAgentConfigs);
+        log.info('Hydrated generated agents for stage:', loadedStage.id);
       }
 
-      // Restore completed media generation tasks from IndexedDB
       await useMediaGenerationStore.getState().restoreFromDB(classroomId);
       // Restore agents for this stage
       const { loadGeneratedAgentsForStage, useAgentRegistry } =
@@ -75,7 +49,7 @@ export default function ClassroomDetailPage() {
       const generatedAgentIds = await loadGeneratedAgentsForStage(classroomId);
       const { useSettingsStore } = await import('@/lib/store/settings');
       if (generatedAgentIds.length > 0) {
-        // Auto mode — use generated agents from IndexedDB
+        // Auto mode: use generated agents saved with the classroom
         useSettingsStore.getState().setAgentMode('auto');
         useSettingsStore.getState().setSelectedAgentIds(generatedAgentIds);
       } else {
@@ -147,7 +121,7 @@ export default function ClassroomDetailPage() {
       const genParamsStr = sessionStorage.getItem('generationParams');
       const params = genParamsStr ? JSON.parse(genParamsStr) : {};
 
-      // Reconstruct imageMapping from IndexedDB using pdfImages storageIds
+      // Reconstruct imageMapping from uploaded PDF image storage IDs
       const storageIds = (params.pdfImages || [])
         .map((img: { storageId?: string }) => img.storageId)
         .filter(Boolean);
@@ -168,7 +142,7 @@ export default function ClassroomDetailPage() {
       });
     } else if (outlines.length > 0 && stage) {
       // All scenes are generated, but some media may not have finished.
-      // Resume media generation for any tasks not yet in IndexedDB.
+      // Resume media generation for any unfinished tasks.
       // generateMediaForOutlines skips already-completed tasks automatically.
       generationStartedRef.current = true;
       generateMediaForOutlines(outlines, stage.id).catch((err) => {

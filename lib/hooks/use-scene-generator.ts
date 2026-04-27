@@ -4,13 +4,11 @@ import { useCallback, useRef } from 'react';
 import { useStageStore } from '@/lib/store/stage';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { useSettingsStore } from '@/lib/store/settings';
-import { db } from '@/lib/utils/database';
 import type { SceneOutline, PdfImage, ImageMapping } from '@/lib/types/generation';
 import type { AgentInfo } from '@/lib/generation/generation-pipeline';
 import type { Scene } from '@/lib/types/stage';
 import type { SpeechAction } from '@/lib/types/action';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
-import { getVoxCPMProviderOptions } from '@/lib/audio/voxcpm-voices';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { createLogger } from '@/lib/logger';
 
@@ -40,8 +38,6 @@ function getApiHeaders(): HeadersInit {
     'Content-Type': 'application/json',
     'x-model': config.modelString || '',
     'x-api-key': config.apiKey || '',
-    'x-base-url': config.baseUrl || '',
-    'x-provider-type': config.providerType || '',
     // Image generation provider
     'x-image-provider': settings.imageProviderId || '',
     'x-image-model': settings.imageModelId || '',
@@ -126,24 +122,17 @@ async function fetchSceneActions(
   return response.json();
 }
 
-/** Generate TTS for one speech action and store in IndexedDB */
+/** Generate TTS for one speech action and store it in the current account */
 export async function generateAndStoreTTS(
   audioId: string,
   text: string,
   language?: string,
   signal?: AbortSignal,
-): Promise<void> {
+): Promise<string | undefined> {
   const settings = useSettingsStore.getState();
-  if (settings.ttsProviderId === 'browser-native-tts') return;
+  if (settings.ttsProviderId === 'browser-native-tts') return undefined;
 
   const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
-  const providerOptions =
-    settings.ttsProviderId === 'voxcpm-tts'
-      ? {
-          ...(ttsProviderConfig?.providerOptions || {}),
-          ...(await getVoxCPMProviderOptions(settings.ttsVoice, { role: 'teacher', language })),
-        }
-      : undefined;
   const response = await fetch('/api/generate/tts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -160,7 +149,7 @@ export async function generateAndStoreTTS(
         ttsProviderConfig?.baseUrl ||
         ttsProviderConfig?.customDefaultBaseUrl ||
         undefined,
-      ttsProviderOptions: providerOptions,
+      ttsProviderOptions: ttsProviderConfig?.providerOptions,
     }),
     signal,
   });
@@ -182,12 +171,18 @@ export async function generateAndStoreTTS(
     bytes[i] = binary.charCodeAt(i);
   }
   const blob = new Blob([bytes], { type: `audio/${data.format}` });
-  await db.audioFiles.put({
-    id: audioId,
-    blob,
-    format: data.format,
-    createdAt: Date.now(),
+  const formData = new FormData();
+  formData.append('file', new File([blob], `${audioId}.${data.format}`, { type: blob.type }));
+  formData.append('kind', 'audio');
+  const upload = await fetch('/api/files', {
+    method: 'POST',
+    body: formData,
   });
+  const uploadData = await upload.json().catch(() => null);
+  if (!upload.ok || !uploadData?.success) {
+    throw new Error(uploadData?.error || 'Audio upload failed');
+  }
+  return uploadData.file.url;
 }
 
 /** Generate TTS for all speech actions in a scene. Returns result. */
@@ -215,7 +210,7 @@ async function generateTTSForScene(
     const audioId = `tts_s${sceneOrder}_${action.id}`;
     action.audioId = audioId;
     try {
-      await generateAndStoreTTS(audioId, action.text, language, signal);
+      action.audioUrl = await generateAndStoreTTS(audioId, action.text, language, signal);
     } catch (error) {
       failedCount++;
       lastError = error instanceof Error ? error.message : `TTS failed for action ${action.id}`;

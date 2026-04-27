@@ -4,13 +4,46 @@ import { useState, useCallback, useRef } from 'react';
 import { nanoid } from 'nanoid';
 import { toast } from 'sonner';
 import { useI18n } from '@/lib/hooks/use-i18n';
-import { db, mediaFileKey } from '@/lib/utils/database';
-import type { AudioFileRecord, MediaFileRecord, GeneratedAgentRecord } from '@/lib/utils/database';
 import type { ClassroomManifest, ManifestScene } from '@/lib/export/classroom-zip-types';
-import { rewriteAudioRefsToIds } from '@/lib/export/classroom-zip-utils';
 import { createLogger } from '@/lib/logger';
+import { saveStageData } from '@/lib/utils/stage-storage';
+import type { Action } from '@/lib/types/action';
+import type { Scene, Stage } from '@/lib/types/stage';
 
 const log = createLogger('ImportClassroom');
+
+async function uploadZipBlob(blob: Blob, filename: string, kind: string): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', new File([blob], filename, { type: blob.type || 'application/octet-stream' }));
+  formData.append('kind', kind);
+  const response = await fetch('/api/files', {
+    method: 'POST',
+    body: formData,
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.success) {
+    throw new Error(data?.error || '导入文件保存失败');
+  }
+  return data.file.url;
+}
+
+function rewriteImportedActions(
+  actions: ManifestScene['actions'],
+  audioRefMap: Record<string, { id: string; url: string }>,
+): Action[] | undefined {
+  if (!actions) return undefined;
+  return actions.map((action) => {
+    if (action.type === 'speech' && 'audioRef' in action) {
+      const { audioRef, ...rest } = action;
+      const audio = audioRef ? audioRefMap[audioRef] : undefined;
+      return {
+        ...rest,
+        ...(audio ? { audioId: audio.id, audioUrl: audio.url } : {}),
+      } as Action;
+    }
+    return action as Action;
+  });
+}
 
 export type ImportPhase =
   | 'idle'
@@ -93,71 +126,44 @@ export function useImportClassroom(onSuccess?: () => void) {
         }
 
         // Media ref → new ID mapping
-        const mediaRefToNewId: Record<string, string> = {};
+        const mediaRefToUrl: Record<string, string> = {};
         for (const [zipPath, entry] of Object.entries(manifest.mediaIndex ?? {})) {
           if ((entry.type === 'generated' || entry.type === 'image') && !entry.missing) {
-            const filename = zipPath.split('/').pop() ?? '';
-            const elementId = filename.replace(/\.\w+$/, '');
-            mediaRefToNewId[zipPath] = mediaFileKey(newStageId, elementId);
+            mediaRefToUrl[zipPath] = '';
           }
         }
 
-        // 4. Write media to IndexedDB
+        // 4. Upload media to the account
         setPhase('writingMedia');
         toast.loading(t('import.writingMedia'), { id: toastId });
 
-        // Write audio files one at a time
+        const audioRefMap: Record<string, { id: string; url: string }> = {};
         for (const [zipPath, newId] of Object.entries(audioRefToNewId)) {
           const zipEntry = zip.file(zipPath);
           if (!zipEntry) continue;
           const blob = await zipEntry.async('blob');
-          const meta = manifest.mediaIndex[zipPath];
-          const record: AudioFileRecord = {
+          audioRefMap[zipPath] = {
             id: newId,
-            blob,
-            format: meta.format || 'mp3',
-            duration: meta.duration,
-            voice: meta.voice,
-            createdAt: now,
+            url: await uploadZipBlob(blob, zipPath.split('/').pop() || `${newId}.mp3`, 'audio'),
           };
-          await db.audioFiles.put(record);
         }
 
-        // Write generated media files one at a time
-        for (const [zipPath, newId] of Object.entries(mediaRefToNewId)) {
+        for (const zipPath of Object.keys(mediaRefToUrl)) {
           const zipEntry = zip.file(zipPath);
           if (!zipEntry) continue;
           const blob = await zipEntry.async('blob');
-          const meta = manifest.mediaIndex[zipPath];
-
-          const record: MediaFileRecord = {
-            id: newId,
-            stageId: newStageId,
-            type: meta.mimeType?.startsWith('video/') ? 'video' : 'image',
+          mediaRefToUrl[zipPath] = await uploadZipBlob(
             blob,
-            mimeType: meta.mimeType || 'image/jpeg',
-            size: meta.size || blob.size,
-            prompt: meta.prompt || '',
-            params: '',
-            createdAt: now,
-          };
-
-          // Check for poster before writing to avoid redundant put
-          const posterPath = zipPath.replace(/\.\w+$/, '.poster.jpg');
-          const posterEntry = zip.file(posterPath);
-          if (posterEntry) {
-            record.poster = await posterEntry.async('blob');
-          }
-
-          await db.mediaFiles.put(record);
+            zipPath.split('/').pop() || `media-${nanoid()}`,
+            'media',
+          );
         }
 
         // 5. Write course data
         setPhase('writingCourse');
         toast.loading(t('import.writingCourse'), { id: toastId });
 
-        // Write stage
-        await db.stages.put({
+        const stage: Stage = {
           id: newStageId,
           name: manifest.stage.name || 'Imported Classroom',
           description: manifest.stage.description,
@@ -166,31 +172,14 @@ export function useImportClassroom(onSuccess?: () => void) {
           createdAt: manifest.stage.createdAt || now,
           updatedAt: now,
           agentIds: newAgentIds.length > 0 ? newAgentIds : undefined,
-        });
-
-        // Write agents
-        if (manifest.agents?.length) {
-          const agentRecords: GeneratedAgentRecord[] = manifest.agents.map((a, i) => ({
-            id: newAgentIds[i],
-            stageId: newStageId,
-            name: a.name,
-            role: a.role,
-            persona: a.persona,
-            avatar: a.avatar,
-            color: a.color,
-            priority: a.priority,
-            createdAt: now,
-          }));
-          await db.generatedAgents.bulkPut(agentRecords);
-        }
+          generatedAgentConfigs: manifest.agents?.map((a, i) => ({ ...a, id: newAgentIds[i] })),
+        };
 
         // Write scenes with rewritten references
-        const sceneRecords = manifest.scenes.map((mScene: ManifestScene, index: number) => {
+        const sceneRecords: Scene[] = manifest.scenes.map((mScene: ManifestScene, index: number) => {
           const newSceneId = nanoid();
 
-          const actions = mScene.actions
-            ? rewriteAudioRefsToIds(mScene.actions, audioRefToNewId)
-            : undefined;
+          const actions = rewriteImportedActions(mScene.actions, audioRefMap);
 
           let multiAgent = undefined;
           if (mScene.multiAgent?.enabled) {
@@ -203,21 +192,34 @@ export function useImportClassroom(onSuccess?: () => void) {
             };
           }
 
+          const content = JSON.parse(
+            Object.entries(mediaRefToUrl).reduce(
+              (text, [zipPath, url]) => text.split(zipPath).join(url),
+              JSON.stringify(mScene.content),
+            ),
+          );
+
           return {
             id: newSceneId,
             stageId: newStageId,
             type: mScene.type,
             title: mScene.title,
             order: mScene.order ?? index,
-            content: mScene.content,
+            content,
             actions,
-            whiteboard: mScene.whiteboards,
+            whiteboards: mScene.whiteboards,
             multiAgent,
             createdAt: now,
             updatedAt: now,
           };
         });
-        await db.scenes.bulkPut(sceneRecords);
+        await saveStageData(newStageId, {
+          stage,
+          scenes: sceneRecords,
+          currentSceneId: sceneRecords[0]?.id ?? null,
+          chats: [],
+          outlines: [],
+        });
 
         // 6. Done
         setPhase('done');

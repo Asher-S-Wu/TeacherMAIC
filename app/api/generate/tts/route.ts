@@ -14,11 +14,8 @@ import type { TTSProviderId } from '@/lib/audio/types';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
-import { VOXCPM_AUTO_VOICE_ID, VOXCPM_TTS_PROVIDER_ID } from '@/lib/audio/voxcpm';
 
 const log = createLogger('TTS API');
-
-export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   let ttsProviderId: string | undefined;
@@ -53,20 +50,6 @@ export async function POST(req: NextRequest) {
     // Reject browser-native TTS — must be handled client-side
     if (ttsProviderId === 'browser-native-tts') {
       return apiError('INVALID_REQUEST', 400, 'browser-native-tts must be handled client-side');
-    }
-
-    const voxcpmVoicePrompt =
-      typeof ttsProviderOptions?.voicePrompt === 'string' ? ttsProviderOptions.voicePrompt : '';
-    if (
-      ttsProviderId === VOXCPM_TTS_PROVIDER_ID &&
-      ttsVoice === VOXCPM_AUTO_VOICE_ID &&
-      !voxcpmVoicePrompt.trim()
-    ) {
-      return apiError(
-        'VOXCPM_AUTO_VOICE_REQUIRES_CONTEXT',
-        400,
-        'VoxCPM Auto Voice requires agent context',
-      );
     }
 
     const clientBaseUrl = ttsBaseUrl || undefined;

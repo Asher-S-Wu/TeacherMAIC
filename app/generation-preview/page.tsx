@@ -12,7 +12,6 @@ import { useStageStore } from '@/lib/store/stage';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { getAvailableProvidersWithVoices } from '@/lib/audio/voice-resolver';
-import { getVoxCPMProviderOptions, useVoxCPMVoiceProfiles } from '@/lib/audio/voxcpm-voices';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import {
   loadImageMapping,
@@ -21,7 +20,6 @@ import {
   storeImages,
 } from '@/lib/utils/image-storage';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
-import { db } from '@/lib/utils/database';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
 import { nanoid } from 'nanoid';
 import type { Stage } from '@/lib/types/stage';
@@ -38,7 +36,6 @@ function GenerationPreviewContent() {
   const { t } = useI18n();
   const hasStartedRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const { profiles: voxcpmProfiles } = useVoxCPMVoiceProfiles();
 
   const [session, setSession] = useState<GenerationSessionState | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
@@ -68,7 +65,7 @@ function GenerationPreviewContent() {
   // Compute active steps based on session state
   const activeSteps = getActiveSteps(session);
 
-  // Load session from sessionStorage
+  // Load in-progress generation session from this browser tab
   useEffect(() => {
     cleanupOldImages(24).catch((e) => log.error(e));
 
@@ -91,7 +88,7 @@ function GenerationPreviewContent() {
     };
   }, []);
 
-  // Get API credentials from localStorage
+  // Get API credentials from the settings store
   const getApiHeaders = () => {
     const modelConfig = getCurrentModelConfig();
     const settings = useSettingsStore.getState();
@@ -101,8 +98,6 @@ function GenerationPreviewContent() {
       'Content-Type': 'application/json',
       'x-model': modelConfig.modelString,
       'x-api-key': modelConfig.apiKey,
-      'x-base-url': modelConfig.baseUrl,
-      'x-provider-type': modelConfig.providerType || '',
       // Image generation provider
       'x-image-provider': settings.imageProviderId || '',
       'x-image-model': settings.imageModelId || '',
@@ -348,7 +343,7 @@ function GenerationPreviewContent() {
       // Load imageMapping early (needed for both outline and scene generation)
       let imageMapping: ImageMapping = {};
       if (currentSession.imageStorageIds && currentSession.imageStorageIds.length > 0) {
-        log.debug('Loading images from IndexedDB');
+        log.debug('Loading PDF images from account file storage');
         imageMapping = await loadImageMapping(currentSession.imageStorageIds);
       } else if (
         currentSession.imageMapping &&
@@ -489,13 +484,6 @@ function GenerationPreviewContent() {
         setSession(updatedSession);
         sessionStorage.setItem('generationSession', JSON.stringify(updatedSession));
 
-        // Outline generation succeeded — clear homepage draft cache
-        try {
-          localStorage.removeItem('requirementDraft');
-        } catch {
-          /* ignore */
-        }
-
         // Brief pause to let user see the final outline state
         await new Promise((resolve) => setTimeout(resolve, 800));
       }
@@ -566,10 +554,7 @@ function GenerationPreviewContent() {
           ];
 
           const getAvailableVoicesForGeneration = () => {
-            const providers = getAvailableProvidersWithVoices(
-              settings.ttsProvidersConfig,
-              voxcpmProfiles,
-            );
+            const providers = getAvailableProvidersWithVoices(settings.ttsProvidersConfig);
             return providers.flatMap((p) =>
               p.voices.map((v) => ({
                 providerId: p.providerId,
@@ -602,11 +587,12 @@ function GenerationPreviewContent() {
           const agentData = await agentResp.json();
           if (!agentData.success) throw new Error(agentData.error || 'Agent generation failed');
 
-          // Save to IndexedDB and registry
+          // Save to the runtime registry; the classroom stores the generated configs
           const { saveGeneratedAgents } = await import('@/lib/orchestration/registry/store');
           const savedIds = await saveGeneratedAgents(stage.id, agentData.agents);
           settings.setSelectedAgentIds(savedIds);
           stage.agentIds = savedIds;
+          stage.generatedAgentConfigs = agentData.agents;
 
           // Show card-reveal modal, continue generation once all cards are revealed
           setGeneratedAgents(agentData.agents);
@@ -758,16 +744,6 @@ function GenerationPreviewContent() {
       // Generate TTS for first scene (part of actions step — blocking)
       if (settings.ttsEnabled && settings.ttsProviderId !== 'browser-native-tts') {
         const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
-        const providerOptions =
-          settings.ttsProviderId === 'voxcpm-tts'
-            ? {
-                ...(ttsProviderConfig?.providerOptions || {}),
-                ...(await getVoxCPMProviderOptions(settings.ttsVoice, {
-                  role: 'teacher',
-                  language: languageDirective,
-                })),
-              }
-            : undefined;
         const speechActions = (data.scene.actions || []).filter(
           (a: { type: string; text?: string }) => a.type === 'speech' && a.text,
         );
@@ -793,7 +769,7 @@ function GenerationPreviewContent() {
                   ttsProviderConfig?.baseUrl ||
                   ttsProviderConfig?.customDefaultBaseUrl ||
                   undefined,
-                ttsProviderOptions: providerOptions,
+                ttsProviderOptions: ttsProviderConfig?.providerOptions,
               }),
               signal,
             });
@@ -810,12 +786,19 @@ function GenerationPreviewContent() {
             const bytes = new Uint8Array(binary.length);
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
             const blob = new Blob([bytes], { type: `audio/${ttsData.format}` });
-            await db.audioFiles.put({
-              id: audioId,
-              blob,
-              format: ttsData.format,
-              createdAt: Date.now(),
+            const audioForm = new FormData();
+            audioForm.append('file', new File([blob], `${audioId}.${ttsData.format}`, { type: blob.type }));
+            audioForm.append('kind', 'audio');
+            const uploadResp = await fetch('/api/files', {
+              method: 'POST',
+              body: audioForm,
             });
+            const uploadData = await uploadResp.json().catch(() => null);
+            if (!uploadResp.ok || !uploadData?.success) {
+              ttsFailCount++;
+              continue;
+            }
+            action.audioUrl = uploadData.file.url;
           } catch (err) {
             log.warn(`[TTS] Failed for ${audioId}:`, err);
             ttsFailCount++;

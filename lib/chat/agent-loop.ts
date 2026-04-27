@@ -37,9 +37,7 @@ export interface AgentLoopRequest {
   };
   userProfile?: { nickname?: string; bio?: string };
   apiKey: string;
-  baseUrl?: string;
   model?: string;
-  providerType?: string;
   thinkingConfig?: ThinkingConfig;
 }
 
@@ -130,9 +128,7 @@ export async function runAgentLoop(
       directorState,
       userProfile: request.userProfile,
       apiKey: request.apiKey,
-      baseUrl: request.baseUrl,
       model: request.model,
-      providerType: request.providerType,
       thinkingConfig: request.thinkingConfig,
     };
 

@@ -338,7 +338,7 @@ For `wb_draw_latex` — use the category that best matches your formula:
 | Integrals / limits | `\\int_0^1 f(x)dx`, `\\lim_{x \\to 0}` | 60-100 |
 | Summations with limits | `\\sum_{i=1}^{n} i^2` | 80-120 |
 | Matrices | `\\begin{pmatrix}a & b \\\\ c & d\\end{pmatrix}` | 100-180 |
-| Standalone fractions | `\\frac{a}{b}` | 50-80 |
+| Display fractions | `\\frac{a}{b}` | 50-80 |
 | Nested fractions | `\\frac{\\frac{a}{b}}{\\frac{c}{d}}` | 80-120 |
 
 Width is auto-computed from `height × aspect_ratio`; `width` acts as a horizontal cap only.

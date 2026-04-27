@@ -83,7 +83,6 @@ export type BuiltInTTSProviderId =
   | 'azure-tts'
   | 'glm-tts'
   | 'qwen-tts'
-  | 'voxcpm-tts'
   | 'doubao-tts'
   | 'elevenlabs-tts'
   | 'minimax-tts'

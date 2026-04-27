@@ -28,6 +28,7 @@ import {
 } from '@/lib/server/classroom-media-generation';
 import type { UserRequirements } from '@/lib/types/generation';
 import type { Scene, Stage } from '@/lib/types/stage';
+import type { ObjectId } from 'mongodb';
 import { AGENT_COLOR_PALETTE, AGENT_DEFAULT_AVATARS } from '@/lib/constants/agent-defaults';
 
 const log = createLogger('Classroom');
@@ -160,6 +161,7 @@ export async function generateClassroom(
   input: GenerateClassroomInput,
   options: {
     baseUrl: string;
+    userId: ObjectId;
     onProgress?: (progress: ClassroomGenerationProgress) => Promise<void> | void;
   },
 ): Promise<GenerateClassroomResult> {
@@ -185,7 +187,7 @@ export async function generateClassroom(
   if (isProviderKeyRequired(providerId) && !apiKey) {
     throw new Error(
       `No API key configured for provider "${providerId}". ` +
-        `Set the appropriate key in .env.local or server-providers.yml (e.g. ${providerId.toUpperCase()}_API_KEY).`,
+        'Set ZENMUX_API_KEY in Vercel Environment Variables.',
     );
   }
 
@@ -231,34 +233,29 @@ export async function generateClassroom(
     scenesGenerated: 0,
   });
 
-  // Web search (optional, graceful degradation)
+  // Web search
   let researchContext: string | undefined;
   if (input.enableWebSearch) {
     const tavilyKey = resolveWebSearchApiKey();
-    if (tavilyKey) {
-      try {
-        const searchQuery = await buildSearchQuery(requirement, pdfText, searchQueryAiCall);
+    if (!tavilyKey) {
+      throw new Error('已开启联网搜索，但 Tavily API Key 未配置');
+    }
+    const searchQuery = await buildSearchQuery(requirement, pdfText, searchQueryAiCall);
 
-        log.info('Running web search for classroom generation', {
-          hasPdfContext: searchQuery.hasPdfContext,
-          rawRequirementLength: searchQuery.rawRequirementLength,
-          rewriteAttempted: searchQuery.rewriteAttempted,
-          finalQueryLength: searchQuery.finalQueryLength,
-        });
+    log.info('Running web search for classroom generation', {
+      hasPdfContext: searchQuery.hasPdfContext,
+      rawRequirementLength: searchQuery.rawRequirementLength,
+      rewriteAttempted: searchQuery.rewriteAttempted,
+      finalQueryLength: searchQuery.finalQueryLength,
+    });
 
-        const searchResult = await searchWithTavily({
-          query: searchQuery.query,
-          apiKey: tavilyKey,
-        });
-        researchContext = formatSearchResultsAsContext(searchResult);
-        if (researchContext) {
-          log.info(`Web search returned ${searchResult.sources.length} sources`);
-        }
-      } catch (e) {
-        log.warn('Web search failed, continuing without search context:', e);
-      }
-    } else {
-      log.warn('enableWebSearch is true but no Tavily API key configured, skipping web search');
+    const searchResult = await searchWithTavily({
+      query: searchQuery.query,
+      apiKey: tavilyKey,
+    });
+    researchContext = formatSearchResultsAsContext(searchResult);
+    if (researchContext) {
+      log.info(`Web search returned ${searchResult.sources.length} sources`);
     }
   }
 
@@ -325,7 +322,7 @@ export async function generateClassroom(
     createdAt: Date.now(),
     updatedAt: Date.now(),
     // For LLM-generated agents, embed full configs so the client can
-    // hydrate the agent registry without prior IndexedDB data.
+    // hydrate the agent registry from the saved classroom data.
     // For default agents, just record IDs — the client already has them.
     ...(agentMode === 'generate'
       ? {
@@ -408,13 +405,14 @@ export async function generateClassroom(
       totalScenes: outlines.length,
     });
 
-    try {
-      const mediaMap = await generateMediaForClassroom(outlines, stageId, options.baseUrl);
-      replaceMediaPlaceholders(scenes, mediaMap);
-      log.info(`Media generation complete: ${Object.keys(mediaMap).length} files`);
-    } catch (err) {
-      log.warn('Media generation phase failed, continuing:', err);
-    }
+    const mediaMap = await generateMediaForClassroom(
+      outlines,
+      stageId,
+      options.baseUrl,
+      options.userId,
+    );
+    replaceMediaPlaceholders(scenes, mediaMap);
+    log.info(`Media generation complete: ${Object.keys(mediaMap).length} files`);
   }
 
   // Phase: TTS generation
@@ -427,12 +425,8 @@ export async function generateClassroom(
       totalScenes: outlines.length,
     });
 
-    try {
-      await generateTTSForClassroom(scenes, stageId, options.baseUrl);
-      log.info('TTS generation complete');
-    } catch (err) {
-      log.warn('TTS generation phase failed, continuing:', err);
-    }
+    await generateTTSForClassroom(scenes, stageId, options.baseUrl, options.userId);
+    log.info('TTS generation complete');
   }
 
   await options.onProgress?.({
@@ -444,6 +438,7 @@ export async function generateClassroom(
   });
 
   const persisted = await persistClassroom(
+    options.userId,
     {
       id: stageId,
       stage,

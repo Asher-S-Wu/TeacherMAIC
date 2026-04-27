@@ -39,7 +39,7 @@ export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
     supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16', '3:4', '21:9'],
     supportedDurations: [5, 10],
     supportedResolutions: ['480p', '720p', '1080p'],
-    maxDuration: 10,
+    maxVideoDuration: 10,
   },
   kling: {
     id: 'kling',
@@ -52,7 +52,7 @@ export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
     ],
     supportedAspectRatios: ['16:9', '1:1', '9:16'],
     supportedDurations: [5, 10],
-    maxDuration: 10,
+    maxVideoDuration: 10,
   },
   veo: {
     id: 'veo',
@@ -69,7 +69,7 @@ export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
     supportedAspectRatios: ['16:9', '1:1', '9:16'],
     supportedDurations: [8],
     supportedResolutions: ['720p'],
-    maxDuration: 8,
+    maxVideoDuration: 8,
   },
   sora: {
     id: 'sora',
@@ -77,7 +77,7 @@ export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
     requiresApiKey: true,
     models: [],
     supportedAspectRatios: ['16:9', '1:1', '9:16'],
-    maxDuration: 20,
+    maxVideoDuration: 20,
   },
   'minimax-video': {
     id: 'minimax-video',
@@ -94,7 +94,7 @@ export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
     supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16'],
     supportedDurations: [6, 10],
     supportedResolutions: ['720p', '1080p'],
-    maxDuration: 10,
+    maxVideoDuration: 10,
   },
   'grok-video': {
     id: 'grok-video',
@@ -104,7 +104,7 @@ export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
     models: [{ id: 'grok-imagine-video', name: 'Grok Imagine Video' }],
     supportedAspectRatios: ['16:9', '1:1', '9:16'],
     supportedDurations: [6],
-    maxDuration: 6,
+    maxVideoDuration: 6,
   },
 };
 

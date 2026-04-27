@@ -1,5 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL;
+
+if (!baseURL) {
+  throw new Error('PLAYWRIGHT_BASE_URL must point to the deployed Vercel URL.');
+}
+
 export default defineConfig({
   testDir: './e2e/tests',
   fullyParallel: true,
@@ -8,7 +14,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? 'html' : 'list',
   use: {
-    baseURL: 'http://localhost:3002',
+    baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -18,11 +24,4 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
-    url: 'http://localhost:3002',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: { PORT: '3002' },
-  },
 });

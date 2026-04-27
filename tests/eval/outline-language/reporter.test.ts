@@ -41,16 +41,16 @@ describe('writeReport', () => {
 
   it('writes a report.md file with header, per-case detail, and summary table', () => {
     const path = writeReport(runDir, sample, {
-      inferenceModel: 'openai:gpt-4.1',
-      judgeModel: 'anthropic:claude-haiku-4-5',
+      inferenceModel: 'kimi:moonshotai/kimi-k2.6',
+      judgeModel: 'kimi:moonshotai/kimi-k2.6',
     });
     expect(existsSync(path)).toBe(true);
     expect(path).toBe(join(runDir, 'report.md'));
 
     const content = readFileSync(path, 'utf-8');
     expect(content).toContain('# Outline Language Inference Eval Results');
-    expect(content).toContain('**Model**: openai:gpt-4.1');
-    expect(content).toContain('**Judge model**: anthropic:claude-haiku-4-5');
+    expect(content).toContain('**Model**: kimi:moonshotai/kimi-k2.6');
+    expect(content).toContain('**Judge model**: kimi:moonshotai/kimi-k2.6');
     expect(content).toContain('**Passed**: 1/2');
     expect(content).toContain('### PASS en-001');
     expect(content).toContain('### **FAIL** zh-002');
@@ -63,8 +63,8 @@ describe('writeReport', () => {
   it('returns a successfully written path even when all cases pass', () => {
     const allPass: EvalResult[] = [{ ...sample[0] }];
     const path = writeReport(runDir, allPass, {
-      inferenceModel: 'openai:gpt-4.1',
-      judgeModel: 'openai:gpt-4.1',
+      inferenceModel: 'kimi:moonshotai/kimi-k2.6',
+      judgeModel: 'kimi:moonshotai/kimi-k2.6',
     });
     const content = readFileSync(path, 'utf-8');
     expect(content).toContain('**Passed**: 1/1 (100%)');

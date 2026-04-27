@@ -92,17 +92,14 @@ export function GenerationToolbar({
           ([, config]) =>
             (!config.requiresApiKey || config.apiKey || config.isServerConfigured) &&
             config.models.length >= 1 &&
-            (config.baseUrl || config.defaultBaseUrl || config.serverBaseUrl),
+            !!config.defaultBaseUrl,
         )
         .map(([id, config]) => ({
           id: id as ProviderId,
           name: config.name,
           icon: config.icon,
           isServerConfigured: config.isServerConfigured,
-          models:
-            config.isServerConfigured && !config.apiKey && config.serverModels?.length
-              ? config.models.filter((m) => new Set(config.serverModels).has(m.id))
-              : config.models,
+          models: config.models,
         }))
     : [];
 

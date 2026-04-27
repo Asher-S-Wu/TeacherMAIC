@@ -4,8 +4,6 @@ import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 const log = createLogger('Azure Voices');
 
-export const maxDuration = 30;
-
 /**
  * Azure TTS Voice List API
  * Fetches available voices from Azure Speech Services

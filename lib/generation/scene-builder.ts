@@ -1,5 +1,5 @@
 /**
- * Standalone scene building and element normalization.
+ * Scene building and element normalization.
  * Does NOT depend on store — returns complete Scene objects.
  */
 

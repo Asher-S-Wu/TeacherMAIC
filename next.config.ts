@@ -1,9 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  output: process.env.VERCEL ? undefined : 'standalone',
   transpilePackages: ['mathml2omml', 'pptxgenjs'],
-  serverExternalPackages: [],
+  serverExternalPackages: ['mongodb'],
   experimental: {
     proxyClientMaxBodySize: '200mb',
   },

@@ -22,9 +22,6 @@ import { resolveModel } from '@/lib/server/resolve-model';
 import type { ThinkingConfig } from '@/lib/types/provider';
 const log = createLogger('Chat API');
 
-// Allow streaming responses up to 60 seconds
-export const maxDuration = 60;
-
 /**
  * POST /api/chat
  * Send a message and receive SSE stream of generation events
@@ -35,7 +32,6 @@ export const maxDuration = 60;
  *   storeState: { stage, scenes, currentSceneId, mode },
  *   config: { agentIds, sessionType? },
  *   apiKey: string,
- *   baseUrl?: string,
  *   model?: string
  * }
  *
@@ -71,8 +67,6 @@ export async function POST(req: NextRequest) {
     } = await resolveModel({
       modelString: body.model,
       apiKey: body.apiKey,
-      baseUrl: body.baseUrl,
-      providerType: body.providerType,
     });
 
     if (isProviderKeyRequired(providerId) && !resolvedApiKey) {

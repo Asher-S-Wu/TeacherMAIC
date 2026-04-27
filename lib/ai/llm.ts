@@ -7,16 +7,8 @@
 import { generateText, streamText } from 'ai';
 import type { GenerateTextResult, StreamTextResult } from 'ai';
 import { createLogger } from '@/lib/logger';
-import { PROVIDERS } from './providers';
 import { thinkingContext } from './thinking-context';
-import { getModelMetadataKey } from './model-metadata';
-import type { ThinkingCapability, ThinkingConfig } from '@/lib/types/provider';
-import {
-  getThinkingMode,
-  pickThinkingBudget,
-  pickThinkingEffort,
-  pickThinkingLevel,
-} from '@/lib/ai/thinking-config';
+import type { ThinkingConfig } from '@/lib/types/provider';
 const log = createLogger('LLM');
 
 // Re-export for external use
@@ -26,74 +18,6 @@ export type { ThinkingConfig } from '@/lib/types/provider';
 type GenerateTextParams = Parameters<typeof generateText>[0];
 type StreamTextParams = Parameters<typeof streamText>[0];
 
-function _extractRequestInfo(params: GenerateTextParams | StreamTextParams) {
-  const tools = params.tools ? Object.keys(params.tools as Record<string, unknown>) : undefined;
-
-  const p = params as Record<string, unknown>;
-  return {
-    system: p.system as string | undefined,
-    prompt: p.prompt as string | undefined,
-    messages: p.messages as unknown[] | undefined,
-    tools,
-    maxOutputTokens: p.maxOutputTokens as number | undefined,
-  };
-}
-
-function getModelId(params: GenerateTextParams | StreamTextParams): string {
-  const m = params.model;
-  if (typeof m === 'string') return m;
-  if (m && typeof m === 'object' && 'modelId' in m) return (m as { modelId: string }).modelId;
-  return 'unknown';
-}
-
-// ---------------------------------------------------------------------------
-// Thinking / Reasoning Adapter
-//
-// Builds a lookup table from PROVIDERS at module load time, then uses it to
-// map a unified ThinkingConfig into provider-specific providerOptions.
-// Native providers (OpenAI/Anthropic/Google) are mapped to providerOptions.
-// OpenAI-compatible providers are injected by the providers.ts fetch wrapper.
-// ---------------------------------------------------------------------------
-
-interface ModelThinkingInfo {
-  thinking?: ThinkingCapability;
-}
-
-/** Provider/model → thinking capability (built once at module load) */
-const MODEL_THINKING_MAP: Map<string, ModelThinkingInfo> = (() => {
-  const map = new Map<string, ModelThinkingInfo>();
-  for (const provider of Object.values(PROVIDERS)) {
-    for (const model of provider.models) {
-      map.set(getModelMetadataKey(provider.id, model.id), {
-        thinking: model.capabilities?.thinking,
-      });
-    }
-  }
-  return map;
-})();
-
-/** Model ID → thinking capability for IDs that are unique across providers. */
-const UNIQUE_MODEL_THINKING_MAP: Map<string, ModelThinkingInfo> = (() => {
-  const counts = new Map<string, number>();
-  for (const provider of Object.values(PROVIDERS)) {
-    for (const model of provider.models) {
-      counts.set(model.id, (counts.get(model.id) ?? 0) + 1);
-    }
-  }
-
-  const map = new Map<string, ModelThinkingInfo>();
-  for (const provider of Object.values(PROVIDERS)) {
-    for (const model of provider.models) {
-      if (counts.get(model.id) === 1) {
-        map.set(model.id, {
-          thinking: model.capabilities?.thinking,
-        });
-      }
-    }
-  }
-  return map;
-})();
-
 /** Global thinking override from environment variable */
 function getGlobalThinkingConfig(): ThinkingConfig | undefined {
   if (process.env.LLM_THINKING_DISABLED === 'true') {
@@ -102,114 +26,18 @@ function getGlobalThinkingConfig(): ThinkingConfig | undefined {
   return undefined;
 }
 
-type ProviderOptions = Record<string, Record<string, unknown>>;
-
-function getAnthropicEffort(
-  thinking: ThinkingCapability,
-  config: ThinkingConfig,
-): 'low' | 'medium' | 'high' | 'xhigh' | 'max' | undefined {
-  const effort = pickThinkingEffort(thinking, config);
-  if (!effort || effort === 'none' || effort === 'minimal') return undefined;
-  return effort;
-}
-
-function getModelProviderId(params: GenerateTextParams | StreamTextParams): string | undefined {
-  const m = params.model;
-  if (!m || typeof m !== 'object' || !('provider' in m)) return undefined;
-  const provider = (m as { provider?: string }).provider;
-  if (!provider) return undefined;
-  if (provider in PROVIDERS) return provider;
-  const prefix = provider.split('.')[0];
-  return prefix in PROVIDERS ? prefix : undefined;
-}
-
-/**
- * Map a unified ThinkingConfig to provider-specific providerOptions.
- */
-function buildThinkingProviderOptions(
-  providerId: string | undefined,
-  modelId: string,
-  config: ThinkingConfig,
-): ProviderOptions | undefined {
-  const info = providerId
-    ? MODEL_THINKING_MAP.get(getModelMetadataKey(providerId, modelId))
-    : UNIQUE_MODEL_THINKING_MAP.get(modelId);
-  if (!info?.thinking) return undefined; // model has no thinking capability
-  const thinking = info.thinking;
-  if (thinking.control === 'none') return undefined;
-
-  const mode = getThinkingMode(config);
-
-  switch (thinking.requestAdapter) {
-    case 'openai': {
-      const effort = pickThinkingEffort(thinking, config);
-      return effort ? { openai: { reasoningEffort: effort } } : undefined;
-    }
-
-    case 'anthropic': {
-      if (mode === 'disabled') return { anthropic: { thinking: { type: 'disabled' } } };
-      const effort = getAnthropicEffort(thinking, config);
-      if (!effort) return undefined;
-
-      if (thinking.anthropicThinking?.type === 'adaptive') {
-        return {
-          anthropic: {
-            thinking: { type: 'adaptive' },
-            effort,
-          },
-        };
-      }
-
-      const manualEffort = effort === 'xhigh' ? 'max' : effort;
-      const budget = thinking.anthropicThinking?.budgetByEffort?.[manualEffort];
-      if (!budget) return undefined;
-      return {
-        anthropic: {
-          thinking: { type: 'enabled', budgetTokens: budget },
-          effort: manualEffort,
-        },
-      };
-    }
-
-    case 'google': {
-      if (thinking.control === 'level') {
-        const level = pickThinkingLevel(thinking, config);
-        return level ? { google: { thinkingConfig: { thinkingLevel: level } } } : undefined;
-      }
-
-      const budget = pickThinkingBudget(thinking, config);
-      if (budget === undefined) return undefined;
-      return { google: { thinkingConfig: { thinkingBudget: budget } } };
-    }
-
-    default:
-      // OpenAI-compatible providers are injected in providers.ts fetch wrapper.
-      return undefined;
-  }
-}
-
 /**
  * Inject provider-specific thinking options into LLM call params.
  *
- * For native providers (OpenAI/Anthropic/Google), this sets providerOptions.
- * For OpenAI-compatible providers, providerOptions won't work (stripped by
- * zod schema) — those are handled by the custom fetch wrapper via thinkingContext.
+ * Kimi is reached through ZenMux's OpenAI-compatible API. The custom fetch
+ * wrapper in providers.ts reads thinkingContext and injects the request body.
  *
- * Priority: caller's providerOptions > ThinkingConfig
+ * Caller-supplied providerOptions are left untouched.
  */
 function injectProviderOptions<T extends GenerateTextParams | StreamTextParams>(
   params: T,
-  thinking?: ThinkingConfig,
 ): T {
   if ((params as Record<string, unknown>).providerOptions) return params; // caller explicitly set providerOptions
-
-  const modelId = getModelId(params);
-  const providerId = getModelProviderId(params);
-
-  if (thinking) {
-    const opts = buildThinkingProviderOptions(providerId, modelId, thinking);
-    if (opts) return { ...params, providerOptions: opts };
-  }
 
   return params;
 }
@@ -254,7 +82,7 @@ export async function callLLM<T extends GenerateTextParams>(
     try {
       // Resolve effective thinking config: per-call > global env > undefined
       const effectiveThinking = thinking ?? getGlobalThinkingConfig();
-      const injectedParams = injectProviderOptions(params, effectiveThinking);
+      const injectedParams = injectProviderOptions(params);
 
       // Wrap in thinkingContext so the custom fetch wrapper in providers.ts
       // can read the config and inject vendor-specific body params for
@@ -305,7 +133,7 @@ export function streamLLM<T extends StreamTextParams>(
 ): StreamTextResult<any, any> {
   // Resolve effective thinking config and wrap in thinkingContext
   const effectiveThinking = thinking ?? getGlobalThinkingConfig();
-  const injectedParams = injectProviderOptions(params, effectiveThinking);
+  const injectedParams = injectProviderOptions(params);
   const result = thinkingContext.run(effectiveThinking, () => streamText(injectedParams));
 
   return result;

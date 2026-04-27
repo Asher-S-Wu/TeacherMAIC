@@ -80,7 +80,7 @@ export function AddAudioProviderDialog({
           <div className="space-y-2">
             <Label>{t('settings.providerName')}</Label>
             <Input
-              placeholder={type === 'tts' ? 'My Local TTS' : 'My Local ASR'}
+              placeholder={type === 'tts' ? 'My Cloud TTS' : 'My Cloud ASR'}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -90,7 +90,7 @@ export function AddAudioProviderDialog({
             <Label>{t('settings.defaultBaseUrl')}</Label>
             <Input
               type="url"
-              placeholder="http://localhost:8000/v1"
+              placeholder="https://api.example.com/v1"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
             />

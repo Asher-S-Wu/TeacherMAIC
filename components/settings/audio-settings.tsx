@@ -26,8 +26,6 @@ import { Volume2, Mic, MicOff, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide
 import { cn } from '@/lib/utils';
 import azureVoicesData from '@/lib/audio/azure.json';
 import { createLogger } from '@/lib/logger';
-import { getVoxCPMVoiceOptions, useVoxCPMVoiceProfiles } from '@/lib/audio/voxcpm-voices';
-import { normalizeVoxCPMBackend, voxCPMBackendSupportsReferenceAudio } from '@/lib/audio/voxcpm';
 
 const log = createLogger('AudioSettings');
 
@@ -40,7 +38,6 @@ function getTTSProviderName(providerId: TTSProviderId, t: (key: string) => strin
     'azure-tts': t('settings.providerAzureTTS'),
     'glm-tts': t('settings.providerGLMTTS'),
     'qwen-tts': t('settings.providerQwenTTS'),
-    'voxcpm-tts': t('settings.providerVoxCPMTTS'),
     'doubao-tts': t('settings.providerDoubaoTTS'),
     'elevenlabs-tts': t('settings.providerElevenLabsTTS'),
     'minimax-tts': t('settings.providerMiniMaxTTS'),
@@ -98,10 +95,6 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
 
   // Azure voices - load from static JSON
   const azureVoices = useMemo(() => azureVoicesData.voices, []);
-  const { profiles: voxcpmProfiles } = useVoxCPMVoiceProfiles();
-  const voxcpmBackend = normalizeVoxCPMBackend(
-    ttsProvidersConfig['voxcpm-tts']?.providerOptions?.backend,
-  );
 
   // Wrapped setters that trigger onSave callback
   const handleTTSProviderChange = (providerId: TTSProviderId) => {
@@ -213,10 +206,6 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
         id: voice.ShortName,
         name: voice.LocalName,
       }));
-    } else if (ttsProviderId === 'voxcpm-tts') {
-      availableVoices = getVoxCPMVoiceOptions(voxcpmProfiles, {
-        supportsClone: voxCPMBackendSupportsReferenceAudio(voxcpmBackend),
-      });
     } else {
       // Use static voices from constants
       availableVoices = getTTSVoices(ttsProviderId);
@@ -234,7 +223,7 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
         }
       }
     }
-  }, [ttsProviderId, ttsVoice, azureVoices, voxcpmProfiles, voxcpmBackend, setTTSVoice]);
+  }, [ttsProviderId, ttsVoice, azureVoices, setTTSVoice]);
 
   // Initialize and reset ASR language when provider changes
   useEffect(() => {
@@ -468,9 +457,7 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
             </Select>
           </div>
 
-          {(ttsProvider.requiresApiKey ||
-            ttsProvidersConfig[ttsProviderId]?.isServerConfigured ||
-            ttsProviderId === 'voxcpm-tts') && (
+          {(ttsProvider.requiresApiKey || ttsProvidersConfig[ttsProviderId]?.isServerConfigured) && (
             <>
               <div
                 className={cn(
@@ -658,7 +645,7 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
                     placeholder={
                       isCustomASR
                         ? asrProvidersConfig[asrProviderId]?.customDefaultBaseUrl ||
-                          'http://localhost:8000/v1'
+                          'https://api.example.com/v1'
                         : asrProvider?.defaultBaseUrl || t('settings.enterCustomBaseUrl')
                     }
                     value={asrProvidersConfig[asrProviderId]?.baseUrl || ''}

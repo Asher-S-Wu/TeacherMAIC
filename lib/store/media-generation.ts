@@ -3,12 +3,12 @@
  *
  * Tracks per-element media generation status (pending → generating → done/failed).
  * Drives skeleton loading in slide renderer components.
- * Persistence is handled by IndexedDB (mediaFiles table), not Zustand middleware.
+ * File persistence is handled by MongoDB GridFS. The store only tracks runtime
+ * generation status for skeleton loading.
  */
 
 import { create } from 'zustand';
 import type { MediaGenerationRequest } from '@/lib/media/types';
-import { db } from '@/lib/utils/database';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('MediaGenerationStore');
@@ -27,8 +27,8 @@ export interface MediaTask {
     style?: string;
     duration?: number;
   };
-  objectUrl?: string; // URL.createObjectURL() for rendering
-  poster?: string; // Video poster objectUrl
+  objectUrl?: string; // Account file URL for rendering
+  poster?: string; // Account file URL for video poster
   error?: string;
   errorCode?: string; // Structured error code (e.g. 'CONTENT_SENSITIVE')
   retryCount: number;
@@ -53,7 +53,7 @@ interface MediaGenerationState {
   getTask: (elementId: string) => MediaTask | undefined;
   isReady: (elementId: string) => boolean;
 
-  // Restore from IndexedDB on page load
+  // Scene data now stores generated media URLs directly.
   restoreFromDB: (stageId: string) => Promise<void>;
 
   // Cleanup
@@ -158,51 +158,7 @@ export const useMediaGenerationStore = create<MediaGenerationState>()((set, get)
   isReady: (elementId) => get().tasks[elementId]?.status === 'done',
 
   restoreFromDB: async (stageId) => {
-    try {
-      const records = await db.mediaFiles.where('stageId').equals(stageId).toArray();
-      const restored: Record<string, MediaTask> = {};
-      for (const rec of records) {
-        // Extract elementId from compound key (stageId:elementId)
-        const elementId = rec.id.includes(':') ? rec.id.split(':').slice(1).join(':') : rec.id;
-        const params = JSON.parse(rec.params || '{}');
-
-        if (rec.error) {
-          // Restore as failed task (persisted non-retryable error)
-          restored[elementId] = {
-            elementId,
-            type: rec.type,
-            status: 'failed',
-            prompt: rec.prompt,
-            params,
-            error: rec.error,
-            errorCode: rec.errorCode,
-            retryCount: 0,
-            stageId,
-          };
-        } else {
-          // Re-wrap blob with stored mimeType — IndexedDB may drop Blob.type
-          const blob = rec.blob.type ? rec.blob : new Blob([rec.blob], { type: rec.mimeType });
-          const objectUrl = URL.createObjectURL(blob);
-          const poster = rec.poster ? URL.createObjectURL(rec.poster) : undefined;
-          restored[elementId] = {
-            elementId,
-            type: rec.type,
-            status: 'done',
-            prompt: rec.prompt,
-            params,
-            objectUrl,
-            poster,
-            retryCount: 0,
-            stageId,
-          };
-        }
-      }
-      if (Object.keys(restored).length > 0) {
-        set((s) => ({ tasks: { ...s.tasks, ...restored } }));
-      }
-    } catch (err) {
-      log.error('Failed to restore from DB:', err);
-    }
+    log.debug('Media URLs are stored in classroom scenes:', stageId);
   },
 
   clearStage: (stageId) =>
@@ -211,19 +167,12 @@ export const useMediaGenerationStore = create<MediaGenerationState>()((set, get)
       for (const [id, task] of Object.entries(s.tasks)) {
         if (task.stageId !== stageId) {
           remaining[id] = task;
-        } else if (task.objectUrl) {
-          URL.revokeObjectURL(task.objectUrl);
-          if (task.poster) URL.revokeObjectURL(task.poster);
         }
       }
       return { tasks: remaining };
     }),
 
   revokeObjectUrls: () => {
-    const tasks = get().tasks;
-    for (const task of Object.values(tasks)) {
-      if (task.objectUrl) URL.revokeObjectURL(task.objectUrl);
-      if (task.poster) URL.revokeObjectURL(task.poster);
-    }
+    get();
   },
 }));

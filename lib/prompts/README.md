@@ -98,7 +98,7 @@ chat/director integration), use the whiteboard eval harness on one scenario:
 ```bash
 PORT=3100 pnpm dev &
 EVAL_CHAT_MODEL=<provider:model> EVAL_SCORER_MODEL=<provider:model> \
-  pnpm eval:whiteboard --base-url http://localhost:3100 \
+  pnpm eval:whiteboard --base-url https://your-project.vercel.app \
   --scenario econ-tech-innovation
 ```
 

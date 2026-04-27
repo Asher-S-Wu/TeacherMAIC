@@ -55,12 +55,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { SpeechButton } from '@/components/audio/speech-button';
 import { useImportClassroom } from '@/lib/import/use-import-classroom';
+import { AccountMenu } from '@/components/auth/account-menu';
 
 const log = createLogger('Home');
-
-const WEB_SEARCH_STORAGE_KEY = 'webSearchEnabled';
-const RECENT_OPEN_STORAGE_KEY = 'recentClassroomsOpen';
-const INTERACTIVE_MODE_STORAGE_KEY = 'interactiveModeEnabled';
 
 interface FormState {
   pdfFile: File | null;
@@ -95,36 +92,7 @@ function HomePage() {
   const [recentOpen, setRecentOpen] = useState(true);
   const persistRecentOpen = (next: boolean) => {
     setRecentOpen(next);
-    try {
-      localStorage.setItem(RECENT_OPEN_STORAGE_KEY, String(next));
-    } catch {
-      /* ignore */
-    }
   };
-
-  // Hydrate client-only state after mount (avoids SSR mismatch)
-  /* eslint-disable react-hooks/set-state-in-effect -- Hydration from localStorage must happen in effect */
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(RECENT_OPEN_STORAGE_KEY);
-      if (saved !== null) setRecentOpen(saved !== 'false');
-    } catch {
-      /* localStorage unavailable */
-    }
-    try {
-      const savedWebSearch = localStorage.getItem(WEB_SEARCH_STORAGE_KEY);
-      const savedInteractiveMode = localStorage.getItem(INTERACTIVE_MODE_STORAGE_KEY);
-      const updates: Partial<FormState> = {};
-      if (savedWebSearch === 'true') updates.webSearch = true;
-      if (savedInteractiveMode === 'true') updates.interactiveMode = true;
-      if (Object.keys(updates).length > 0) {
-        setForm((prev) => ({ ...prev, ...updates }));
-      }
-    } catch {
-      /* localStorage unavailable */
-    }
-  }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Restore requirement draft from cache (derived state pattern — no effect needed)
   const [prevCachedRequirement, setPrevCachedRequirement] = useState(cachedRequirement);
@@ -229,13 +197,8 @@ function HomePage() {
 
   const updateForm = <K extends keyof FormState>(field: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-    try {
-      if (field === 'webSearch') localStorage.setItem(WEB_SEARCH_STORAGE_KEY, String(value));
-      if (field === 'interactiveMode')
-        localStorage.setItem(INTERACTIVE_MODE_STORAGE_KEY, String(value));
-      if (field === 'requirement') updateRequirementCache(value as string);
-    } catch {
-      /* ignore */
+    if (field === 'requirement') {
+      updateRequirementCache(value as string);
     }
   };
 
@@ -439,6 +402,10 @@ function HomePage() {
             </div>
           )}
         </div>
+
+        <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
+
+        <AccountMenu />
 
         <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
 

@@ -5,33 +5,17 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId =
-  | 'openai'
-  | 'anthropic'
-  | 'google'
-  | 'deepseek'
-  | 'qwen'
-  | 'kimi'
-  | 'minimax'
-  | 'glm'
-  | 'siliconflow'
-  | 'doubao'
-  | 'openrouter'
-  | 'grok'
-  | 'tencent-hunyuan'
-  | 'xiaomi'
-  | 'ollama';
+export type BuiltInProviderId = 'kimi';
 
 /**
- * Provider ID (built-in or custom)
- * For custom providers, use string literals prefixed with "custom-"
+ * Provider ID
  */
-export type ProviderId = BuiltInProviderId | `custom-${string}`;
+export type ProviderId = BuiltInProviderId;
 
 /**
  * Provider API types
  */
-export type ProviderType = 'openai' | 'anthropic' | 'google';
+export type ProviderType = 'openai';
 
 export type ThinkingControlType =
   | 'none'
@@ -46,20 +30,7 @@ export type ThinkingMode = 'default' | 'disabled' | 'enabled' | 'auto';
 export type ThinkingEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
 
-export type ThinkingRequestAdapter =
-  | 'none'
-  | 'openai'
-  | 'anthropic'
-  | 'google'
-  | 'qwen'
-  | 'deepseek'
-  | 'kimi'
-  | 'glm'
-  | 'siliconflow'
-  | 'doubao'
-  | 'openrouter'
-  | 'hunyuan'
-  | 'xiaomi';
+export type ThinkingRequestAdapter = 'none' | 'kimi';
 
 /**
  * Describes a model's thinking/reasoning API control capability.
@@ -90,11 +61,6 @@ export interface ThinkingCapability {
   };
   /** Default token budget used when the user enables thinking without a value. */
   defaultBudgetTokens?: number;
-  /** Anthropic-specific thinking transport metadata. */
-  anthropicThinking?: {
-    type: 'adaptive' | 'enabled';
-    budgetByEffort?: Partial<Record<ThinkingEffort, number>>;
-  };
   /** Can thinking be fully disabled via API? */
   toggleable?: boolean;
   /** Can thinking budget/effort intensity be adjusted? */
@@ -110,9 +76,9 @@ export interface ThinkingCapability {
 export interface ThinkingConfig {
   /** Modern mode control. Kept separate from legacy enabled for provider APIs with auto/default. */
   mode?: ThinkingMode;
-  /** Discrete reasoning effort used by OpenAI/OpenRouter-style APIs. */
+  /** Discrete reasoning effort for models that expose effort-based thinking controls. */
   effort?: ThinkingEffort;
-  /** Discrete thinking level used by Gemini 3-style APIs. */
+  /** Discrete thinking level for models that expose level-based thinking controls. */
   level?: ThinkingLevel;
   /**
    * Whether thinking should be enabled.
@@ -154,11 +120,6 @@ export interface ProviderConfig {
   name: string;
   type: ProviderType;
   defaultBaseUrl?: string;
-  /**
-   * Known alternate base URLs for this provider (e.g. regional endpoints).
-   * Rendered in the settings UI as quick-select chips under the base URL input.
-   */
-  alternateBaseUrls?: { label: string; url: string }[];
   requiresApiKey: boolean;
   icon?: string;
   models: ModelInfo[];
@@ -171,7 +132,5 @@ export interface ModelConfig {
   providerId: ProviderId;
   modelId: string;
   apiKey: string;
-  baseUrl?: string;
-  proxy?: string; // Optional: HTTP proxy URL for this provider
-  providerType?: ProviderType; // Optional: for custom providers on server-side
+  requiresApiKey?: boolean;
 }
