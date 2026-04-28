@@ -8,7 +8,7 @@
   },
   "scripts": {
     "postinstall": "pnpm --dir packages/mathml2omml build && pnpm --dir packages/pptxgenjs build",
-    "build": "next build"
+    "build": "next build --webpack"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.53",
