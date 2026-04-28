@@ -51,7 +51,7 @@ export interface ImageProviderConfig {
   /** Available models for this provider */
   models: ImageModelInfo[];
   /** Aspect ratios supported by this provider */
-  supportedAspectRatios: Array<'16:9' | '4:3' | '1:1' | '9:16'>;
+  supportedAspectRatios: Array<'16:9' | '4:3' | '1:1' | '9:16' | '3:4'>;
   /** Optional artistic styles supported by this provider */
   supportedStyles?: string[];
   /** Maximum supported output resolution */
@@ -94,7 +94,7 @@ export interface ImageGenerationOptions {
   /** Desired output height in pixels */
   height?: number;
   /** Desired aspect ratio (provider will calculate dimensions if width/height not set) */
-  aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16';
+  aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16' | '3:4';
   /** Optional artistic style (must be supported by the chosen provider) */
   style?: string;
 }
