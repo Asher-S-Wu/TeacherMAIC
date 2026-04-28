@@ -3,6 +3,9 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   transpilePackages: ['mathml2omml', 'pptxgenjs'],
   serverExternalPackages: ['mongodb'],
+  outputFileTracingIncludes: {
+    '/*': ['./lib/prompts/**/*.md'],
+  },
   experimental: {
     proxyClientMaxBodySize: '200mb',
   },
