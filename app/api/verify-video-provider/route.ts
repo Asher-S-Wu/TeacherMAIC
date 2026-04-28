@@ -5,14 +5,9 @@
  *
  * POST /api/verify-video-provider
  *
- * Headers:
- *   x-video-provider: VideoProviderId
- *   x-api-key: string (optional, server fallback)
- *
  * Response: { success: boolean, message: string }
  */
 
-import { NextRequest } from 'next/server';
 import { testVideoConnectivity } from '@/lib/media/video-providers';
 import { resolveVideoApiKey } from '@/lib/server/provider-config';
 import type { VideoProviderId } from '@/lib/media/types';
@@ -23,21 +18,11 @@ const log = createLogger('VerifyVideoProvider');
 const QWEN_VIDEO_PROVIDER_ID: VideoProviderId = 'qwen-video';
 const QWEN_VIDEO_MODEL_ID = 'happyhorse-1.0-t2v';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    const requestedProviderId = request.headers.get('x-video-provider') || QWEN_VIDEO_PROVIDER_ID;
-    if (requestedProviderId !== QWEN_VIDEO_PROVIDER_ID) {
-      return apiError('INVALID_REQUEST', 400, 'Only qwen-video is supported');
-    }
     const providerId = QWEN_VIDEO_PROVIDER_ID;
-    const requestedModel = request.headers.get('x-video-model') || QWEN_VIDEO_MODEL_ID;
-    const clientApiKey = request.headers.get('x-api-key') || undefined;
 
-    if (requestedModel !== QWEN_VIDEO_MODEL_ID) {
-      return apiError('INVALID_REQUEST', 400, 'Only happyhorse-1.0-t2v is supported');
-    }
-
-    const apiKey = resolveVideoApiKey(providerId, clientApiKey);
+    const apiKey = resolveVideoApiKey(providerId);
 
     if (!apiKey) {
       return apiError('MISSING_API_KEY', 400, 'No API key configured');
@@ -56,7 +41,7 @@ export async function POST(request: NextRequest) {
     return apiSuccess({ message: result.message });
   } catch (err) {
     log.error(
-      `Video provider verification failed [provider=${request.headers.get('x-video-provider') ?? 'qwen-video'}]:`,
+      'Video provider verification failed [provider=qwen-video]:',
       err,
     );
     return apiError('INTERNAL_ERROR', 500, `Connectivity test error: ${err}`);

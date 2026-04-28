@@ -2,14 +2,13 @@
 
 import { useState } from 'react';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
-import { MINERU_CLOUD_DEFAULT_BASE, PDF_PROVIDERS } from '@/lib/pdf/constants';
+import { PDF_PROVIDERS } from '@/lib/pdf/constants';
 import type { PDFProviderId } from '@/lib/pdf/types';
-import { CheckCircle2, Eye, EyeOff, Loader2, Zap, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, Zap, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -33,28 +32,23 @@ interface PDFSettingsProps {
 
 export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
   const { t } = useI18n();
-  const [showApiKey, setShowApiKey] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testMessage, setTestMessage] = useState('');
 
   const pdfProvidersConfig = useSettingsStore((state) => state.pdfProvidersConfig);
-  const setPDFProviderConfig = useSettingsStore((state) => state.setPDFProviderConfig);
 
   const pdfProvider = PDF_PROVIDERS[selectedProviderId];
   const isServerConfigured = !!pdfProvidersConfig[selectedProviderId]?.isServerConfigured;
-  const providerConfig = pdfProvidersConfig[selectedProviderId];
-  const hasApiKey = !!providerConfig?.apiKey;
 
   const isCloud = selectedProviderId === 'mineru-cloud';
   const needsRemoteConfig = isCloud;
 
-  const canTest = hasApiKey || isServerConfigured;
+  const canTest = isServerConfigured;
 
   // Reset state when provider changes
   const [prevSelectedProviderId, setPrevSelectedProviderId] = useState(selectedProviderId);
   if (selectedProviderId !== prevSelectedProviderId) {
     setPrevSelectedProviderId(selectedProviderId);
-    setShowApiKey(false);
     setTestStatus('idle');
     setTestMessage('');
   }
@@ -66,11 +60,6 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
     try {
       const response = await fetch('/api/verify-pdf-provider', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          providerId: selectedProviderId,
-          apiKey: providerConfig?.apiKey || '',
-        }),
       });
 
       const data = await response.json();
@@ -91,49 +80,19 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      {/* Server-configured notice */}
-      {isServerConfigured && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
-          {t('settings.serverConfiguredNotice')}
-        </div>
-      )}
+      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
+        {isServerConfigured || !pdfProvider.requiresApiKey
+          ? t('settings.serverConfiguredNotice')
+          : t('settings.serverConfigMissingNotice')}
+      </div>
 
       {/* Configuration section (for remote providers) */}
       {(needsRemoteConfig || isServerConfigured) && (
         <>
           <div className="grid gap-4">
-            {/* API Key */}
             {isCloud && (
               <div className="space-y-2">
-                <Label className="text-sm">{t('settings.pdfApiKey')}</Label>
                 <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      name={`pdf-api-key-${selectedProviderId}`}
-                      type={showApiKey ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      placeholder={
-                        isServerConfigured
-                          ? t('settings.optionalOverride')
-                          : t('settings.mineruCloudApiKeyPlaceholder')
-                      }
-                      value={providerConfig?.apiKey || ''}
-                      onChange={(e) =>
-                        setPDFProviderConfig(selectedProviderId, { apiKey: e.target.value })
-                      }
-                      className="font-mono text-sm pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
                   <Button
                     variant="outline"
                     size="sm"
@@ -174,12 +133,6 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
             </div>
           )}
 
-          {/* Request URL Preview */}
-          {isCloud && (
-            <p className="text-xs text-muted-foreground break-all">
-              {t('settings.requestUrl')}: {MINERU_CLOUD_DEFAULT_BASE}/file-urls/batch
-            </p>
-          )}
         </>
       )}
 

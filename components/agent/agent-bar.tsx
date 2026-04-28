@@ -67,7 +67,6 @@ function AgentVoicePill({
 }) {
   const { t } = useI18n();
   const updateAgent = useAgentRegistry((s) => s.updateAgent);
-  const ttsProvidersConfig = useSettingsStore((s) => s.ttsProvidersConfig);
   const resolved = resolveAgentVoice(agent, agentIndex, availableProviders);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [voiceQuery, setVoiceQuery] = useState('');
@@ -106,7 +105,7 @@ function AgentVoicePill({
   }, []);
 
   const handlePreview = useCallback(
-    async (providerId: TTSProviderId, voiceId: string, modelId?: string) => {
+    async (providerId: TTSProviderId, voiceId: string) => {
       const key = `${providerId}::${voiceId}`;
       if (previewingId === key) {
         stopPreview();
@@ -120,17 +119,14 @@ function AgentVoicePill({
       try {
         const controller = new AbortController();
         previewAbortRef.current = controller;
-        const providerConfig = ttsProvidersConfig[providerId];
         const res = await fetch('/api/generate/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: previewText,
             audioId: 'voice-preview',
-            ttsProviderId: providerId,
             ttsVoice: voiceId,
             ttsSpeed: 1,
-            ttsApiKey: providerConfig?.apiKey,
           }),
           signal: controller.signal,
         });
@@ -147,7 +143,7 @@ function AgentVoicePill({
         setPreviewingId(null);
       }
     },
-    [previewingId, stopPreview, t, ttsProvidersConfig],
+    [previewingId, stopPreview, t],
   );
 
   // Cleanup on unmount
@@ -220,15 +216,11 @@ function AgentVoicePill({
             groups.map((group) => (
               <div key={`${provider.providerId}::${group.modelId}`}>
                 <div className="sticky top-0 bg-popover px-2 py-1 text-[11px] font-medium text-muted-foreground/60">
-                  {group.modelId
-                    ? `${provider.providerName} · ${group.modelName}`
-                    : provider.providerName}
+                  {provider.providerName}
                 </div>
                 {group.voices.map((voice) => {
                   const isActive =
-                    resolved.providerId === provider.providerId &&
-                    resolved.voiceId === voice.id &&
-                    (resolved.modelId || '') === (group.modelId || '');
+                    resolved.providerId === provider.providerId && resolved.voiceId === voice.id;
                   const previewKey = `${provider.providerId}::${voice.id}`;
                   const isPreviewing = previewingId === previewKey;
                   const canPreview = true;
@@ -246,7 +238,6 @@ function AgentVoicePill({
                           updateAgent(agent.id, {
                             voiceConfig: {
                               providerId: provider.providerId,
-                              modelId: group.modelId || undefined,
                               voiceId: voice.id,
                             },
                           });
@@ -264,7 +255,7 @@ function AgentVoicePill({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handlePreview(provider.providerId, voice.id, group.modelId);
+                            handlePreview(provider.providerId, voice.id);
                           }}
                           className={cn(
                             'flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors',
@@ -308,8 +299,6 @@ function TeacherVoicePill({
   const ttsVoice = useSettingsStore((s) => s.ttsVoice);
   const setTTSProvider = useSettingsStore((s) => s.setTTSProvider);
   const setTTSVoice = useSettingsStore((s) => s.setTTSVoice);
-  const setTTSProviderConfig = useSettingsStore((s) => s.setTTSProviderConfig);
-  const ttsProvidersConfig = useSettingsStore((s) => s.ttsProvidersConfig);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [voiceQuery, setVoiceQuery] = useState('');
   const [previewingId, setPreviewingId] = useState<string | null>(null);
@@ -347,7 +336,7 @@ function TeacherVoicePill({
   }, []);
 
   const handlePreview = useCallback(
-    async (providerId: TTSProviderId, voiceId: string, modelId?: string) => {
+    async (providerId: TTSProviderId, voiceId: string) => {
       const key = `${providerId}::${voiceId}`;
       if (previewingId === key) {
         stopPreview();
@@ -361,17 +350,14 @@ function TeacherVoicePill({
       try {
         const controller = new AbortController();
         previewAbortRef.current = controller;
-        const providerConfig = ttsProvidersConfig[providerId];
         const res = await fetch('/api/generate/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: previewText,
             audioId: 'voice-preview',
-            ttsProviderId: providerId,
             ttsVoice: voiceId,
             ttsSpeed: 1,
-            ttsApiKey: providerConfig?.apiKey,
           }),
           signal: controller.signal,
         });
@@ -387,7 +373,7 @@ function TeacherVoicePill({
         setPreviewingId(null);
       }
     },
-    [previewingId, stopPreview, t, ttsProvidersConfig],
+    [previewingId, stopPreview, t],
   );
 
   useEffect(() => () => stopPreview(), [stopPreview]);
@@ -459,16 +445,12 @@ function TeacherVoicePill({
             groups.map((group) => (
               <div key={`${provider.providerId}::${group.modelId}`}>
                 <div className="sticky top-0 bg-popover px-2 py-1 text-[11px] font-medium text-muted-foreground/60">
-                  {group.modelId
-                    ? `${provider.providerName} · ${group.modelName}`
-                    : provider.providerName}
+                  {provider.providerName}
                 </div>
                 {group.voices.map((voice) => {
-                  const currentModelId = ttsProvidersConfig[ttsProviderId]?.modelId || '';
                   const isActive =
                     ttsProviderId === provider.providerId &&
-                    ttsVoice === voice.id &&
-                    currentModelId === (group.modelId || '');
+                    ttsVoice === voice.id;
                   const previewKey = `${provider.providerId}::${voice.id}`;
                   const isPreviewing = previewingId === previewKey;
                   const canPreview = true;
@@ -485,9 +467,6 @@ function TeacherVoicePill({
                         onClick={() => {
                           setTTSProvider(provider.providerId);
                           setTTSVoice(voice.id);
-                          if (group.modelId) {
-                            setTTSProviderConfig(provider.providerId, { modelId: group.modelId });
-                          }
                           setPopoverOpen(false);
                         }}
                         className={cn(
@@ -502,7 +481,7 @@ function TeacherVoicePill({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handlePreview(provider.providerId, voice.id, group.modelId);
+                            handlePreview(provider.providerId, voice.id);
                           }}
                           className={cn(
                             'flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors',

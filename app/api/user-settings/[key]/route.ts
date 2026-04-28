@@ -4,6 +4,44 @@ import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
 import { getCollections, getMongo } from '@/lib/server/mongodb';
 
+function clearProviderSecrets(configMap: unknown): void {
+  if (!configMap || typeof configMap !== 'object') return;
+  for (const config of Object.values(configMap as Record<string, unknown>)) {
+    if (!config || typeof config !== 'object') continue;
+    const record = config as Record<string, unknown>;
+    if ('apiKey' in record) record.apiKey = '';
+    if ('baseUrl' in record) record.baseUrl = '';
+  }
+}
+
+function stripSettingsSecrets(key: string, value: string): string {
+  if (key !== 'settings-storage') return value;
+
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    const state =
+      parsed.state && typeof parsed.state === 'object'
+        ? (parsed.state as Record<string, unknown>)
+        : parsed;
+
+    for (const field of [
+      'providersConfig',
+      'ttsProvidersConfig',
+      'asrProvidersConfig',
+      'pdfProvidersConfig',
+      'imageProvidersConfig',
+      'videoProvidersConfig',
+      'webSearchProvidersConfig',
+    ]) {
+      clearProviderSecrets(state[field]);
+    }
+
+    return JSON.stringify(parsed);
+  } catch {
+    return value;
+  }
+}
+
 export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ key: string }> },
@@ -16,7 +54,8 @@ export async function GET(
       userId: user._id,
       key,
     });
-    return apiSuccess({ value: setting?.value ?? null });
+    const value = typeof setting?.value === 'string' ? setting.value : null;
+    return apiSuccess({ value });
   } catch (error) {
     const status =
       error instanceof Error && 'status' in error && typeof error.status === 'number'
@@ -42,12 +81,13 @@ export async function PUT(
       return apiError('INVALID_REQUEST', 400, '设置内容不正确');
     }
 
+    const sanitizedValue = stripSettingsSecrets(key, body.value);
     const { db } = await getMongo();
     await getCollections(db).userSettings.updateOne(
       { userId: user._id, key },
       {
         $set: {
-          value: body.value,
+          value: sanitizedValue,
           updatedAt: new Date(),
         },
         $setOnInsert: {

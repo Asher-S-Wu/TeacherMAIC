@@ -88,23 +88,11 @@ function GenerationPreviewContent() {
     };
   }, []);
 
-  // Get API credentials from the settings store
+  // Get feature toggles from the settings store. Model credentials live on the server.
   const getApiHeaders = () => {
-    const modelConfig = getCurrentModelConfig();
     const settings = useSettingsStore.getState();
-    const imageProviderConfig = settings.imageProvidersConfig?.[settings.imageProviderId];
-    const videoProviderConfig = settings.videoProvidersConfig?.[settings.videoProviderId];
     return {
       'Content-Type': 'application/json',
-      'x-model': modelConfig.modelString,
-      'x-api-key': modelConfig.apiKey,
-      // Image generation provider
-      'x-image-provider': settings.imageProviderId || '',
-      'x-image-api-key': imageProviderConfig?.apiKey || '',
-      // Video generation provider
-      'x-video-provider': settings.videoProviderId || '',
-      'x-video-model': settings.videoModelId || '',
-      'x-video-api-key': videoProviderConfig?.apiKey || '',
       // Media generation toggles
       'x-image-generation-enabled': String(settings.imageGenerationEnabled ?? false),
       'x-video-generation-enabled': String(settings.videoGenerationEnabled ?? false),
@@ -177,13 +165,6 @@ function GenerationPreviewContent() {
 
         const parseFormData = new FormData();
         parseFormData.append('pdf', pdfFile);
-
-        if (currentSession.pdfProviderId) {
-          parseFormData.append('providerId', currentSession.pdfProviderId);
-        }
-        if (currentSession.pdfProviderConfig?.apiKey?.trim()) {
-          parseFormData.append('apiKey', currentSession.pdfProviderConfig.apiKey);
-        }
 
         const parseResponse = await fetch('/api/parse-pdf', {
           method: 'POST',
@@ -295,9 +276,6 @@ function GenerationPreviewContent() {
         setCurrentStepIndex(webSearchStepIdx);
         setWebSearchSources([]);
 
-        const wsSettings = useSettingsStore.getState();
-        const wsApiKey =
-          wsSettings.webSearchProvidersConfig?.[wsSettings.webSearchProviderId]?.apiKey;
         const res = await fetch('/api/web-search', {
           method: 'POST',
           headers: getApiHeaders(),
@@ -305,7 +283,6 @@ function GenerationPreviewContent() {
             withThinkingConfig({
               query: currentSession.requirements.requirement,
               pdfText: currentSession.pdfText || undefined,
-              apiKey: wsApiKey || undefined,
             }),
           ),
           signal,
@@ -737,7 +714,6 @@ function GenerationPreviewContent() {
 
       // Generate TTS for first scene (part of actions step — blocking)
       if (settings.ttsEnabled) {
-        const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
         const speechActions = (data.scene.actions || []).filter(
           (a: { type: string; text?: string }) => a.type === 'speech' && a.text,
         );
@@ -753,10 +729,8 @@ function GenerationPreviewContent() {
               body: JSON.stringify({
                 text: action.text,
                 audioId,
-                ttsProviderId: settings.ttsProviderId,
                 ttsVoice: settings.ttsVoice,
                 ttsSpeed: settings.ttsSpeed,
-                ttsApiKey: ttsProviderConfig?.apiKey || undefined,
               }),
               signal,
             });

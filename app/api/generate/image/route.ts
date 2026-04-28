@@ -1,14 +1,10 @@
 /**
  * Image Generation API
  *
- * Generates an image from a text prompt using the specified provider.
+ * Generates an image from a text prompt using the server-configured provider.
  * Called by the client during media generation after slides are produced.
  *
  * POST /api/generate/image
- *
- * Headers:
- *   x-image-provider: ImageProviderId (default: 'qwen-image')
- *   x-api-key: string (optional, server fallback)
  *
  * Body: { prompt, negativePrompt?, width?, height?, aspectRatio?, style? }
  * Response: { success: boolean, result?: ImageGenerationResult, error?: string }
@@ -31,15 +27,10 @@ export async function POST(request: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing prompt');
     }
 
-    const requestedProviderId = request.headers.get('x-image-provider') || 'qwen-image';
-    if (requestedProviderId !== 'qwen-image') {
-      return apiError('INVALID_REQUEST', 400, 'Only qwen-image is supported');
-    }
     const providerId: ImageProviderId = 'qwen-image';
-    const clientApiKey = request.headers.get('x-api-key') || undefined;
     const model = 'qwen-image-2.0-pro';
 
-    const apiKey = resolveImageApiKey(providerId, clientApiKey);
+    const apiKey = resolveImageApiKey(providerId);
     if (!apiKey) {
       return apiError(
         'MISSING_API_KEY',
@@ -70,7 +61,7 @@ export async function POST(request: NextRequest) {
       return apiError('CONTENT_SENSITIVE', 400, message);
     }
     log.error(
-      `Image generation failed [provider=${request.headers.get('x-image-provider') ?? 'qwen-image'}, model=qwen-image-2.0-pro]:`,
+      'Image generation failed [provider=qwen-image, model=qwen-image-2.0-pro]:',
       error,
     );
     return apiError('INTERNAL_ERROR', 500, message);

@@ -18,38 +18,30 @@ import { apiError, apiSuccess } from '@/lib/server/api-response';
 const log = createLogger('TTS API');
 
 export async function POST(req: NextRequest) {
-  let ttsProviderId: string | undefined;
   let ttsVoice: string | undefined;
   let audioId: string | undefined;
   try {
     const body = await req.json();
-    const { text, ttsSpeed, ttsApiKey } = body as {
+    const { text, ttsSpeed } = body as {
       text: string;
       audioId: string;
-      ttsProviderId: string;
       ttsVoice: string;
       ttsSpeed?: number;
-      ttsApiKey?: string;
     };
-    ttsProviderId = body.ttsProviderId;
     ttsVoice = body.ttsVoice;
     audioId = body.audioId;
 
     // Validate required fields
-    if (!text || !audioId || !ttsProviderId || !ttsVoice) {
+    if (!text || !audioId || !ttsVoice) {
       return apiError(
         'MISSING_REQUIRED_FIELD',
         400,
-        'Missing required fields: text, audioId, ttsProviderId, ttsVoice',
+        'Missing required fields: text, audioId, ttsVoice',
       );
     }
 
-    if (ttsProviderId !== 'qwen-tts') {
-      return apiError('INVALID_REQUEST', 400, 'Only qwen-tts is supported');
-    }
-
     const effectiveProviderId: TTSProviderId = 'qwen-tts';
-    const apiKey = resolveTTSApiKey(effectiveProviderId, ttsApiKey || undefined);
+    const apiKey = resolveTTSApiKey(effectiveProviderId);
 
     // Build TTS config
     const config = {
@@ -61,7 +53,7 @@ export async function POST(req: NextRequest) {
     };
 
     log.info(
-      `Generating TTS: provider=${ttsProviderId}, model=${QWEN_TTS_MODEL_ID}, voice=${ttsVoice}, audioId=${audioId}, textLen=${text.length}`,
+      `Generating TTS: provider=qwen-tts, model=${QWEN_TTS_MODEL_ID}, voice=${ttsVoice}, audioId=${audioId}, textLen=${text.length}`,
     );
 
     // Generate audio
@@ -73,7 +65,7 @@ export async function POST(req: NextRequest) {
     return apiSuccess({ audioId, base64, format });
   } catch (error) {
     log.error(
-      `TTS generation failed [provider=${ttsProviderId ?? 'unknown'}, voice=${ttsVoice ?? 'unknown'}, audioId=${audioId ?? 'unknown'}]:`,
+      `TTS generation failed [provider=qwen-tts, voice=${ttsVoice ?? 'unknown'}, audioId=${audioId ?? 'unknown'}]:`,
       error,
     );
     return apiError(

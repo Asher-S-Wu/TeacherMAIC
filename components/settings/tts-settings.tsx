@@ -15,7 +15,7 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import { TTS_PROVIDERS } from '@/lib/audio/constants';
 import type { TTSProviderId } from '@/lib/audio/types';
-import { CheckCircle2, Eye, EyeOff, Loader2, Volume2, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, Volume2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createLogger } from '@/lib/logger';
 import { useTTSPreview } from '@/lib/audio/use-tts-preview';
@@ -34,9 +34,7 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
   const ttsSpeed = useSettingsStore((state) => state.ttsSpeed);
   const setTTSVoice = useSettingsStore((state) => state.setTTSVoice);
   const setTTSSpeed = useSettingsStore((state) => state.setTTSSpeed);
-  const setTTSProviderConfig = useSettingsStore((state) => state.setTTSProviderConfig);
 
-  const [showApiKey, setShowApiKey] = useState(false);
   const [testText, setTestText] = useState(t('settings.ttsTestTextDefault'));
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testMessage, setTestMessage] = useState('');
@@ -48,7 +46,6 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
 
   useEffect(() => {
     stopPreview();
-    setShowApiKey(false);
     setTestStatus('idle');
     setTestMessage('');
   }, [selectedProviderId, stopPreview]);
@@ -62,10 +59,8 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
     try {
       await startPreview({
         text: testText,
-        providerId: 'qwen-tts',
         voice: ttsVoice,
         speed: ttsSpeed,
-        apiKey: providerConfig?.apiKey,
       });
       setTestStatus('success');
       setTestMessage(t('settings.ttsTestSuccess'));
@@ -82,42 +77,13 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      {providerConfig?.isServerConfigured && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
-          {t('settings.serverConfiguredNotice')}
-        </div>
-      )}
+      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
+        {providerConfig?.isServerConfigured
+          ? t('settings.serverConfiguredNotice')
+          : t('settings.serverConfigMissingNotice')}
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label className="text-sm">{t('settings.ttsApiKey')}</Label>
-          <div className="relative">
-            <Input
-              name="tts-api-key-qwen"
-              type={showApiKey ? 'text' : 'password'}
-              autoComplete="new-password"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              placeholder={
-                providerConfig?.isServerConfigured
-                  ? t('settings.optionalOverride')
-                  : t('settings.enterApiKey')
-              }
-              value={providerConfig?.apiKey || ''}
-              onChange={(e) => setTTSProviderConfig('qwen-tts', { apiKey: e.target.value })}
-              className="font-mono text-sm pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
-
         <div className="space-y-2">
           <Label className="text-sm">{t('settings.ttsVoice')}</Label>
           <Select value={ttsVoice} onValueChange={setTTSVoice}>

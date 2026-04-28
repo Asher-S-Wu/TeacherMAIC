@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -15,7 +14,7 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import { ASR_PROVIDERS } from '@/lib/audio/constants';
 import type { ASRProviderId } from '@/lib/audio/types';
-import { CheckCircle2, Eye, EyeOff, Loader2, Mic, MicOff, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, Mic, MicOff, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createLogger } from '@/lib/logger';
 
@@ -31,9 +30,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
   const asrLanguage = useSettingsStore((state) => state.asrLanguage);
   const providerConfig = useSettingsStore((state) => state.asrProvidersConfig['qwen-asr']);
   const setASRLanguage = useSettingsStore((state) => state.setASRLanguage);
-  const setASRProviderConfig = useSettingsStore((state) => state.setASRProviderConfig);
 
-  const [showApiKey, setShowApiKey] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [asrResult, setASRResult] = useState('');
@@ -42,7 +39,6 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
   useEffect(() => {
-    setShowApiKey(false);
     setTestStatus('idle');
     setTestMessage('');
     setASRResult('');
@@ -78,11 +74,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
-        formData.append('providerId', 'qwen-asr');
         formData.append('language', asrLanguage);
-        if (providerConfig?.apiKey?.trim()) {
-          formData.append('apiKey', providerConfig.apiKey);
-        }
 
         try {
           const response = await fetch('/api/transcription', {
@@ -122,42 +114,13 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      {providerConfig?.isServerConfigured && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
-          {t('settings.serverConfiguredNotice')}
-        </div>
-      )}
+      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
+        {providerConfig?.isServerConfigured
+          ? t('settings.serverConfiguredNotice')
+          : t('settings.serverConfigMissingNotice')}
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label className="text-sm">{t('settings.asrApiKey')}</Label>
-          <div className="relative">
-            <Input
-              name="asr-api-key-qwen"
-              type={showApiKey ? 'text' : 'password'}
-              autoComplete="new-password"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              placeholder={
-                providerConfig?.isServerConfigured
-                  ? t('settings.optionalOverride')
-                  : t('settings.enterApiKey')
-              }
-              value={providerConfig?.apiKey || ''}
-              onChange={(e) => setASRProviderConfig('qwen-asr', { apiKey: e.target.value })}
-              className="font-mono text-sm pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
-
         <div className="space-y-2">
           <Label className="text-sm">{t('settings.asrLanguage')}</Label>
           <Select value={asrLanguage} onValueChange={setASRLanguage}>

@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { resolvePDFApiKey } from '@/lib/server/provider-config';
@@ -6,22 +5,10 @@ import { MINERU_CLOUD_DEFAULT_BASE } from '@/lib/pdf/constants';
 
 const log = createLogger('Verify PDF Provider');
 
-export async function POST(req: NextRequest) {
-  let providerId: string | undefined;
+export async function POST() {
+  const providerId = 'mineru-cloud';
   try {
-    const body = await req.json();
-    providerId = body.providerId;
-    const { apiKey } = body;
-
-    if (!providerId) {
-      return apiError('MISSING_REQUIRED_FIELD', 400, 'Provider ID is required');
-    }
-
-    if (providerId !== 'mineru-cloud') {
-      return apiError('INVALID_REQUEST', 400, 'Unsupported PDF provider verification');
-    }
-
-    const resolvedApiKey = resolvePDFApiKey(providerId, apiKey);
+    const resolvedApiKey = resolvePDFApiKey(providerId);
     if (!resolvedApiKey) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'API Key is required for MinerU Cloud');
     }
@@ -50,7 +37,7 @@ export async function POST(req: NextRequest) {
       status: response.status,
     });
   } catch (error) {
-    log.error(`PDF provider verification failed [provider=${providerId ?? 'unknown'}]:`, error);
+    log.error(`PDF provider verification failed [provider=${providerId}]:`, error);
 
     let errorMessage = 'Connection failed';
     if (error instanceof Error) {

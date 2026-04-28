@@ -147,7 +147,7 @@ import { parseWithMinerUCloud } from './mineru-cloud';
 const log = createLogger('PDFProviders');
 
 /**
- * Parse PDF using specified provider
+ * Parse PDF using the server-selected provider.
  */
 export async function parsePDF(
   config: PDFParserConfig,
@@ -273,13 +273,10 @@ export async function getCurrentPDFConfig(): Promise<PDFParserConfig> {
 
   // Dynamic import to avoid circular dependency
   const { useSettingsStore } = await import('@/lib/store/settings');
-  const { pdfProviderId, pdfProvidersConfig } = useSettingsStore.getState();
-
-  const providerConfig = pdfProvidersConfig?.[pdfProviderId];
+  const { pdfProviderId } = useSettingsStore.getState();
 
   return {
     providerId: pdfProviderId,
-    apiKey: providerConfig?.apiKey,
   };
 }
 

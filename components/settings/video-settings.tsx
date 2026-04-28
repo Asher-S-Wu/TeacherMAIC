@@ -2,12 +2,11 @@
 
 import { useState } from 'react';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
-import { CheckCircle2, Eye, EyeOff, Loader2, XCircle, Zap } from 'lucide-react';
+import { CheckCircle2, Loader2, XCircle, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { VideoProviderId } from '@/lib/media/types';
 
@@ -19,11 +18,8 @@ export function VideoSettings({ selectedProviderId }: VideoSettingsProps) {
   const { t } = useI18n();
 
   const provider = VIDEO_PROVIDERS['qwen-video'];
-  const videoModelId = useSettingsStore((state) => state.videoModelId);
   const videoProvidersConfig = useSettingsStore((state) => state.videoProvidersConfig);
-  const setVideoProviderConfig = useSettingsStore((state) => state.setVideoProviderConfig);
 
-  const [showApiKey, setShowApiKey] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [testMessage, setTestMessage] = useState('');
@@ -38,10 +34,6 @@ export function VideoSettings({ selectedProviderId }: VideoSettingsProps) {
   const currentConfig = videoProvidersConfig['qwen-video'];
   const isServerConfigured = !!currentConfig?.isServerConfigured;
 
-  const handleApiKeyChange = (apiKey: string) => {
-    setVideoProviderConfig('qwen-video', { apiKey });
-  };
-
   const handleTest = async () => {
     setTestLoading(true);
     setTestStatus('idle');
@@ -49,11 +41,6 @@ export function VideoSettings({ selectedProviderId }: VideoSettingsProps) {
     try {
       const response = await fetch('/api/verify-video-provider', {
         method: 'POST',
-        headers: {
-          'x-video-provider': 'qwen-video',
-          'x-video-model': videoModelId || '',
-          'x-api-key': currentConfig?.apiKey || '',
-        },
       });
       const data = await response.json();
       if (data.success) {
@@ -75,41 +62,19 @@ export function VideoSettings({ selectedProviderId }: VideoSettingsProps) {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      {isServerConfigured && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
-          {t('settings.serverConfiguredNotice')}
-        </div>
-      )}
+      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
+        {isServerConfigured
+          ? t('settings.serverConfiguredNotice')
+          : t('settings.serverConfigMissingNotice')}
+      </div>
 
       <div className="space-y-2">
-        <Label>API Key</Label>
         <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Input
-              name={`video-api-key-${selectedProviderId}`}
-              type={showApiKey ? 'text' : 'password'}
-              autoComplete="new-password"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              placeholder={isServerConfigured ? t('settings.optionalOverride') : t('settings.enterApiKey')}
-              value={currentConfig?.apiKey || ''}
-              onChange={(e) => handleApiKeyChange(e.target.value)}
-              className="h-8 pr-8"
-            />
-            <button
-              type="button"
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
           <Button
             variant="outline"
             size="sm"
             onClick={handleTest}
-            disabled={testLoading || (!currentConfig?.apiKey && !isServerConfigured)}
+            disabled={testLoading || !isServerConfigured}
             className="gap-1.5"
           >
             {testLoading ? (

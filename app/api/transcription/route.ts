@@ -13,17 +13,12 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
-    const requestedProviderId = (formData.get('providerId') as string | null) || 'qwen-asr';
     const language = formData.get('language') as string | null;
-    const apiKey = formData.get('apiKey') as string | null;
 
     if (!audioFile) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Audio file is required');
     }
 
-    if (requestedProviderId !== 'qwen-asr') {
-      return apiError('INVALID_REQUEST', 400, 'Only qwen-asr is supported');
-    }
     const effectiveProviderId: ASRProviderId = 'qwen-asr';
     resolvedProviderId = effectiveProviderId;
     resolvedModelId = QWEN_ASR_MODEL_ID;
@@ -32,7 +27,7 @@ export async function POST(req: NextRequest) {
       providerId: effectiveProviderId,
       modelId: QWEN_ASR_MODEL_ID,
       language: language || 'auto',
-      apiKey: resolveASRApiKey(effectiveProviderId, apiKey || undefined),
+      apiKey: resolveASRApiKey(effectiveProviderId),
     };
 
     // Convert audio file to buffer

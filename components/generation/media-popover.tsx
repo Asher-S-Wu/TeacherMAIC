@@ -25,24 +25,13 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
-import { IMAGE_PROVIDERS } from '@/lib/media/image-providers';
-import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
 import { ASR_PROVIDERS, getASRSupportedLanguages } from '@/lib/audio/constants';
-import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { ASRProviderId } from '@/lib/audio/types';
 import type { SettingsSection } from '@/lib/types/settings';
 
 interface MediaPopoverProps {
   onSettingsOpen: (section: SettingsSection) => void;
 }
-
-// ─── Provider icon maps ───
-const IMAGE_PROVIDER_ICONS: Record<string, string> = {
-  'qwen-image': '/logos/bailian.svg',
-};
-const VIDEO_PROVIDER_ICONS: Record<string, string> = {
-  'qwen-video': '/logos/bailian.svg',
-};
 
 type TabId = 'image' | 'video' | 'tts' | 'asr';
 
@@ -68,18 +57,6 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const setTTSEnabled = useSettingsStore((s) => s.setTTSEnabled);
   const setASREnabled = useSettingsStore((s) => s.setASREnabled);
 
-  const imageProviderId = useSettingsStore((s) => s.imageProviderId);
-  const imageModelId = useSettingsStore((s) => s.imageModelId);
-  const imageProvidersConfig = useSettingsStore((s) => s.imageProvidersConfig);
-  const setImageProvider = useSettingsStore((s) => s.setImageProvider);
-  const setImageModelId = useSettingsStore((s) => s.setImageModelId);
-
-  const videoProviderId = useSettingsStore((s) => s.videoProviderId);
-  const videoModelId = useSettingsStore((s) => s.videoModelId);
-  const videoProvidersConfig = useSettingsStore((s) => s.videoProvidersConfig);
-  const setVideoProvider = useSettingsStore((s) => s.setVideoProvider);
-  const setVideoModelId = useSettingsStore((s) => s.setVideoModelId);
-
   const asrProviderId = useSettingsStore((s) => s.asrProviderId);
   const asrLanguage = useSettingsStore((s) => s.asrLanguage);
   const asrProvidersConfig = useSettingsStore((s) => s.asrProvidersConfig);
@@ -102,46 +79,11 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
 
   const cfgOk = useCallback(
     (
-      configs: Record<string, { apiKey?: string; isServerConfigured?: boolean }>,
+      configs: Record<string, { isServerConfigured?: boolean }>,
       id: string,
       needsKey: boolean,
-    ) => !needsKey || !!configs[id]?.apiKey || !!configs[id]?.isServerConfigured,
+    ) => !needsKey || !!configs[id]?.isServerConfigured,
     [],
-  );
-
-  // ─── Grouped select data (only available providers) ───
-  const imageGroups = useMemo(
-    () =>
-      Object.values(IMAGE_PROVIDERS)
-        .filter((p) => cfgOk(imageProvidersConfig, p.id, p.requiresApiKey))
-        .map((p) => ({
-          groupId: p.id,
-          groupName: p.name,
-          groupIcon: IMAGE_PROVIDER_ICONS[p.id],
-          available: true,
-          items: p.models.map((m) => ({
-            id: m.id,
-            name: m.name,
-          })),
-        })),
-    [cfgOk, imageProvidersConfig],
-  );
-
-  const videoGroups = useMemo(
-    () =>
-      Object.values(VIDEO_PROVIDERS)
-        .filter((p) => cfgOk(videoProvidersConfig, p.id, p.requiresApiKey))
-        .map((p) => ({
-          groupId: p.id,
-          groupName: p.name,
-          groupIcon: VIDEO_PROVIDER_ICONS[p.id],
-          available: true,
-          items: p.models.map((m) => ({
-            id: m.id,
-            name: m.name,
-          })),
-        })),
-    [cfgOk, videoProvidersConfig],
   );
 
   // ASR: Qwen provider
@@ -231,17 +173,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
               label={t('media.imageCapability')}
               enabled={imageGenerationEnabled}
               onToggle={setImageGenerationEnabled}
-            >
-              <GroupedSelect
-                groups={imageGroups}
-                selectedGroupId={imageProviderId}
-                selectedItemId={imageModelId}
-                onSelect={(gid, iid) => {
-                  setImageProvider(gid as ImageProviderId);
-                  setImageModelId(iid);
-                }}
-              />
-            </TabPanel>
+            />
           )}
 
           {activeTab === 'video' && (
@@ -250,17 +182,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
               label={t('media.videoCapability')}
               enabled={videoGenerationEnabled}
               onToggle={setVideoGenerationEnabled}
-            >
-              <GroupedSelect
-                groups={videoGroups}
-                selectedGroupId={videoProviderId}
-                selectedItemId={videoModelId}
-                onSelect={(gid, iid) => {
-                  setVideoProvider(gid as VideoProviderId);
-                  setVideoModelId(iid);
-                }}
-              />
-            </TabPanel>
+            />
           )}
 
           {activeTab === 'tts' && (

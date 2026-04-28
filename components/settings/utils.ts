@@ -32,13 +32,11 @@ export function getProviderTypeLabel(type: string, t: (key: string) => string): 
 interface VerifyModelRequestConfig {
   providerId: ProviderId;
   modelId: string;
-  apiKey?: string;
   requiresApiKey?: boolean;
 }
 
 export function createVerifyModelRequest(config: VerifyModelRequestConfig) {
   return {
-    apiKey: config.apiKey || '',
     model: `${config.providerId}:${config.modelId}`,
     requiresApiKey: config.requiresApiKey,
   };

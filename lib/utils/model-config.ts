@@ -24,9 +24,6 @@ export function getCurrentModelConfig() {
     providerId,
     modelId,
     modelString,
-    apiKey: providerConfig?.apiKey || '',
-    requiresApiKey: providerConfig?.requiresApiKey,
-    isServerConfigured: providerConfig?.isServerConfigured,
     thinkingConfig,
   };
 }

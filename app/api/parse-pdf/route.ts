@@ -23,21 +23,19 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const pdfFile = formData.get('pdf') as File | null;
-    const providerId = formData.get('providerId') as PDFProviderId | null;
-    const apiKey = formData.get('apiKey') as string | null;
 
     if (!pdfFile) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'No PDF file provided');
     }
 
-    // providerId is required from the client — no server-side store to fall back to
-    const effectiveProviderId = providerId || ('unpdf' as PDFProviderId);
+    const mineruApiKey = resolvePDFApiKey('mineru-cloud');
+    const effectiveProviderId: PDFProviderId = mineruApiKey ? 'mineru-cloud' : 'unpdf';
     pdfFileName = pdfFile?.name;
     resolvedProviderId = effectiveProviderId;
 
     const config = {
       providerId: effectiveProviderId,
-      apiKey: resolvePDFApiKey(effectiveProviderId, apiKey || undefined),
+      apiKey: mineruApiKey,
     };
 
     // Convert PDF to buffer

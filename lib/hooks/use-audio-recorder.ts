@@ -34,15 +34,9 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
         // Note: This requires importing useSettingsStore in browser context
         if (typeof window !== 'undefined') {
           const { useSettingsStore } = await import('@/lib/store/settings');
-          const { asrLanguage, asrProvidersConfig } = useSettingsStore.getState();
+          const { asrLanguage } = useSettingsStore.getState();
 
-          formData.append('providerId', 'qwen-asr');
           formData.append('language', asrLanguage);
-
-          const providerConfig = asrProvidersConfig?.['qwen-asr'];
-          if (providerConfig?.apiKey?.trim()) {
-            formData.append('apiKey', providerConfig.apiKey);
-          }
         }
 
         const response = await fetch('/api/transcription', {

@@ -4,10 +4,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 
 export interface TTSPreviewOptions {
   text: string;
-  providerId: string;
   voice: string;
   speed: number;
-  apiKey?: string;
 }
 
 /**
@@ -62,12 +60,9 @@ export function useTTSPreview() {
         const body: Record<string, unknown> = {
           text: options.text,
           audioId: 'preview',
-          ttsProviderId: options.providerId,
           ttsVoice: options.voice,
           ttsSpeed: options.speed,
         };
-        if (options.apiKey?.trim()) body.ttsApiKey = options.apiKey;
-
         const res = await fetch('/api/generate/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

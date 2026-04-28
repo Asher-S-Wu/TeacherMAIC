@@ -92,13 +92,11 @@ export async function getCurrentASRConfig(): Promise<ASRModelConfig> {
   }
 
   const { useSettingsStore } = await import('@/lib/store/settings');
-  const { asrProviderId, asrLanguage, asrProvidersConfig } = useSettingsStore.getState();
-  const providerConfig = asrProvidersConfig?.[asrProviderId];
+  const { asrLanguage } = useSettingsStore.getState();
 
   return {
     providerId: 'qwen-asr',
     modelId: QWEN_ASR_MODEL_ID,
-    apiKey: providerConfig?.apiKey,
     language: asrLanguage,
   };
 }

@@ -27,11 +27,9 @@ export async function POST(req: NextRequest) {
     const {
       query: requestQuery,
       pdfText,
-      apiKey: clientApiKey,
     } = body as {
       query?: string;
       pdfText?: string;
-      apiKey?: string;
     };
     query = requestQuery;
 
@@ -39,12 +37,12 @@ export async function POST(req: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'query is required');
     }
 
-    const apiKey = resolveWebSearchApiKey(clientApiKey);
+    const apiKey = resolveWebSearchApiKey();
     if (!apiKey) {
       return apiError(
         'MISSING_API_KEY',
         400,
-        '阿里云百炼 API Key 未配置。请在 Vercel 环境变量中配置 QWEN_API_KEY，或在设置 → 网络搜索中填写百炼 API Key。',
+        '阿里云百炼 API Key 未配置，请在 Vercel 环境变量中配置 QWEN_API_KEY。',
       );
     }
 

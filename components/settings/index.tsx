@@ -7,8 +7,6 @@ import {
   X,
   Box,
   Settings,
-  CheckCircle2,
-  XCircle,
   FileText,
   Image as ImageIcon,
   Film,
@@ -161,7 +159,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   const asrProvidersConfig = useSettingsStore((state) => state.asrProvidersConfig);
 
   // Store actions
-  const setProviderConfig = useSettingsStore((state) => state.setProviderConfig);
   const setTTSProvider = useSettingsStore((state) => state.setTTSProvider);
   const setASRProvider = useSettingsStore((state) => state.setASRProvider);
 
@@ -182,9 +179,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
       setActiveSection(initialSection);
     }
   }, [open, initialSection]);
-
-  // Save status indicator
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
 
   // Resizable column widths
   const [sidebarWidth, setSidebarWidth] = useState(192);
@@ -247,21 +241,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
     setSelectedProviderId(pid);
   };
 
-  const handleProviderConfigChange = (
-    pid: ProviderId,
-    apiKey: string,
-  ) => {
-    setProviderConfig(pid, {
-      apiKey,
-      requiresApiKey: true,
-    });
-  };
-
-  const handleProviderConfigSave = () => {
-    setSaveStatus('saved');
-    setTimeout(() => setSaveStatus('idle'), 2000);
-  };
-
   const selectedProvider = providersConfig[selectedProviderId]
     ? {
         id: selectedProviderId,
@@ -285,17 +264,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
     models: config.models,
     isServerConfigured: config.isServerConfigured,
   }));
-
-  // Sections that show a provider list column
-  const _hasProviderList = [
-    'providers',
-    'pdf',
-    'web-search',
-    'image',
-    'video',
-    'tts',
-    'asr',
-  ].includes(activeSection);
 
   // Get header content based on section
   const getHeaderContent = () => {
@@ -696,10 +664,10 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             <>
               <ProviderListColumn
                 providers={Object.values(TTS_PROVIDERS).map((p) => ({
-                    id: p.id,
-                    name: getTTSProviderName(p.id, t),
-                    icon: p.icon,
-                  }))}
+                  id: p.id,
+                  name: getTTSProviderName(p.id, t),
+                  icon: p.icon,
+                }))}
                 configs={ttsProvidersConfig}
                 selectedId={ttsProviderId}
                 onSelect={setTTSProvider}
@@ -719,10 +687,10 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             <>
               <ProviderListColumn
                 providers={Object.values(ASR_PROVIDERS).map((p) => ({
-                    id: p.id,
-                    name: getASRProviderName(p.id, t),
-                    icon: p.icon,
-                  }))}
+                  id: p.id,
+                  name: getASRProviderName(p.id, t),
+                  icon: p.icon,
+                }))}
                 configs={asrProvidersConfig}
                 selectedId={asrProviderId}
                 onSelect={setASRProvider}
@@ -757,12 +725,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               {activeSection === 'providers' && selectedProvider && (
                 <ProviderConfigPanel
                   provider={selectedProvider}
-                  initialApiKey={providersConfig[selectedProviderId]?.apiKey || ''}
                   providersConfig={providersConfig}
-                  onConfigChange={(apiKey) =>
-                    handleProviderConfigChange(selectedProviderId, apiKey)
-                  }
-                  onSave={handleProviderConfigSave}
                 />
               )}
 
@@ -784,18 +747,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
 
             {/* Footer */}
             <div className="flex items-center justify-end gap-3 px-5 py-3 border-t bg-muted/30">
-              {saveStatus === 'saved' && (
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>{t('settings.saveSuccess')}</span>
-                </div>
-              )}
-              {saveStatus === 'error' && (
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <XCircle className="h-4 w-4" />
-                  <span>{t('settings.saveFailed')}</span>
-                </div>
-              )}
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
                 {t('settings.close')}
               </Button>

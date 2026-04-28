@@ -447,8 +447,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
           [key: string]: unknown;
         };
         userProfile?: { nickname?: string; bio?: string };
-        apiKey: string;
-        model?: string;
         thinkingConfig?: ThinkingConfig;
       },
       controller: AbortController,
@@ -482,8 +480,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         {
           config: requestTemplate.config,
           userProfile: requestTemplate.userProfile,
-          apiKey: requestTemplate.apiKey,
-          model: requestTemplate.model,
           thinkingConfig: requestTemplate.thinkingConfig,
         },
         {
@@ -870,7 +866,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         log.info(`[ChatArea] Resuming session: ${sessionId}`);
 
         const userProfileState = useUserProfileStore.getState();
-        const mc = getCurrentModelConfig();
+        const { thinkingConfig } = getCurrentModelConfig();
 
         const agentIds =
           useSettingsStore.getState().selectedAgentIds?.length > 0
@@ -896,9 +892,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
               nickname: userProfileState.nickname || undefined,
               bio: userProfileState.bio || undefined,
             },
-            apiKey: mc.apiKey,
-            model: mc.modelString,
-            thinkingConfig: mc.thinkingConfig,
+            thinkingConfig,
           },
           controller,
           session.type,
@@ -977,19 +971,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
             }),
           );
         }
-      }
-
-      // Validate model configuration before sending
-      const modelConfig = getCurrentModelConfig();
-      if (!modelConfig.modelId) {
-        toast.error(t('settings.modelNotConfigured'));
-        return;
-      }
-      if (modelConfig.requiresApiKey && !modelConfig.apiKey && !modelConfig.isServerConfigured) {
-        toast.error(t('settings.setupNeeded'), {
-          description: t('settings.apiKeyDesc'),
-        });
-        return;
       }
 
       // Create a new session when there's no active QA session to append to.
@@ -1085,7 +1066,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         );
 
         const userProfileState = useUserProfileStore.getState();
-        const mc = getCurrentModelConfig();
+        const { thinkingConfig } = getCurrentModelConfig();
 
         await runAgentLoopFn(
           sessionId!,
@@ -1106,9 +1087,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
               nickname: userProfileState.nickname || undefined,
               bio: userProfileState.bio || undefined,
             },
-            apiKey: mc.apiKey,
-            model: mc.modelString,
-            thinkingConfig: mc.thinkingConfig,
+            thinkingConfig,
           },
           controller,
           sessionType,
@@ -1154,19 +1133,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
       // Explicitly clear buffer-pause intent (also cleared transitively via endSession,
       // but being explicit guards against future refactors)
       livePausedRef.current = false;
-
-      // Validate model configuration before starting discussion
-      const modelConfig = getCurrentModelConfig();
-      if (!modelConfig.modelId) {
-        toast.error(t('settings.modelNotConfigured'));
-        return;
-      }
-      if (modelConfig.requiresApiKey && !modelConfig.apiKey && !modelConfig.isServerConfigured) {
-        toast.error(t('settings.setupNeeded'), {
-          description: t('settings.apiKeyDesc'),
-        });
-        return;
-      }
 
       // Auto-end previous active QA/Discussion sessions to ensure only one is active
       const activeQAOrDiscussion = sessionsRef.current.filter(
@@ -1223,7 +1189,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
 
       try {
         const userProfileState = useUserProfileStore.getState();
-        const mc = getCurrentModelConfig();
+        const { thinkingConfig } = getCurrentModelConfig();
 
         await runAgentLoopFn(
           sessionId,
@@ -1247,9 +1213,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
               nickname: userProfileState.nickname || undefined,
               bio: userProfileState.bio || undefined,
             },
-            apiKey: mc.apiKey,
-            model: mc.modelString,
-            thinkingConfig: mc.thinkingConfig,
+            thinkingConfig,
           },
           controller,
           'discussion',

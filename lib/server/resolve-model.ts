@@ -1,8 +1,7 @@
 /**
  * Shared model resolution utilities for API routes.
  *
- * Extracts the repeated parseModelString → resolveApiKey → getModel
- * boilerplate into a single call.
+ * Resolves the server-configured text model into a single call.
  */
 
 import type { NextRequest } from 'next/server';
@@ -16,30 +15,27 @@ import type { ThinkingConfig } from '@/lib/types/provider';
 import { resolveApiKey } from '@/lib/server/provider-config';
 
 export interface ResolvedModel extends ModelWithInfo {
-  /** Original model string (e.g. "qwen:qwen3.6-plus") */
+  /** Server-configured model string (e.g. "qwen:qwen3.6-plus") */
   modelString: string;
   /** Resolved provider ID (e.g. "qwen") */
   providerId: string;
-  /** Effective API key after server-side fallback resolution */
+  /** API key resolved from server environment variables. */
   apiKey: string;
   /** Optional per-request thinking configuration from the client. */
   thinkingConfig?: ThinkingConfig;
 }
 
 /**
- * Resolve a language model from explicit parameters.
- *
- * Use this when model config comes from the request body.
+ * Resolve the server-configured language model.
+ * Client-supplied model and key values are intentionally ignored.
  */
 export async function resolveModel(params: {
-  modelString?: string;
-  apiKey?: string;
   thinkingConfig?: ThinkingConfig;
 }): Promise<ResolvedModel> {
-  const modelString = params.modelString || DEFAULT_MODEL_STRING;
+  const modelString = DEFAULT_MODEL_STRING;
   const { providerId, modelId } = parseModelString(modelString);
 
-  const apiKey = resolveApiKey(providerId, params.apiKey || '');
+  const apiKey = resolveApiKey(providerId);
   const { model, modelInfo } = getModel({
     providerId,
     modelId,
@@ -58,30 +54,22 @@ export async function resolveModel(params: {
 
 function getThinkingConfigFromBody(body: unknown): ThinkingConfig | undefined {
   if (!body || typeof body !== 'object') return undefined;
-  const record = body as { thinkingConfig?: unknown; thinking?: unknown };
-  const config = record.thinkingConfig ?? record.thinking;
+  const record = body as { thinkingConfig?: unknown };
+  const config = record.thinkingConfig;
   return config && typeof config === 'object' ? (config as ThinkingConfig) : undefined;
 }
 
 /**
- * Resolve a language model from standard request headers.
- *
- * Reads: x-model, x-api-key
- * Note: requiresApiKey is derived server-side from the provider registry,
- * never from client headers, to prevent auth bypass.
+ * Resolve the server-configured language model.
  */
 export async function resolveModelFromHeaders(req: NextRequest): Promise<ResolvedModel> {
+  void req;
   return resolveModel({
-    modelString: req.headers.get('x-model') || undefined,
-    apiKey: req.headers.get('x-api-key') || undefined,
   });
 }
 
 /**
- * Resolve a language model from standard request headers plus body fields.
- *
- * Reads model credentials from headers and per-request thinking config from
- * the JSON body field `thinkingConfig` (or legacy/eval field `thinking`).
+ * Resolve the server-configured language model plus per-request thinking config.
  */
 export async function resolveModelFromRequest(
   req: NextRequest,

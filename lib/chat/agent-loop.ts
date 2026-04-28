@@ -36,8 +36,6 @@ export interface AgentLoopRequest {
     [key: string]: unknown;
   };
   userProfile?: { nickname?: string; bio?: string };
-  apiKey: string;
-  model?: string;
   thinkingConfig?: ThinkingConfig;
 }
 
@@ -127,8 +125,6 @@ export async function runAgentLoop(
       config: request.config,
       directorState,
       userProfile: request.userProfile,
-      apiKey: request.apiKey,
-      model: request.model,
       thinkingConfig: request.thinkingConfig,
     };
 

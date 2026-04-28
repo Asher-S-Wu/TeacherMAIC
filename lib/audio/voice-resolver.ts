@@ -57,7 +57,6 @@ export function getAvailableProvidersWithVoices(
   ttsProvidersConfig: Record<
     string,
     {
-      apiKey?: string;
       enabled?: boolean;
       isServerConfigured?: boolean;
       modelId?: string;
@@ -66,9 +65,8 @@ export function getAvailableProvidersWithVoices(
 ): ProviderWithVoices[] {
   const provider = TTS_PROVIDERS['qwen-tts'];
   const providerConfig = ttsProvidersConfig['qwen-tts'];
-  const hasApiKey = providerConfig?.apiKey && providerConfig.apiKey.trim().length > 0;
   const isServerConfigured = providerConfig?.isServerConfigured === true;
-  if (!hasApiKey && !isServerConfigured) return [];
+  if (!isServerConfigured) return [];
 
   const voices = provider.voices.map((voice) => ({
     id: voice.id,

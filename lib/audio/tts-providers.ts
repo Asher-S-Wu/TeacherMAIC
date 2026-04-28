@@ -74,13 +74,11 @@ export async function getCurrentTTSConfig(): Promise<TTSModelConfig> {
   }
 
   const { useSettingsStore } = await import('@/lib/store/settings');
-  const { ttsProviderId, ttsVoice, ttsSpeed, ttsProvidersConfig } = useSettingsStore.getState();
-  const providerConfig = ttsProvidersConfig?.[ttsProviderId];
+  const { ttsVoice, ttsSpeed } = useSettingsStore.getState();
 
   return {
     providerId: 'qwen-tts',
     modelId: QWEN_TTS_MODEL_ID,
-    apiKey: providerConfig?.apiKey,
     voice: ttsVoice,
     speed: ttsSpeed,
   };

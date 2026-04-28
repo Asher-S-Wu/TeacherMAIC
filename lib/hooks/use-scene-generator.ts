@@ -29,22 +29,10 @@ interface SceneActionsResult {
 }
 
 function getApiHeaders(): HeadersInit {
-  const config = getCurrentModelConfig();
   const settings = useSettingsStore.getState();
-  const imageProviderConfig = settings.imageProvidersConfig?.[settings.imageProviderId];
-  const videoProviderConfig = settings.videoProvidersConfig?.[settings.videoProviderId];
 
   return {
     'Content-Type': 'application/json',
-    'x-model': config.modelString || '',
-    'x-api-key': config.apiKey || '',
-    // Image generation provider
-    'x-image-provider': settings.imageProviderId || '',
-    'x-image-api-key': imageProviderConfig?.apiKey || '',
-    // Video generation provider
-    'x-video-provider': settings.videoProviderId || '',
-    'x-video-model': settings.videoModelId || '',
-    'x-video-api-key': videoProviderConfig?.apiKey || '',
     // Media generation toggles
     'x-image-generation-enabled': String(settings.imageGenerationEnabled ?? false),
     'x-video-generation-enabled': String(settings.videoGenerationEnabled ?? false),
@@ -127,18 +115,14 @@ export async function generateAndStoreTTS(
   signal?: AbortSignal,
 ): Promise<string | undefined> {
   const settings = useSettingsStore.getState();
-
-  const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
   const response = await fetch('/api/generate/tts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       text,
       audioId,
-      ttsProviderId: settings.ttsProviderId,
       ttsVoice: settings.ttsVoice,
       ttsSpeed: settings.ttsSpeed,
-      ttsApiKey: ttsProviderConfig?.apiKey || undefined,
     }),
     signal,
   });

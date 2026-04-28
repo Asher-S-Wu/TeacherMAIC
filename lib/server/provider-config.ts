@@ -125,9 +125,8 @@ export function getServerProviders(): Record<string, { models?: string[]; baseUr
   return result;
 }
 
-/** Resolve API key: client key > server key > empty string */
-export function resolveApiKey(providerId: string, clientKey?: string): string {
-  if (clientKey) return clientKey;
+/** Resolve API key from server environment only. */
+export function resolveApiKey(providerId: string): string {
   return getConfig().providers[providerId]?.apiKey || '';
 }
 
@@ -150,8 +149,7 @@ export function getServerTTSProviders(): Record<string, { baseUrl?: string }> {
   return result;
 }
 
-export function resolveTTSApiKey(providerId: string, clientKey?: string): string {
-  if (clientKey) return clientKey;
+export function resolveTTSApiKey(providerId: string): string {
   return getConfig().tts[providerId]?.apiKey || '';
 }
 
@@ -173,8 +171,7 @@ export function getServerASRProviders(): Record<string, { baseUrl?: string }> {
   return result;
 }
 
-export function resolveASRApiKey(providerId: string, clientKey?: string): string {
-  if (clientKey) return clientKey;
+export function resolveASRApiKey(providerId: string): string {
   return getConfig().asr[providerId]?.apiKey || '';
 }
 
@@ -195,8 +192,7 @@ export function getServerPDFProviders(): Record<string, object> {
   return result;
 }
 
-export function resolvePDFApiKey(providerId: string, clientKey?: string): string {
-  if (clientKey) return clientKey;
+export function resolvePDFApiKey(providerId: string): string {
   return getConfig().pdf[providerId]?.apiKey || '';
 }
 
@@ -214,8 +210,7 @@ export function getServerImageProviders(): Record<string, { baseUrl?: string }> 
   return result;
 }
 
-export function resolveImageApiKey(providerId: string, clientKey?: string): string {
-  if (clientKey) return clientKey;
+export function resolveImageApiKey(providerId: string): string {
   return getConfig().image[providerId]?.apiKey || '';
 }
 
@@ -239,8 +234,7 @@ export function getServerVideoProviders(): Record<string, { baseUrl?: string }> 
   return result;
 }
 
-export function resolveVideoApiKey(providerId: string, clientKey?: string): string {
-  if (clientKey) return clientKey;
+export function resolveVideoApiKey(providerId: string): string {
   return getConfig().video[providerId]?.apiKey || '';
 }
 
@@ -266,8 +260,7 @@ export function getServerWebSearchProviders(): Record<string, { baseUrl?: string
   return result;
 }
 
-/** Resolve Bailian API key: client key > server QWEN_API_KEY > empty */
-export function resolveWebSearchApiKey(clientKey?: string): string {
-  if (clientKey) return clientKey;
+/** Resolve Bailian API key from server environment only. */
+export function resolveWebSearchApiKey(): string {
   return getConfig().webSearch.bailian?.apiKey || '';
 }

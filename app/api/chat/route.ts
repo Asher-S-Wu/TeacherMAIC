@@ -30,9 +30,7 @@ const log = createLogger('Chat API');
  * {
  *   messages: UIMessage[],
  *   storeState: { stage, scenes, currentSceneId, mode },
- *   config: { agentIds, sessionType? },
- *   apiKey: string,
- *   model?: string
+ *   config: { agentIds, sessionType? }
  * }
  *
  * Response: SSE stream of StatelessEvent
@@ -44,7 +42,6 @@ export async function POST(req: NextRequest) {
 
   try {
     const body: StatelessChatRequest = await req.json();
-    chatModel = body.model;
     chatMessageCount = body.messages?.length;
 
     // Validate required fields
@@ -64,10 +61,9 @@ export async function POST(req: NextRequest) {
       model: languageModel,
       apiKey: resolvedApiKey,
       providerId,
-    } = await resolveModel({
-      modelString: body.model,
-      apiKey: body.apiKey,
-    });
+      modelString,
+    } = await resolveModel({});
+    chatModel = modelString;
 
     if (isProviderKeyRequired(providerId) && !resolvedApiKey) {
       return apiError('MISSING_API_KEY', 401, 'API Key is required');
@@ -153,7 +149,7 @@ export async function POST(req: NextRequest) {
         }
 
         log.error(
-          `Chat stream error [model=${body.model ?? 'unknown'}, agents=${body.config?.agentIds?.length ?? 0}, messages=${body.messages?.length ?? 0}]:`,
+          `Chat stream error [model=${chatModel ?? 'unknown'}, agents=${body.config?.agentIds?.length ?? 0}, messages=${body.messages?.length ?? 0}]:`,
           error,
         );
 

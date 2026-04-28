@@ -146,8 +146,6 @@ export interface CreateSessionRequest {
  */
 export interface SendMessageRequest {
   content: string;
-  apiKey?: string;
-  model?: string;
   storeState: {
     stage: unknown;
     scenes: unknown[];
@@ -275,9 +273,6 @@ export interface StatelessChatRequest {
     nickname?: string;
     bio?: string;
   };
-  /** Qwen API credentials */
-  apiKey: string;
-  model?: string;
   /**
    * Opt-in: enable provider-side thinking for this request. Default is
    * `{ enabled: false }` (low-latency chat). Eval harness sets this to
