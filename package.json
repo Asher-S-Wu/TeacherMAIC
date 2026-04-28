@@ -4,7 +4,7 @@
   "private": true,
   "license": "AGPL-3.0",
   "engines": {
-    "node": "22.x"
+    "node": "24.x"
   },
   "scripts": {
     "postinstall": "pnpm --dir packages/mathml2omml build && pnpm --dir packages/pptxgenjs build",
