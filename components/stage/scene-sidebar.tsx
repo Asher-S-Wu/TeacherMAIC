@@ -130,7 +130,19 @@ export function SceneSidebar({
             className="flex items-center gap-2 cursor-pointer rounded-lg px-1.5 -mx-1.5 py-1 -my-1 hover:bg-gray-100/80 dark:hover:bg-gray-800/60 active:scale-[0.97] transition-all duration-150"
             title={t('generation.backToHome')}
           >
-            <img src="/logo-horizontal.png" alt="李雪 AI 教育平台" className="h-6" />
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center justify-center w-5 h-5 rounded-md bg-gradient-to-br from-violet-500 to-blue-500 text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3v18"/>
+                  <path d="M3 12h18"/>
+                  <path d="m7 7 10 10"/>
+                  <path d="m17 7-10 10"/>
+                </svg>
+              </div>
+              <span className="text-sm font-bold bg-gradient-to-r from-violet-600 to-blue-500 bg-clip-text text-transparent tracking-tight">
+                AI 智慧教学
+              </span>
+            </div>
           </button>
           <button
             onClick={() => onCollapseChange(true)}

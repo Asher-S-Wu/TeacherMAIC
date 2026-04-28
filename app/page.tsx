@@ -450,9 +450,7 @@ function HomePage() {
         )}
       >
         {/* ── Logo ── */}
-        <motion.img
-          src="/logo-horizontal.png"
-          alt="李雪 AI 教育平台"
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{
@@ -461,8 +459,20 @@ function HomePage() {
             stiffness: 200,
             damping: 20,
           }}
-          className="h-12 md:h-16 mb-2 -ml-2 md:-ml-3"
-        />
+          className="flex items-center gap-3 mb-2"
+        >
+          <div className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 text-white shadow-lg shadow-violet-500/20">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3v18"/>
+              <path d="M3 12h18"/>
+              <path d="m7 7 10 10"/>
+              <path d="m17 7-10 10"/>
+            </svg>
+          </div>
+          <span className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-violet-600 to-blue-500 bg-clip-text text-transparent tracking-tight">
+            AI 智慧教学平台
+          </span>
+        </motion.div>
 
         {/* ── Slogan ── */}
         <motion.p
@@ -778,7 +788,7 @@ function HomePage() {
 
       {/* Footer — flows with content, at the very end */}
       <div className="mt-auto pt-12 pb-4 text-center text-xs text-muted-foreground/40">
-        北京市朝阳区白家庄小学 · 李雪 · teacher.li-xue.com
+        AI 智慧教学平台 · 北京市朝阳区白家庄小学 李雪
       </div>
     </div>
   );

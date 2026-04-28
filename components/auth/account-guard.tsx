@@ -125,7 +125,19 @@ function AuthScreen({ onAuthed }: { onAuthed: () => Promise<void> }) {
         className="relative w-full max-w-[420px] rounded-[24px] border border-slate-950/10 bg-white p-7 shadow-[0_24px_80px_rgba(15,23,42,0.18)]"
       >
         <div className="mb-7">
-          <img src="/logo-horizontal.png" alt="李雪 AI 教育平台" className="h-12 -ml-2 mb-4" />
+          <div className="flex items-center gap-3 -ml-2 mb-4">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 text-white shadow-lg shadow-violet-500/20">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v18"/>
+                <path d="M3 12h18"/>
+                <path d="m7 7 10 10"/>
+                <path d="m17 7-10 10"/>
+              </svg>
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-violet-600 to-blue-500 bg-clip-text text-transparent tracking-tight">
+              AI 智慧教学平台
+            </span>
+          </div>
           <h1 className="text-2xl font-semibold tracking-normal">
             {mode === 'login' ? '登录账户' : '注册账户'}
           </h1>

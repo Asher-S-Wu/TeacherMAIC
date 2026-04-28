@@ -18,9 +18,9 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: '李雪 AI 教育平台',
+  title: 'AI 智慧教学平台',
   description:
-    '北京市朝阳区白家庄小学李雪老师的 AI 教育平台，支持生成互动式学习课堂。',
+    'AI 智慧教学平台，支持将课堂资料变成互动式学习体验。',
 };
 
 export default function RootLayout({
