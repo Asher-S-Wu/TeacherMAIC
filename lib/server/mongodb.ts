@@ -139,18 +139,20 @@ function getMongoUri(): string {
   return uri;
 }
 
-function getDatabaseName(uri: string): string {
+function getMongoConfig(): { uri: string; dbName: string } {
+  const uri = getMongoUri();
   const parsed = new URL(uri);
   const dbName = decodeURIComponent(parsed.pathname.replace(/^\//, '').trim());
-  if (!dbName) {
-    throw new Error('MONGO_URI 必须包含数据库名，例如 mongodb+srv://.../teachermaic');
+  if (dbName) {
+    return { uri, dbName };
   }
-  return dbName;
+
+  parsed.pathname = '/teachermaic';
+  return { uri: parsed.toString(), dbName: 'teachermaic' };
 }
 
 async function createMongo() {
-  const uri = getMongoUri();
-  const dbName = getDatabaseName(uri);
+  const { uri, dbName } = getMongoConfig();
   const client = new MongoClient(uri);
   await client.connect();
   const db = client.db(dbName);
