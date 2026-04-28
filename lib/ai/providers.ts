@@ -36,7 +36,7 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
     id: 'qwen',
     name: 'Qwen',
     type: 'openai',
-    defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    defaultBaseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
     requiresApiKey: true,
     icon: '/logos/bailian.svg',
     models: [

@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
-import { resolvePDFApiKey, resolvePDFBaseUrl } from '@/lib/server/provider-config';
-import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
+import { resolvePDFApiKey } from '@/lib/server/provider-config';
 import { MINERU_CLOUD_DEFAULT_BASE } from '@/lib/pdf/constants';
 
 const log = createLogger('Verify PDF Provider');
@@ -12,7 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     providerId = body.providerId;
-    const { apiKey, baseUrl } = body;
+    const { apiKey } = body;
 
     if (!providerId) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Provider ID is required');
@@ -27,19 +26,7 @@ export async function POST(req: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'API Key is required for MinerU Cloud');
     }
 
-    const clientCloudBase = (baseUrl as string | undefined) || undefined;
-    if (clientCloudBase && process.env.NODE_ENV === 'production') {
-      const ssrfError = await validateUrlForSSRF(clientCloudBase);
-      if (ssrfError) {
-        return apiError('INVALID_URL', 403, ssrfError);
-      }
-    }
-
-    const cloudBase = (
-      clientCloudBase ||
-      resolvePDFBaseUrl(providerId) ||
-      MINERU_CLOUD_DEFAULT_BASE
-    ).replace(/\/+$/, '');
+    const cloudBase = MINERU_CLOUD_DEFAULT_BASE.replace(/\/+$/, '');
 
     const response = await fetch(`${cloudBase}/extract-results/batch/test-connection`, {
       headers: {
@@ -68,9 +55,9 @@ export async function POST(req: NextRequest) {
     let errorMessage = 'Connection failed';
     if (error instanceof Error) {
       if (error.message.includes('ECONNREFUSED')) {
-        errorMessage = 'Cannot connect to server, please check the Base URL';
+        errorMessage = 'Cannot connect to MinerU Cloud';
       } else if (error.message.includes('ENOTFOUND')) {
-        errorMessage = 'Server not found, please check the Base URL';
+        errorMessage = 'MinerU Cloud server not found';
       } else if (error.message.includes('timeout') || error.name === 'TimeoutError') {
         errorMessage = 'Connection timed out';
       } else {

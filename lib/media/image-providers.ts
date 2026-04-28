@@ -16,7 +16,7 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
     id: 'qwen-image',
     name: 'Qwen Image',
     requiresApiKey: true,
-    defaultBaseUrl: 'https://dashscope.aliyuncs.com',
+    defaultBaseUrl: 'https://dashscope-intl.aliyuncs.com',
     icon: '/logos/bailian.svg',
     models: [{ id: 'qwen-image-2.0-pro', name: 'Qwen Image 2.0 Pro' }],
     supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16'],

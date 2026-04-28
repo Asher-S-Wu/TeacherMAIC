@@ -2,7 +2,7 @@
  * Qwen Image (Alibaba Cloud / DashScope) Image Generation Adapter
  *
  * Uses DashScope multimodal generation API (synchronous, no polling needed).
- * Endpoint: https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation
+ * Endpoint: https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation
  *
  * Supported models:
  * - qwen-image-2.0-pro
@@ -17,7 +17,7 @@ import type {
 } from '../types';
 
 const DEFAULT_MODEL = 'qwen-image-2.0-pro';
-const DEFAULT_BASE_URL = 'https://dashscope.aliyuncs.com';
+const DEFAULT_BASE_URL = 'https://dashscope-intl.aliyuncs.com';
 
 /**
  * Map our width x height to DashScope size format "WxH".

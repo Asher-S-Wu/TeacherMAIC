@@ -280,7 +280,6 @@ export async function getCurrentPDFConfig(): Promise<PDFParserConfig> {
   return {
     providerId: pdfProviderId,
     apiKey: providerConfig?.apiKey,
-    baseUrl: providerConfig?.baseUrl,
   };
 }
 

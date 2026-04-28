@@ -14,7 +14,6 @@ export interface PDFProviderConfig {
   id: PDFProviderId;
   name: string;
   requiresApiKey: boolean;
-  baseUrl?: string;
   icon?: string;
   features: string[]; // ['text', 'images', 'tables', 'formulas', 'layout-analysis', etc.]
 }
@@ -25,7 +24,6 @@ export interface PDFProviderConfig {
 export interface PDFParserConfig {
   providerId: PDFProviderId;
   apiKey?: string;
-  baseUrl?: string;
 }
 
 // Note: ParsedPdfContent is imported from @/lib/types/pdf to avoid duplication

@@ -210,7 +210,7 @@ async function parseMinerUZip(zipUrl: string): Promise<ParsedPdfContent> {
 /**
  * Parse a PDF using the MinerU Cloud v4 API.
  *
- * @param config - Must have `apiKey` (required) and optionally `baseUrl` (defaults to mineru.net/api/v4)
+ * @param config - Must have `apiKey` (required)
  * @param pdfBuffer - Raw PDF bytes
  * @param sourceFileName - Original filename for the upload
  */
@@ -224,7 +224,7 @@ export async function parseWithMinerUCloud(
     throw new Error('MinerU Cloud API key is required');
   }
 
-  const apiRoot = (config.baseUrl || MINERU_CLOUD_DEFAULT_BASE).replace(/\/+$/, '');
+  const apiRoot = MINERU_CLOUD_DEFAULT_BASE.replace(/\/+$/, '');
   const uploadFileName = sanitizeFileName(sourceFileName);
 
   log.info(`[MinerU Cloud] Starting parse: ${uploadFileName} (${pdfBuffer.byteLength} bytes)`);

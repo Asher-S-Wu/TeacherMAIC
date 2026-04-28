@@ -134,10 +134,8 @@ export interface SettingsState {
     PDFProviderId,
     {
       apiKey: string;
-      baseUrl: string;
       enabled: boolean;
       isServerConfigured?: boolean;
-      serverBaseUrl?: string;
     }
   >;
 
@@ -263,7 +261,7 @@ export interface SettingsState {
   setPDFProvider: (providerId: PDFProviderId) => void;
   setPDFProviderConfig: (
     providerId: PDFProviderId,
-    config: Partial<{ apiKey: string; baseUrl: string; enabled: boolean }>,
+    config: Partial<{ apiKey: string; enabled: boolean }>,
   ) => void;
 
   // Image Generation actions
@@ -346,9 +344,9 @@ const getDefaultAudioConfig = () => ({
 const getDefaultPDFConfig = () => ({
   pdfProviderId: 'unpdf' as PDFProviderId,
   pdfProvidersConfig: {
-    unpdf: { apiKey: '', baseUrl: '', enabled: true },
-    'mineru-cloud': { apiKey: '', baseUrl: '', enabled: false },
-  } as Record<PDFProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
+    unpdf: { apiKey: '', enabled: true },
+    'mineru-cloud': { apiKey: '', enabled: false },
+  } as Record<PDFProviderId, { apiKey: string; enabled: boolean }>,
 });
 
 // Initialize default Image config
@@ -556,6 +554,14 @@ function ensureBuiltInWebSearchProviders(state: Partial<SettingsState>): void {
   } as SettingsState['webSearchProvidersConfig'];
 }
 
+function stripPDFBaseUrlFields(state: Partial<SettingsState>): void {
+  if (!state.pdfProvidersConfig) return;
+  for (const config of Object.values(state.pdfProvidersConfig)) {
+    delete (config as Record<string, unknown>).baseUrl;
+    delete (config as Record<string, unknown>).serverBaseUrl;
+  }
+}
+
 type LegacySettingsMigration = {
   providerId?: ProviderId;
   modelId?: string;
@@ -738,10 +744,15 @@ export const useSettingsStore = create<SettingsState>()(
           set((state) => ({
             pdfProvidersConfig: {
               ...state.pdfProvidersConfig,
-              [providerId]: {
-                ...state.pdfProvidersConfig[providerId],
-                ...config,
-              },
+              [providerId]: (() => {
+                const nextConfig = {
+                  ...state.pdfProvidersConfig[providerId],
+                  ...config,
+                };
+                delete (nextConfig as Record<string, unknown>).baseUrl;
+                delete (nextConfig as Record<string, unknown>).serverBaseUrl;
+                return nextConfig;
+              })(),
             },
           })),
 
@@ -817,7 +828,7 @@ export const useSettingsStore = create<SettingsState>()(
               providers: Record<string, object>;
               tts: Record<string, { baseUrl?: string }>;
               asr: Record<string, { baseUrl?: string }>;
-              pdf: Record<string, { baseUrl?: string }>;
+              pdf: Record<string, object>;
               image: Record<string, { baseUrl?: string }>;
               video: Record<string, { baseUrl?: string }>;
               webSearch: Record<string, { baseUrl?: string }>;
@@ -916,20 +927,20 @@ export const useSettingsStore = create<SettingsState>()(
               for (const pid of Object.keys(newPDFConfig)) {
                 const key = pid as PDFProviderId;
                 if (newPDFConfig[key]) {
+                  delete (newPDFConfig[key] as Record<string, unknown>).baseUrl;
+                  delete (newPDFConfig[key] as Record<string, unknown>).serverBaseUrl;
                   newPDFConfig[key] = {
                     ...newPDFConfig[key],
                     isServerConfigured: false,
-                    serverBaseUrl: undefined,
                   };
                 }
               }
-              for (const [pid, info] of Object.entries(data.pdf)) {
+              for (const pid of Object.keys(data.pdf)) {
                 const key = pid as PDFProviderId;
                 if (newPDFConfig[key]) {
                   newPDFConfig[key] = {
                     ...newPDFConfig[key],
                     isServerConfigured: true,
-                    serverBaseUrl: info.baseUrl,
                   };
                 }
               }
@@ -1326,6 +1337,7 @@ export const useSettingsStore = create<SettingsState>()(
           const defaultPDFConfig = getDefaultPDFConfig();
           Object.assign(state, defaultPDFConfig);
         }
+        stripPDFBaseUrlFields(state);
 
         // Add default Image config if missing
         if (!state.imageProvidersConfig) {
@@ -1409,6 +1421,7 @@ export const useSettingsStore = create<SettingsState>()(
         ensureBuiltInImageProviders(merged as Partial<SettingsState>);
         ensureBuiltInVideoProviders(merged as Partial<SettingsState>);
         ensureBuiltInWebSearchProviders(merged as Partial<SettingsState>);
+        stripPDFBaseUrlFields(merged as Partial<SettingsState>);
         ensureValidProviderSelections(merged as Partial<SettingsState>);
         const typedMerged = merged as Partial<SettingsState>;
         typedMerged.thinkingConfigs = pruneThinkingConfigs(

@@ -19,7 +19,7 @@ export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
     id: 'qwen-video',
     name: 'Qwen Video',
     requiresApiKey: true,
-    defaultBaseUrl: 'https://dashscope.aliyuncs.com',
+    defaultBaseUrl: 'https://dashscope-intl.aliyuncs.com',
     icon: '/logos/bailian.svg',
     models: [{ id: 'happyhorse-1.0-t2v', name: 'HappyHorse Text to Video' }],
     supportedAspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'],

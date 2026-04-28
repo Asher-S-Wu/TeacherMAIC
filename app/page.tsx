@@ -264,7 +264,7 @@ function HomePage() {
       let pdfStorageKey: string | undefined;
       let pdfFileName: string | undefined;
       let pdfProviderId: string | undefined;
-      let pdfProviderConfig: { apiKey?: string; baseUrl?: string } | undefined;
+      let pdfProviderConfig: { apiKey?: string } | undefined;
 
       if (form.pdfFile) {
         pdfStorageKey = await storePdfBlob(form.pdfFile);
@@ -276,7 +276,6 @@ function HomePage() {
         if (providerCfg) {
           pdfProviderConfig = {
             apiKey: providerCfg.apiKey,
-            baseUrl: providerCfg.baseUrl,
           };
         }
       }

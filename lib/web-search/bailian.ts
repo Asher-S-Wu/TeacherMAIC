@@ -9,7 +9,8 @@ import { DEFAULT_MODEL_ID } from '@/lib/ai/providers';
 import { proxyFetch } from '@/lib/server/proxy-fetch';
 import type { WebSearchResult, WebSearchSource } from '@/lib/types/web-search';
 
-const BAILIAN_RESPONSES_API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/responses';
+const BAILIAN_RESPONSES_API_URL =
+  'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/responses';
 const BAILIAN_SEARCH_MODEL = DEFAULT_MODEL_ID;
 
 interface BailianSource {

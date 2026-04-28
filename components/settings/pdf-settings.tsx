@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
-import { PDF_PROVIDERS } from '@/lib/pdf/constants';
+import { MINERU_CLOUD_DEFAULT_BASE, PDF_PROVIDERS } from '@/lib/pdf/constants';
 import type { PDFProviderId } from '@/lib/pdf/types';
 import { CheckCircle2, Eye, EyeOff, Loader2, Zap, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -70,7 +70,6 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
         body: JSON.stringify({
           providerId: selectedProviderId,
           apiKey: providerConfig?.apiKey || '',
-          baseUrl: providerConfig?.baseUrl || '',
         }),
       });
 
@@ -102,7 +101,7 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
       {/* Configuration section (for remote providers) */}
       {(needsRemoteConfig || isServerConfigured) && (
         <>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4">
             {/* API Key */}
             {isCloud && (
               <div className="space-y-2">
@@ -154,33 +153,6 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
                 </div>
               </div>
             )}
-
-            {/* Base URL */}
-            {isCloud && (
-              <div className="space-y-2">
-                <Label className="text-sm">
-                  {t('settings.pdfBaseUrl')}
-                  <span className="text-muted-foreground ml-1 font-normal">
-                    ({t('settings.optional')})
-                  </span>
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    name={`pdf-base-url-${selectedProviderId}`}
-                    autoComplete="off"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    placeholder="https://mineru.net/api/v4"
-                    value={providerConfig?.baseUrl || ''}
-                    onChange={(e) =>
-                      setPDFProviderConfig(selectedProviderId, { baseUrl: e.target.value })
-                    }
-                    className="text-sm"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Test result message */}
@@ -205,9 +177,7 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
           {/* Request URL Preview */}
           {isCloud && (
             <p className="text-xs text-muted-foreground break-all">
-              {t('settings.requestUrl')}:{' '}
-              {(providerConfig?.baseUrl || 'https://mineru.net/api/v4').replace(/\/+$/, '')}
-              /file-urls/batch
+              {t('settings.requestUrl')}: {MINERU_CLOUD_DEFAULT_BASE}/file-urls/batch
             </p>
           )}
         </>

@@ -48,20 +48,10 @@ function loadEnvSection(envMap: Record<string, string>): Record<string, ServerPr
 
   for (const [prefix, providerId] of Object.entries(envMap)) {
     const envApiKey = process.env[`${prefix}_API_KEY`] || undefined;
-    const envBaseUrl = process.env[`${prefix}_BASE_URL`] || undefined;
-    const envModelsStr = process.env[`${prefix}_MODELS`];
-    const envModels = envModelsStr
-      ? envModelsStr
-          .split(',')
-          .map((m) => m.trim())
-          .filter(Boolean)
-      : undefined;
 
     if (!envApiKey) continue;
     result[providerId] = {
       apiKey: envApiKey || '',
-      baseUrl: envBaseUrl,
-      models: envModels,
     };
   }
 
@@ -196,12 +186,11 @@ export function resolveASRBaseUrl(_providerId: string, _clientBaseUrl?: string):
 // Public API — PDF
 // ---------------------------------------------------------------------------
 
-export function getServerPDFProviders(): Record<string, { baseUrl?: string }> {
+export function getServerPDFProviders(): Record<string, object> {
   const cfg = getConfig();
-  const result: Record<string, { baseUrl?: string }> = {};
-  for (const [id, entry] of Object.entries(cfg.pdf)) {
+  const result: Record<string, object> = {};
+  for (const id of Object.keys(cfg.pdf)) {
     result[id] = {};
-    if (entry.baseUrl) result[id].baseUrl = entry.baseUrl;
   }
   return result;
 }
@@ -209,11 +198,6 @@ export function getServerPDFProviders(): Record<string, { baseUrl?: string }> {
 export function resolvePDFApiKey(providerId: string, clientKey?: string): string {
   if (clientKey) return clientKey;
   return getConfig().pdf[providerId]?.apiKey || '';
-}
-
-export function resolvePDFBaseUrl(providerId: string, clientBaseUrl?: string): string | undefined {
-  if (clientBaseUrl) return clientBaseUrl;
-  return getConfig().pdf[providerId]?.baseUrl;
 }
 
 // ---------------------------------------------------------------------------

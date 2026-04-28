@@ -12,7 +12,7 @@ import type {
 } from '../types';
 
 const DEFAULT_MODEL = 'happyhorse-1.0-t2v';
-const DEFAULT_BASE_URL = 'https://dashscope.aliyuncs.com';
+const DEFAULT_BASE_URL = 'https://dashscope-intl.aliyuncs.com';
 const POLL_INTERVAL_MS = 15_000;
 const MAX_POLL_ATTEMPTS = 40;
 
