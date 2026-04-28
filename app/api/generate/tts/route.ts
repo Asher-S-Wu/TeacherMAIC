@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     return apiError(
       'GENERATION_FAILED',
       500,
-      error instanceof Error ? error.message : String(error),
+      '语音生成失败，请稍后再试。',
     );
   }
 }

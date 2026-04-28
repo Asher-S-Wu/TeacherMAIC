@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     chatModel = modelString;
 
     if (isProviderKeyRequired(providerId) && !resolvedApiKey) {
-      return apiError('MISSING_API_KEY', 401, 'API Key is required');
+      return apiError('MISSING_API_KEY', 401, '智能服务暂时不可用，请稍后再试');
     }
 
     log.info('Processing request');
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
           const errorEvent: StatelessEvent = {
             type: 'error',
             data: {
-              message: error instanceof Error ? error.message : String(error),
+              message: '对话生成失败，请稍后再试。',
             },
           };
           await writer.write(encoder.encode(`data: ${JSON.stringify(errorEvent)}\n\n`));
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
     return apiError(
       'INTERNAL_ERROR',
       500,
-      error instanceof Error ? error.message : 'Failed to process request',
+      '对话生成失败，请稍后再试。',
     );
   }
 }

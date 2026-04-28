@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       return apiError(
         'MISSING_API_KEY',
         400,
-        '阿里云百炼 API Key 未配置，请在 Vercel 环境变量中配置 QWEN_API_KEY。',
+        '联网搜索暂时不可用，请稍后再试。',
       );
     }
 
@@ -93,7 +93,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     log.error(`Web search failed [query="${query?.substring(0, 60) ?? 'unknown'}"]:`, err);
-    const message = err instanceof Error ? err.message : 'Web search failed';
-    return apiError('INTERNAL_ERROR', 500, message);
+    return apiError('INTERNAL_ERROR', 500, '联网搜索失败，请稍后再试。');
   }
 }

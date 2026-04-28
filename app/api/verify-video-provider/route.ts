@@ -25,7 +25,7 @@ export async function POST() {
     const apiKey = resolveVideoApiKey(providerId);
 
     if (!apiKey) {
-      return apiError('MISSING_API_KEY', 400, 'No API key configured');
+      return apiError('MISSING_API_KEY', 400, '视频服务暂时不可用，请稍后再试。');
     }
 
     const result = await testVideoConnectivity({
@@ -35,7 +35,7 @@ export async function POST() {
     });
 
     if (!result.success) {
-      return apiError('UPSTREAM_ERROR', 500, result.message);
+      return apiError('UPSTREAM_ERROR', 500, '视频服务连接失败，请稍后再试。');
     }
 
     return apiSuccess({ message: result.message });
@@ -44,6 +44,6 @@ export async function POST() {
       'Video provider verification failed [provider=qwen-video]:',
       err,
     );
-    return apiError('INTERNAL_ERROR', 500, `Connectivity test error: ${err}`);
+    return apiError('INTERNAL_ERROR', 500, '视频服务连接失败，请稍后再试。');
   }
 }

@@ -46,8 +46,7 @@ export async function POST(req: NextRequest) {
     return apiError(
       'TRANSCRIPTION_FAILED',
       500,
-      'Transcription failed',
-      error instanceof Error ? error.message : 'Unknown error',
+      '语音识别失败，请稍后再试。',
     );
   }
 }

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       return apiError(
         'MISSING_API_KEY',
         401,
-        `No API key configured for video provider: ${providerId}`,
+        '视频生成暂时不可用，请稍后再试。',
       );
     }
 
@@ -61,12 +61,12 @@ export async function POST(request: NextRequest) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('SensitiveContent') || message.includes('sensitive information')) {
       log.warn(`Video blocked by content safety filter: ${message}`);
-      return apiError('CONTENT_SENSITIVE', 400, message);
+      return apiError('CONTENT_SENSITIVE', 400, '抱歉，该内容触发了安全检查。');
     }
     log.error(
       `Video generation failed [provider=qwen-video, model=${QWEN_VIDEO_MODEL_ID}]:`,
       error,
     );
-    return apiError('INTERNAL_ERROR', 500, message);
+    return apiError('INTERNAL_ERROR', 500, '视频生成失败，请稍后再试。');
   }
 }

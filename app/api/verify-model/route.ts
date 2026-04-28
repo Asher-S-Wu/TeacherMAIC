@@ -17,7 +17,7 @@ export async function POST() {
       return apiError(
         'INVALID_REQUEST',
         401,
-        error instanceof Error ? error.message : String(error),
+        '当前模型暂时不可用，请稍后再试',
       );
     }
 
@@ -38,17 +38,17 @@ export async function POST() {
     if (error instanceof Error) {
       // Parse common error messages
       if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-        errorMessage = 'API key is invalid or expired';
+        errorMessage = '连接失败，请稍后再试';
       } else if (error.message.includes('404') || error.message.includes('not found')) {
-        errorMessage = 'Model not found or API endpoint error';
+        errorMessage = '当前模型暂时不可用，请稍后再试';
       } else if (error.message.includes('429')) {
-        errorMessage = 'API rate limit exceeded, please try again later';
+        errorMessage = '请求过于频繁，请稍后再试';
       } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
-        errorMessage = 'Cannot connect to the Qwen API server';
+        errorMessage = '连接失败，请稍后再试';
       } else if (error.message.includes('timeout')) {
-        errorMessage = 'Connection timed out, please check your network';
+        errorMessage = '连接超时，请稍后再试';
       } else {
-        errorMessage = error.message;
+        errorMessage = '连接失败，请稍后再试';
       }
     }
 

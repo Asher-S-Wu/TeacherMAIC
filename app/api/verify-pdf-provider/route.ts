@@ -10,7 +10,7 @@ export async function POST() {
   try {
     const resolvedApiKey = resolvePDFApiKey(providerId);
     if (!resolvedApiKey) {
-      return apiError('MISSING_REQUIRED_FIELD', 400, 'API Key is required for MinerU Cloud');
+      return apiError('MISSING_REQUIRED_FIELD', 400, 'PDF 解析暂时不可用，请稍后再试。');
     }
 
     const cloudBase = MINERU_CLOUD_DEFAULT_BASE.replace(/\/+$/, '');
@@ -28,7 +28,7 @@ export async function POST() {
       return apiError(
         'INTERNAL_ERROR',
         500,
-        `Authentication failed: ${text || response.statusText}`,
+        'PDF 解析服务连接失败，请稍后再试。',
       );
     }
 
@@ -42,13 +42,13 @@ export async function POST() {
     let errorMessage = 'Connection failed';
     if (error instanceof Error) {
       if (error.message.includes('ECONNREFUSED')) {
-        errorMessage = 'Cannot connect to MinerU Cloud';
+        errorMessage = 'PDF 解析服务连接失败，请稍后再试。';
       } else if (error.message.includes('ENOTFOUND')) {
-        errorMessage = 'MinerU Cloud server not found';
+        errorMessage = 'PDF 解析服务连接失败，请稍后再试。';
       } else if (error.message.includes('timeout') || error.name === 'TimeoutError') {
-        errorMessage = 'Connection timed out';
+        errorMessage = '连接超时，请稍后再试。';
       } else {
-        errorMessage = error.message;
+        errorMessage = '连接失败，请稍后再试。';
       }
     }
 
