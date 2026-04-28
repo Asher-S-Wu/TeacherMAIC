@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   title: 'AI 智慧教学平台',
   description:
     'AI 智慧教学平台，支持将课堂资料变成互动式学习体验。',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({

@@ -147,8 +147,7 @@ function getMongoConfig(): { uri: string; dbName: string } {
     return { uri, dbName };
   }
 
-  parsed.pathname = '/teachermaic';
-  return { uri: parsed.toString(), dbName: 'teachermaic' };
+  return { uri, dbName: 'teachermaic' };
 }
 
 async function createMongo() {
