@@ -27,7 +27,7 @@ export interface ResolvedModel extends ModelWithInfo {
 
 /**
  * Resolve the server-configured language model.
- * Client-supplied model and key values are intentionally ignored.
+ * Model and key values live on the server.
  */
 export async function resolveModel(params: {
   thinkingConfig?: ThinkingConfig;

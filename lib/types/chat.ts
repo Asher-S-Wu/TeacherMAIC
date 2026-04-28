@@ -273,13 +273,7 @@ export interface StatelessChatRequest {
     nickname?: string;
     bio?: string;
   };
-  /**
-   * Opt-in: enable provider-side thinking for this request. Default is
-   * `{ enabled: false }` (low-latency chat). Eval harness sets this to
-   * `{ enabled: true }` when `EVAL_ENABLE_THINKING=1`.
-   */
-  thinking?: ThinkingConfig;
-  /** UI-selected per-model thinking config. Takes precedence over `thinking`. */
+  /** UI-selected per-model thinking config. */
   thinkingConfig?: ThinkingConfig;
 }
 
