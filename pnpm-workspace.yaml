@@ -3,7 +3,7 @@ packages:
 
 autoInstallPeers: false
 
-ignoredBuiltDependencies:
-  - msw
-  - sharp
-  - unrs-resolver
+allowBuilds:
+  msw: false
+  sharp: false
+  unrs-resolver: false
