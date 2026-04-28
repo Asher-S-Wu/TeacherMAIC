@@ -471,7 +471,7 @@ function TeacherVoicePill({
                     currentModelId === (group.modelId || '');
                   const previewKey = `${provider.providerId}::${voice.id}`;
                   const isPreviewing = previewingId === previewKey;
-                  const canPreview = !isNonPreviewableVoice(provider.providerId, voice.id);
+                  const canPreview = true;
                   return (
                     <div
                       key={previewKey}
