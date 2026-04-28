@@ -237,9 +237,10 @@ export async function generateTTSForClassroom(
       );
 
       const filename = `${audioId}.${result.format || format}`;
+      const audioBuffer = Buffer.from(result.audio);
       const saved = await saveBufferForUser(
         userId,
-        result.audio,
+        audioBuffer,
         filename,
         `audio/${result.format || format}`,
         'audio',
@@ -251,7 +252,7 @@ export async function generateTTSForClassroom(
 
       speechAction.audioId = audioId;
       speechAction.audioUrl = `${baseUrl}${saved.url}`;
-      log.info(`Generated TTS: ${filename} (${result.audio.length} bytes)`);
+      log.info(`Generated TTS: ${filename} (${audioBuffer.length} bytes)`);
     }
   }
 }
