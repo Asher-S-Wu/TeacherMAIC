@@ -87,6 +87,7 @@
   },
   "pnpm": {
     "ignoredBuiltDependencies": [
+      "msw",
       "sharp",
       "unrs-resolver"
     ]
