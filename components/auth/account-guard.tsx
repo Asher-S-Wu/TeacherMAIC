@@ -72,7 +72,7 @@ export function AccountGuard({ children }: { children: React.ReactNode }) {
 
   if (loading || !settingsReady) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-slate-950 text-white">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background text-muted-foreground">
         <LoaderCircle className="size-6 animate-spin" />
       </div>
     );
