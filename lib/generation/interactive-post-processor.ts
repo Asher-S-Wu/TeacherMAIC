@@ -1,4 +1,7 @@
-import { removeTailwindBrowserRuntime } from '@/lib/utils/interactive-html';
+import {
+  normalizeWidgetConfigScript,
+  removeTailwindBrowserRuntime,
+} from '@/lib/utils/interactive-html';
 
 /**
  * Interactive HTML Post-Processor
@@ -17,7 +20,9 @@ import { removeTailwindBrowserRuntime } from '@/lib/utils/interactive-html';
  */
 export function postProcessInteractiveHtml(html: string): string {
   // Convert LaTeX delimiters while protecting script tags
-  let processed = removeTailwindBrowserRuntime(convertLatexDelimiters(html));
+  let processed = normalizeWidgetConfigScript(
+    removeTailwindBrowserRuntime(convertLatexDelimiters(html)),
+  );
 
   // Inject KaTeX resources if not already present
   if (!processed.toLowerCase().includes('katex')) {

@@ -26,6 +26,7 @@ import type { StageStore } from '@/lib/api/stage-api';
 import { createStageAPI } from '@/lib/api/stage-api';
 import { generatePBLContent } from '@/lib/pbl/generate-pbl';
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompts';
+import { extractWidgetConfigFromHtml } from '@/lib/utils/interactive-html';
 import { DEFAULT_LANGUAGE_DIRECTIVE } from './outline-generator';
 import { postProcessInteractiveHtml } from './interactive-post-processor';
 import { parseActionsFromStructuredOutput } from './action-parser';
@@ -1098,16 +1099,8 @@ async function generateWidgetContent(
  * Extract widget config from embedded JSON in HTML
  */
 function extractWidgetConfig(html: string): WidgetConfig | undefined {
-  const match = html.match(
-    /<script type="application\/json" id="widget-config">([\s\S]*?)<\/script>/,
-  );
-  if (!match) return undefined;
-
-  try {
-    return JSON.parse(match[1]);
-  } catch {
-    return undefined;
-  }
+  const config = extractWidgetConfigFromHtml(html);
+  return config && typeof config === 'object' ? (config as WidgetConfig) : undefined;
 }
 
 /**

@@ -4,10 +4,10 @@
  * Injects CSS that ensures proper sizing and scrolling behavior
  * when HTML content is rendered via srcDoc in an iframe.
  */
-import { removeTailwindBrowserRuntime } from './interactive-html';
+import { normalizeWidgetConfigScript, removeTailwindBrowserRuntime } from './interactive-html';
 
 export function patchHtmlForIframe(html: string): string {
-  const processedHtml = removeTailwindBrowserRuntime(html);
+  const processedHtml = normalizeWidgetConfigScript(removeTailwindBrowserRuntime(html));
   const iframeCss = `<style data-iframe-patch>
   html, body {
     width: 100%;
