@@ -29,42 +29,6 @@ function resolveDashScopeSize(options: ImageGenerationOptions): string {
   return `${w}*${h}`;
 }
 
-/**
- * Lightweight connectivity test — validates API key by making a minimal
- * request. 401/403 means key invalid; other errors mean key is valid.
- */
-export async function testQwenImageConnectivity(
-  config: ImageGenerationConfig,
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await fetch(
-      `${DEFAULT_BASE_URL}/api/v1/services/aigc/multimodal-generation/generation`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: DEFAULT_MODEL,
-          input: { messages: [{ role: 'user', content: [{ text: '' }] }] },
-          parameters: { size: '1*1' },
-        }),
-      },
-    );
-    if (response.status === 401 || response.status === 403) {
-      const text = await response.text();
-      return {
-        success: false,
-        message: `Qwen Image auth failed (${response.status}): ${text}`,
-      };
-    }
-    return { success: true, message: 'Connected to Qwen Image' };
-  } catch (err) {
-    return { success: false, message: `Qwen Image connectivity error: ${err}` };
-  }
-}
-
 export async function generateWithQwenImage(
   config: ImageGenerationConfig,
   options: ImageGenerationOptions,

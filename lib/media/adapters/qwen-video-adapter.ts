@@ -78,31 +78,6 @@ function getApiErrorMessage(data: unknown, prefix: string): string {
   return `${prefix}: ${[code, message].filter(Boolean).join(' - ') || 'Unknown error'}`;
 }
 
-export async function testQwenVideoConnectivity(
-  config: VideoGenerationConfig,
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await fetch(getEndpoint('/api/v1/tasks/connectivity-test-nonexistent'), {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-    });
-
-    if (response.status === 401 || response.status === 403) {
-      const data = await readJsonOrText(response);
-      return {
-        success: false,
-        message: getApiErrorMessage(data, `Qwen Video auth failed (${response.status})`),
-      };
-    }
-
-    return { success: true, message: 'Connected to Qwen Video' };
-  } catch (err) {
-    return { success: false, message: `Qwen Video connectivity error: ${err}` };
-  }
-}
-
 async function submitQwenVideoTask(
   config: VideoGenerationConfig,
   options: VideoGenerationOptions,

@@ -1,9 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -15,12 +13,6 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import { TTS_PROVIDERS } from '@/lib/audio/constants';
 import type { TTSProviderId } from '@/lib/audio/types';
-import { CheckCircle2, Loader2, Volume2, XCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { createLogger } from '@/lib/logger';
-import { useTTSPreview } from '@/lib/audio/use-tts-preview';
-
-const log = createLogger('TTSSettings');
 
 interface TTSSettingsProps {
   selectedProviderId: TTSProviderId;
@@ -28,60 +20,20 @@ interface TTSSettingsProps {
 
 export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
   const { t } = useI18n();
-  const provider = TTS_PROVIDERS['qwen-tts'];
-  const providerConfig = useSettingsStore((state) => state.ttsProvidersConfig['qwen-tts']);
+  const provider = TTS_PROVIDERS[selectedProviderId];
+  const providerConfig = useSettingsStore((state) => state.ttsProvidersConfig[selectedProviderId]);
   const ttsVoice = useSettingsStore((state) => state.ttsVoice);
   const ttsSpeed = useSettingsStore((state) => state.ttsSpeed);
   const setTTSVoice = useSettingsStore((state) => state.setTTSVoice);
   const setTTSSpeed = useSettingsStore((state) => state.setTTSSpeed);
 
-  const [testText, setTestText] = useState(t('settings.ttsTestTextDefault'));
-  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-  const [testMessage, setTestMessage] = useState('');
-  const { previewing: testingTTS, startPreview, stopPreview } = useTTSPreview();
-
-  useEffect(() => {
-    setTestText(t('settings.ttsTestTextDefault'));
-  }, [t]);
-
-  useEffect(() => {
-    stopPreview();
-    setTestStatus('idle');
-    setTestMessage('');
-  }, [selectedProviderId, stopPreview]);
-
-  const handleTestTTS = async () => {
-    if (!testText.trim()) return;
-
-    setTestStatus('testing');
-    setTestMessage('');
-
-    try {
-      await startPreview({
-        text: testText,
-        voice: ttsVoice,
-        speed: ttsSpeed,
-      });
-      setTestStatus('success');
-      setTestMessage(t('settings.ttsTestSuccess'));
-    } catch (error) {
-      log.error('TTS test failed:', error);
-      setTestStatus('error');
-      setTestMessage(
-        error instanceof Error && error.message
-          ? `${t('settings.ttsTestFailed')}: ${error.message}`
-          : t('settings.ttsTestFailed'),
-      );
-    }
-  };
-
   return (
     <div className="space-y-6 max-w-3xl">
-      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
-        {providerConfig?.isServerConfigured
-          ? t('settings.serverConfiguredNotice')
-          : t('settings.serverConfigMissingNotice')}
-      </div>
+      {!providerConfig?.isServerConfigured && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
+          {t('settings.serverConfigMissingNotice')}
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
@@ -121,36 +73,6 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
             {provider.models[0].name}
           </div>
         </div>
-      </div>
-
-      <div className="space-y-3 pt-2 border-t">
-        <Label className="text-sm">{t('settings.testConnection')}</Label>
-        <div className="flex gap-2">
-          <Input
-            value={testText}
-            onChange={(e) => setTestText(e.target.value)}
-            placeholder={t('settings.ttsTestTextPlaceholder')}
-            className="flex-1"
-          />
-          <Button onClick={handleTestTTS} disabled={testingTTS || !testText.trim()} className="gap-2">
-            {testingTTS ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
-            {testingTTS ? t('settings.testing') : t('settings.testConnection')}
-          </Button>
-        </div>
-
-        {testStatus !== 'idle' && testMessage && (
-          <div
-            className={cn(
-              'flex items-center gap-2 text-sm',
-              testStatus === 'success' && 'text-emerald-600 dark:text-emerald-400',
-              testStatus === 'error' && 'text-destructive',
-            )}
-          >
-            {testStatus === 'success' && <CheckCircle2 className="h-4 w-4" />}
-            {testStatus === 'error' && <XCircle className="h-4 w-4" />}
-            <span>{testMessage}</span>
-          </div>
-        )}
       </div>
     </div>
   );

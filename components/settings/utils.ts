@@ -1,5 +1,3 @@
-import type { ProviderId } from '@/lib/types/provider';
-
 export function formatContextWindow(size?: number): string {
   if (!size) return '-';
 
@@ -27,17 +25,4 @@ export function getProviderTypeLabel(type: string, t: (key: string) => string): 
   const translated = t(translationKey);
   // If translation exists (not equal to key), use it; otherwise fallback to type
   return translated !== translationKey ? translated : type;
-}
-
-interface VerifyModelRequestConfig {
-  providerId: ProviderId;
-  modelId: string;
-  requiresApiKey?: boolean;
-}
-
-export function createVerifyModelRequest(config: VerifyModelRequestConfig) {
-  return {
-    model: `${config.providerId}:${config.modelId}`,
-    requiresApiKey: config.requiresApiKey,
-  };
 }

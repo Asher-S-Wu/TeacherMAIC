@@ -9,7 +9,7 @@ import type {
   ImageGenerationResult,
   ImageProviderConfig,
 } from './types';
-import { generateWithQwenImage, testQwenImageConnectivity } from './adapters/qwen-image-adapter';
+import { generateWithQwenImage } from './adapters/qwen-image-adapter';
 
 export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
   'qwen-image': {
@@ -22,12 +22,6 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
     supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16', '3:4'],
   },
 };
-
-export async function testImageConnectivity(
-  config: ImageGenerationConfig,
-): Promise<{ success: boolean; message: string }> {
-  return testQwenImageConnectivity(config);
-}
 
 export async function generateImage(
   config: ImageGenerationConfig,

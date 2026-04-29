@@ -9,10 +9,7 @@ import type {
   VideoGenerationResult,
   VideoProviderConfig,
 } from './types';
-import {
-  generateWithQwenVideo,
-  testQwenVideoConnectivity,
-} from './adapters/qwen-video-adapter';
+import { generateWithQwenVideo } from './adapters/qwen-video-adapter';
 
 export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
   'qwen-video': {
@@ -28,12 +25,6 @@ export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
     maxVideoDuration: 15,
   },
 };
-
-export async function testVideoConnectivity(
-  config: VideoGenerationConfig,
-): Promise<{ success: boolean; message: string }> {
-  return testQwenVideoConnectivity(config);
-}
 
 /**
  * Normalize video generation options against provider capabilities.
