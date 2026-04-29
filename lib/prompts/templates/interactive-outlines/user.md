@@ -39,7 +39,7 @@ Infer the course language directive by applying the decision rules from the syst
 
 ## Distribution Target
 
-- **70% interactive scenes** (widgets: simulation, diagram, code, game)
+- **70% interactive scenes** (widgets: simulation, diagram, code, game, visualization3d)
 - **30% slide scenes** (introductions, summaries, transitions)
 
 ## Widget Type Constraints (MANDATORY)
@@ -53,7 +53,7 @@ Infer the course language directive by applying the decision rules from the syst
 ## CRITICAL: Required Fields for Interactive Scenes
 
 Every interactive scene MUST include:
-- `widgetType`: One of "simulation", "diagram", "code", or "game"
+- `widgetType`: One of "simulation", "diagram", "code", "game", or "visualization3d"
 - `widgetOutline`: Object with widget-specific configuration
 
 Interactive scenes without these fields are INVALID.
@@ -68,6 +68,7 @@ Choose widgets based on the content:
 | Systems, processes, hierarchies | diagram |
 | Programming, algorithms | code |
 | Practice, challenge, application | game (action preferred) |
+| 3D structures, anatomy, molecules, astronomy | visualization3d |
 
 ## Widget Design Principles (IMPORTANT)
 

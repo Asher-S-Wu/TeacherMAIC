@@ -2,8 +2,9 @@ const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 } as const;
 type LogLevel = keyof typeof LOG_LEVELS;
 
 function getMinLevel(): LogLevel {
-  const env = (process.env.LOG_LEVEL ?? 'info').toLowerCase();
-  return env in LOG_LEVELS ? (env as LogLevel) : 'info';
+  const env = (process.env.NEXT_PUBLIC_LOG_LEVEL ?? process.env.LOG_LEVEL ?? '').toLowerCase();
+  if (env in LOG_LEVELS) return env as LogLevel;
+  return typeof window === 'undefined' ? 'info' : 'warn';
 }
 
 function isJsonFormat(): boolean {

@@ -1,3 +1,5 @@
+import { removeTailwindBrowserRuntime } from '@/lib/utils/interactive-html';
+
 /**
  * Interactive HTML Post-Processor
  *
@@ -15,7 +17,7 @@
  */
 export function postProcessInteractiveHtml(html: string): string {
   // Convert LaTeX delimiters while protecting script tags
-  let processed = convertLatexDelimiters(html);
+  let processed = removeTailwindBrowserRuntime(convertLatexDelimiters(html));
 
   // Inject KaTeX resources if not already present
   if (!processed.toLowerCase().includes('katex')) {

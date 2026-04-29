@@ -32,9 +32,9 @@ Generate a complete, interactive HTML simulation with these MANDATORY features:
 
 ### Mobile Responsiveness (CRITICAL)
 1. **Control panel MUST NOT overlap canvas on mobile**
-2. Use `flex-col md:flex-row` layout with proper spacing
-3. Control panel: `max-h-[40vh] md:max-h-screen` with overflow scroll
-4. Canvas container: `min-h-[300px]` to ensure visibility
+2. Use plain CSS media queries: stacked layout on mobile, side-by-side layout on desktop
+3. Control panel: full width on mobile, scrollable with `max-height: 40vh`; fixed side panel on desktop
+4. Canvas container: use `min-height: 300px` to ensure visibility
 5. Touch-friendly controls (44px minimum touch targets)
 
 ### Button Logic (CRITICAL)

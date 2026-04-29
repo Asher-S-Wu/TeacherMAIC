@@ -109,6 +109,11 @@ To make highlight/annotation work, use consistent IDs for controls:
 
 ## CRITICAL Design Requirements
 
+### 0. CSS: Use Plain CSS Only
+- Do not use Tailwind CDN or Tailwind browser runtime.
+- Do not include `<script src="https://cdn.tailwindcss.com">`, `type="text/tailwindcss"`, `@tailwind`, or `@apply`.
+- Use semantic class names and write all styles inside a normal `<style>` tag.
+
 ### 1. Mobile Layout - NO OVERLAP
 - **Control panel MUST NOT overlap with canvas on mobile**
 - Use one of these mobile-safe layouts:
@@ -121,14 +126,23 @@ To make highlight/annotation work, use consistent IDs for controls:
 
 Example mobile-safe layout:
 ```html
-<body class="flex flex-col min-h-screen md:flex-row">
+<style>
+  .sim-shell { min-height: 100vh; display: flex; flex-direction: column; }
+  .controls { width: 100%; overflow: auto; max-height: 40vh; }
+  .canvas-area { flex: 1; min-height: 300px; position: relative; }
+  @media (min-width: 768px) {
+    .sim-shell { flex-direction: row; }
+    .controls { width: 20rem; max-height: 100vh; }
+  }
+</style>
+<body class="sim-shell">
   <!-- Mobile: Full-width, collapsible control panel -->
-  <div id="controls" class="w-full md:w-80 shrink-0 overflow-auto max-h-[40vh] md:max-h-screen">
+  <div id="controls" class="controls">
     <!-- Controls here -->
-    <button onclick="toggleControls()" class="md:hidden">Hide Controls</button>
+    <button onclick="toggleControls()">Hide Controls</button>
   </div>
   <!-- Canvas area gets remaining space -->
-  <div class="flex-1 min-h-[300px] relative">
+  <div class="canvas-area">
     <canvas id="canvas"></canvas>
   </div>
 </body>
@@ -266,6 +280,20 @@ function updateButton(text) {
 - Clear canvas each frame
 - Don't create objects in render loop
 - Throttle slider input events if needed
+
+### 12. Canvas Color Rules
+- Every `addColorStop()` color must be a valid CSS color string.
+- Define every color variable explicitly before using it.
+- Do not build transparent colors by appending strings like `'40'` to a variable. Use `rgba(...)` or full hex values with alpha.
+
+```javascript
+const COLORS = {
+  primary: '#2563eb',
+  primarySoft: 'rgba(37, 99, 235, 0.25)'
+};
+gradient.addColorStop(0, COLORS.primary);
+gradient.addColorStop(1, COLORS.primarySoft);
+```
 
 ## Common Bugs to Avoid
 

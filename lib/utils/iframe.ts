@@ -4,7 +4,10 @@
  * Injects CSS that ensures proper sizing and scrolling behavior
  * when HTML content is rendered via srcDoc in an iframe.
  */
+import { removeTailwindBrowserRuntime } from './interactive-html';
+
 export function patchHtmlForIframe(html: string): string {
+  const processedHtml = removeTailwindBrowserRuntime(html);
   const iframeCss = `<style data-iframe-patch>
   html, body {
     width: 100%;
@@ -17,24 +20,34 @@ export function patchHtmlForIframe(html: string): string {
   /* Fix min-h-screen: in iframes 100vh is the iframe height, which is correct,
      but ensure body actually fills it */
   body { min-height: 100vh; }
-</style>`;
+  </style>`;
 
   // Insert right after <head> or at the start of the document
-  const headIdx = html.indexOf('<head>');
+  const headIdx = processedHtml.indexOf('<head>');
   if (headIdx !== -1) {
     const insertPos = headIdx + 6; // after <head>
-    return html.substring(0, insertPos) + '\n' + iframeCss + html.substring(insertPos);
+    return (
+      processedHtml.substring(0, insertPos) +
+      '\n' +
+      iframeCss +
+      processedHtml.substring(insertPos)
+    );
   }
 
-  const headWithAttrs = html.indexOf('<head ');
+  const headWithAttrs = processedHtml.indexOf('<head ');
   if (headWithAttrs !== -1) {
-    const closeAngle = html.indexOf('>', headWithAttrs);
+    const closeAngle = processedHtml.indexOf('>', headWithAttrs);
     if (closeAngle !== -1) {
       const insertPos = closeAngle + 1;
-      return html.substring(0, insertPos) + '\n' + iframeCss + html.substring(insertPos);
+      return (
+        processedHtml.substring(0, insertPos) +
+        '\n' +
+        iframeCss +
+        processedHtml.substring(insertPos)
+      );
     }
   }
 
-  // Fallback: prepend
-  return iframeCss + html;
+  // No head tag: prepend the sizing patch.
+  return iframeCss + processedHtml;
 }

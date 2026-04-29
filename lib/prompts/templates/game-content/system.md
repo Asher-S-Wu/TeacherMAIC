@@ -244,24 +244,31 @@ Return ONLY the HTML document, no markdown fences or explanations.
 
 **Rule**: For critical game-start buttons, use inline onclick. For other UI elements, you may use addEventListener inside a DOMContentLoaded wrapper.
 
-### 2. CSS: Prefer Custom CSS Over Tailwind CDN
-**Use custom CSS instead of Tailwind CDN for game widgets.** Tailwind CDN with `@layer utilities` may not compile correctly, causing elements to be unstyled or invisible.
+### 2. CSS: Use Plain CSS Only
+**Do not use Tailwind CDN or Tailwind browser runtime for game widgets.** Do not include `<script src="https://cdn.tailwindcss.com">`, `type="text/tailwindcss"`, `@tailwind`, or `@apply`. Use plain CSS inside a normal `<style>` tag.
 
 ```html
 <!-- CORRECT: Custom CSS - reliable and predictable -->
 <style>
   .game-button { background: #3498db; padding: 12px 30px; }
 </style>
-
-<!-- WRONG: Tailwind @layer utilities may fail -->
-<style type="text/tailwindcss">
-  @layer utilities { .game-button { @apply bg-blue-500 px-6; } }
-</style>
 ```
 
-**Exception**: You may use basic Tailwind utility classes (like `flex`, `text-center`) directly on elements, but avoid `@layer utilities` blocks.
+Use semantic class names such as `.game-shell`, `.game-button`, `.score-panel`, and define their styles yourself.
 
-### 3. Script Placement: Wrap in DOMContentLoaded or Place at End
+### 3. Canvas Color Rules
+When using Canvas gradients, every `addColorStop()` color must be a valid CSS color string. Define all colors explicitly before use, and use `rgba(...)` or full hex values with alpha instead of appending text like `'40'` to a variable.
+
+```javascript
+const COLORS = {
+  sky: '#38bdf8',
+  skySoft: 'rgba(56, 189, 248, 0.25)'
+};
+gradient.addColorStop(0, COLORS.sky);
+gradient.addColorStop(1, COLORS.skySoft);
+```
+
+### 4. Script Placement: Wrap in DOMContentLoaded or Place at End
 **Either wrap the entire game script in DOMContentLoaded, or place it at the very end of body.**
 
 ```html
@@ -280,7 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </html>
 ```
 
-### 4. Global Functions for onclick Handlers
+### 5. Global Functions for onclick Handlers
 **Functions called by inline onclick must be globally accessible.**
 
 ```javascript
