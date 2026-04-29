@@ -19,7 +19,7 @@ import { applyModelMetadata, getCatalogThinkingCapability } from './model-metada
 import { getThinkingMode } from './thinking-config';
 
 export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'qwen';
-export const DEFAULT_MODEL_ID = 'qwen3.6-plus';
+export const DEFAULT_MODEL_ID = 'qwen3.6-flash';
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
 
 // Re-export types for backward compatibility
@@ -42,9 +42,9 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
     models: [
       {
         id: DEFAULT_MODEL_ID,
-        name: 'Qwen3.6 Plus',
-        contextWindow: 256000,
-        outputWindow: 8192,
+        name: 'Qwen3.6 Flash',
+        contextWindow: 1000000,
+        outputWindow: 64000,
         capabilities: {
           streaming: true,
           tools: true,

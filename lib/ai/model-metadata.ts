@@ -16,7 +16,7 @@ function qwenToggleCapability(): ThinkingCapability {
 }
 
 const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
-  [getModelMetadataKey('qwen', 'qwen3.6-plus')]: qwenToggleCapability(),
+  [getModelMetadataKey('qwen', 'qwen3.6-flash')]: qwenToggleCapability(),
 };
 
 export function getCatalogThinkingCapability(

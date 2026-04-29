@@ -15,7 +15,7 @@ import type { ThinkingConfig } from '@/lib/types/provider';
 import { resolveApiKey } from '@/lib/server/provider-config';
 
 export interface ResolvedModel extends ModelWithInfo {
-  /** Server-configured model string (e.g. "qwen:qwen3.6-plus") */
+  /** Server-configured model string (e.g. "qwen:qwen3.6-flash") */
   modelString: string;
   /** Resolved provider ID (e.g. "qwen") */
   providerId: string;
