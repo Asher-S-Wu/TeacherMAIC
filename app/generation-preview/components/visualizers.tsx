@@ -228,7 +228,7 @@ function WebSearchVisualizer({ sources }: { sources: Array<{ title: string; url:
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-          className="absolute -top-2 -right-2 h-6 px-2 rounded-full bg-teal-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-teal-500/25 z-20 gap-0.5"
+          className="absolute -top-2 -right-2 h-6 px-2 rounded-full bg-teal-500 text-white text-xs font-bold flex items-center justify-center shadow-lg shadow-teal-500/25 z-20 gap-0.5"
         >
           <Globe className="size-2.5" />
           {sources.length}
