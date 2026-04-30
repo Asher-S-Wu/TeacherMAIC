@@ -9,7 +9,7 @@ export interface BaseLatexElementProps {
 
 /**
  * Base latex element for read-only/playback mode.
- * Renders KaTeX HTML if available, falls back to legacy SVG path.
+ * Renders KaTeX HTML.
  */
 export function BaseLatexElement({ elementInfo }: BaseLatexElementProps) {
   return (
@@ -27,34 +27,14 @@ export function BaseLatexElement({ elementInfo }: BaseLatexElementProps) {
         style={{ transform: `rotate(${elementInfo.rotate}deg)` }}
       >
         <div className="element-content relative w-full h-full">
-          {elementInfo.html ? (
+          {elementInfo.html && (
             <KatexContent
               html={elementInfo.html}
               width={elementInfo.width}
               height={elementInfo.height}
               align={elementInfo.align}
             />
-          ) : elementInfo.path && elementInfo.viewBox ? (
-            <svg
-              overflow="visible"
-              width={elementInfo.width}
-              height={elementInfo.height}
-              stroke={elementInfo.color}
-              strokeWidth={elementInfo.strokeWidth}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="transform-origin-[0_0] overflow-visible"
-            >
-              <g
-                transform={`scale(${elementInfo.width / elementInfo.viewBox[0]}, ${
-                  elementInfo.height / elementInfo.viewBox[1]
-                }) translate(0,0) matrix(1,0,0,1,0,0)`}
-              >
-                <path d={elementInfo.path} />
-              </g>
-            </svg>
-          ) : null}
+          )}
         </div>
       </div>
     </div>

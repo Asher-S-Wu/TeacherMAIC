@@ -79,24 +79,24 @@ ${commentPrompt ? `Grading guidance: ${commentPrompt}\n` : ''}Student answer: ${
     const text = result.text.trim();
     let gradeResult: GradeResponse;
 
-    try {
-      // Try to extract JSON from the response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON found');
-      const parsed = JSON.parse(jsonMatch[0]);
-      gradeResult = {
-        score: Math.max(0, Math.min(points, Math.round(Number(parsed.score)))),
-        comment: String(parsed.comment || ''),
-      };
-    } catch {
-      // Fallback: give partial credit with a generic comment
-      gradeResult = {
-        score: Math.round(points * 0.5),
-        comment: isZh
-          ? '已作答，请参考标准答案。'
-          : 'Answer received. Please refer to the standard answer.',
-      };
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return apiError('GENERATION_FAILED', 502, 'Failed to parse grading result');
     }
+    let parsed: Partial<GradeResponse>;
+    try {
+      parsed = JSON.parse(jsonMatch[0]) as Partial<GradeResponse>;
+    } catch {
+      return apiError('GENERATION_FAILED', 502, 'Failed to parse grading result');
+    }
+    const score = Number(parsed.score);
+    if (!Number.isFinite(score)) {
+      return apiError('GENERATION_FAILED', 502, 'Grading result missing score');
+    }
+    gradeResult = {
+      score: Math.max(0, Math.min(points, Math.round(score))),
+      comment: String(parsed.comment || ''),
+    };
 
     return apiSuccess({ ...gradeResult });
   } catch (error) {

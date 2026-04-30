@@ -316,12 +316,6 @@ function GenerationPreviewContent() {
       if (currentSession.imageStorageIds && currentSession.imageStorageIds.length > 0) {
         log.debug('Loading PDF images from account file storage');
         imageMapping = await loadImageMapping(currentSession.imageStorageIds);
-      } else if (
-        currentSession.imageMapping &&
-        Object.keys(currentSession.imageMapping).length > 0
-      ) {
-        log.debug('Using imageMapping from session (old format)');
-        imageMapping = currentSession.imageMapping;
       }
 
       // Create stage client-side
@@ -582,22 +576,8 @@ function GenerationPreviewContent() {
               persona: a!.persona,
             }));
         } catch (err: unknown) {
-          log.warn('[Generation] Agent generation failed, falling back to presets:', err);
-          const registry = useAgentRegistry.getState();
-          const fallbackIds = settings.selectedAgentIds.filter((id) => {
-            const a = registry.getAgent(id);
-            return a && !a.isGenerated;
-          });
-          agents = fallbackIds
-            .map((id) => registry.getAgent(id))
-            .filter(Boolean)
-            .map((a) => ({
-              id: a!.id,
-              name: a!.name,
-              role: a!.role,
-              persona: a!.persona,
-            }));
-          stage.agentIds = fallbackIds;
+          log.error('[Generation] Agent generation failed:', err);
+          throw err instanceof Error ? err : new Error('Agent generation failed');
         }
       } else {
         // Preset mode — use selected agents (include persona)

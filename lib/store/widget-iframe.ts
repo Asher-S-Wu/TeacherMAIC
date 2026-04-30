@@ -9,7 +9,7 @@ import { create } from 'zustand';
 interface WidgetIframeState {
   /** Callbacks keyed by sceneId for targeted postMessage communication */
   sendMessageByScene: Record<string, (type: string, payload: Record<string, unknown>) => void>;
-  /** Currently active scene ID (used for fallback/legacy support) */
+  /** Currently active scene ID */
   activeSceneId: string | null;
   /** Register an iframe callback for a specific scene */
   registerIframe: (

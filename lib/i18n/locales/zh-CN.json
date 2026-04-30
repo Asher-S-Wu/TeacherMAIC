@@ -204,6 +204,7 @@
     "submitAnswers": "提交答案",
     "aiGrading": "AI 正在批改中...",
     "aiGradingWait": "请稍候，正在分析你的答案",
+    "gradingFailed": "评分失败，请稍后重新答题。",
     "quizReport": "答题报告",
     "retry": "重新答题"
   },
@@ -229,7 +230,7 @@
     "startRecording": "开始录音"
   },
   "pbl": {
-    "legacyFormat": "此PBL场景使用旧格式，请重新生成课程",
+    "invalidProject": "PBL项目数据无效，请重新生成课程",
     "emptyProject": "PBL项目尚未生成，请通过课程生成创建",
     "roleSelection": {
       "title": "选择你的角色",

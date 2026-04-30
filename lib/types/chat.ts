@@ -286,9 +286,6 @@ export interface ParsedAction {
   params: Record<string, unknown>;
 }
 
-/** @deprecated Use ParsedAction instead */
-export type ParsedToolCall = ParsedAction;
-
 /**
  * Server-Sent Events for stateless chat API
  */

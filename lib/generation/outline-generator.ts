@@ -1,9 +1,7 @@
 /**
  * Stage 1: Generate scene outlines from user requirements.
- * Also contains outline fallback logic.
  */
 
-import { nanoid } from 'nanoid';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
 import type {
   UserRequirements,
@@ -15,18 +13,8 @@ import { buildPrompt, PROMPT_IDS } from '@/lib/prompts';
 import { formatImageDescription, formatImagePlaceholder } from './prompt-formatters';
 import { parseJsonResponse } from './json-repair';
 import { uniquifyMediaElementIds } from './scene-builder';
+import { validateSceneOutline } from './outline-validation';
 import type { AICallFn, GenerationResult, GenerationCallbacks } from './pipeline-types';
-import { createLogger } from '@/lib/logger';
-const log = createLogger('Generation');
-
-/**
- * Used when the outline stage fails to produce an explicit directive (LLM
- * schema regression, empty response, upstream error). Downstream prompts
- * still need *something* that steers the model toward the requirement's
- * language rather than defaulting to the training-distribution prior.
- */
-export const DEFAULT_LANGUAGE_DIRECTIVE =
-  'Teach in the language that matches the user requirement.';
 
 /**
  * Generate scene outlines from user requirements
@@ -120,37 +108,25 @@ export async function generateSceneOutlinesFromRequirements(
     });
 
     const response = await aiCall(prompts.system, prompts.user, visionImages);
-    const parsed = parseJsonResponse<
-      { languageDirective: string; outlines: SceneOutline[] } | SceneOutline[]
-    >(response);
+    const parsed = parseJsonResponse<{ languageDirective: string; outlines: SceneOutline[] }>(
+      response,
+    );
 
-    let languageDirective: string;
-    let rawOutlines: SceneOutline[];
-
-    if (Array.isArray(parsed)) {
-      // Fallback: LLM returned old flat array format
-      languageDirective = DEFAULT_LANGUAGE_DIRECTIVE;
-      rawOutlines = parsed;
-    } else if (parsed && parsed.outlines) {
-      languageDirective = parsed.languageDirective || DEFAULT_LANGUAGE_DIRECTIVE;
-      rawOutlines = parsed.outlines;
-    } else {
+    if (
+      !parsed ||
+      typeof parsed.languageDirective !== 'string' ||
+      parsed.languageDirective.trim().length === 0 ||
+      !Array.isArray(parsed.outlines)
+    ) {
       return { success: false, error: 'Failed to parse scene outlines response' };
     }
 
-    if (!Array.isArray(rawOutlines)) {
-      return { success: false, error: 'Failed to parse scene outlines response' };
-    }
+    const { languageDirective, outlines: rawOutlines } = parsed;
 
-    // Ensure IDs and order
-    const enriched = rawOutlines.map((outline, index) => ({
-      ...outline,
-      id: outline.id || nanoid(),
-      order: index + 1,
-    }));
+    const validated = rawOutlines.map(validateSceneOutline);
 
     // Replace sequential gen_img_N/gen_vid_N with globally unique IDs
-    const result = uniquifyMediaElementIds(enriched);
+    const result = uniquifyMediaElementIds(validated);
 
     callbacks?.onProgress?.({
       currentStage: 1,
@@ -165,31 +141,4 @@ export async function generateSceneOutlinesFromRequirements(
   } catch (error) {
     return { success: false, error: String(error) };
   }
-}
-
-/**
- * Apply type fallbacks for outlines that can't be generated as their declared type.
- * - interactive without interactiveConfig OR widgetType+widgetOutline → slide
- * - pbl without pblConfig or languageModel → slide
- */
-export function applyOutlineFallbacks(
-  outline: SceneOutline,
-  hasLanguageModel: boolean,
-): SceneOutline {
-  // Ultra Mode: interactive scenes with widgetType + widgetOutline are valid
-  const hasWidgetConfig = outline.widgetType && outline.widgetOutline;
-
-  if (outline.type === 'interactive' && !outline.interactiveConfig && !hasWidgetConfig) {
-    log.warn(
-      `Interactive outline "${outline.title}" missing interactiveConfig and widget config, falling back to slide`,
-    );
-    return { ...outline, type: 'slide' };
-  }
-  if (outline.type === 'pbl' && (!outline.pblConfig || !hasLanguageModel)) {
-    log.warn(
-      `PBL outline "${outline.title}" missing pblConfig or languageModel, falling back to slide`,
-    );
-    return { ...outline, type: 'slide' };
-  }
-  return outline;
 }

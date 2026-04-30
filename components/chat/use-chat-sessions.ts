@@ -44,8 +44,8 @@ interface UseChatSessionsOptions {
     fullText: string,
     agentId: string | null,
   ) => void;
-  /** When provided and returns true, StreamBuffer holds on the current text item after reveal. */
-  shouldHoldAfterReveal?: () => { holding: boolean; segmentDone: number } | boolean;
+  /** When provided and holding is true, StreamBuffer holds on the current text item after reveal. */
+  shouldHoldAfterReveal?: () => { holding: boolean; segmentDone: number } | undefined;
 }
 
 export function useChatSessions(options: UseChatSessionsOptions = {}) {
@@ -408,7 +408,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
           },
 
           shouldHoldAfterReveal() {
-            return shouldHoldAfterRevealRef.current?.() ?? (false as const);
+            return shouldHoldAfterRevealRef.current?.();
           },
         },
         pacingOptions,

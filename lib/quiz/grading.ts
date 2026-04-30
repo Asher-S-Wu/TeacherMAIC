@@ -21,7 +21,7 @@ export function toArray(v: string | string[] | undefined): string[] {
 }
 
 export function isShortAnswer(q: QuizQuestion): boolean {
-  return q.type === 'short_answer' || (!q.hasAnswer && (!q.answer || q.answer.length === 0));
+  return q.type === 'short_answer';
 }
 
 /** Grade choice questions locally. Returns results only for non-short-answer questions. */
@@ -34,8 +34,8 @@ export function gradeChoiceQuestions(
     .map((q) => {
       const pts = q.points ?? 1;
       const userAnswer = toArray(answers[q.id]);
-      const correctAnswer = toArray(q.answer);
-      const correct = arraysEqual(userAnswer, correctAnswer);
+      const correctValues = toArray(q.answer);
+      const correct = arraysEqual(userAnswer, correctValues);
       return {
         questionId: q.id,
         correct,

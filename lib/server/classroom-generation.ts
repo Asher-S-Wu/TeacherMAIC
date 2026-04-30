@@ -2,10 +2,7 @@ import { nanoid } from 'nanoid';
 import { callLLM } from '@/lib/ai/llm';
 import { createStageAPI } from '@/lib/api/stage-api';
 import type { StageStore } from '@/lib/api/stage-api-types';
-import {
-  applyOutlineFallbacks,
-  generateSceneOutlinesFromRequirements,
-} from '@/lib/generation/outline-generator';
+import { generateSceneOutlinesFromRequirements } from '@/lib/generation/outline-generator';
 import {
   createSceneWithActions,
   generateSceneActions,
@@ -301,13 +298,8 @@ export async function generateClassroom(
   const agentMode = input.agentMode || 'default';
   if (agentMode === 'generate') {
     log.info('Generating custom agent profiles via LLM...');
-    try {
-      agents = await generateAgentProfiles(requirement, languageDirective, aiCall);
-      log.info(`Generated ${agents.length} agent profiles`);
-    } catch (e) {
-      log.warn('Agent profile generation failed, falling back to defaults:', e);
-      agents = getDefaultAgents();
-    }
+    agents = await generateAgentProfiles(requirement, languageDirective, aiCall);
+    log.info(`Generated ${agents.length} agent profiles`);
   } else {
     agents = getDefaultAgents();
   }
@@ -348,33 +340,34 @@ export async function generateClassroom(
   let generatedScenes = 0;
 
   for (const [index, outline] of outlines.entries()) {
-    const safeOutline = applyOutlineFallbacks(outline, true);
     const progressStart = 30 + Math.floor((index / Math.max(outlines.length, 1)) * 60);
 
     await options.onProgress?.({
       step: 'generating_scenes',
       progress: Math.max(progressStart, 31),
-      message: `Generating scene ${index + 1}/${outlines.length}: ${safeOutline.title}`,
+      message: `Generating scene ${index + 1}/${outlines.length}: ${outline.title}`,
       scenesGenerated: generatedScenes,
       totalScenes: outlines.length,
     });
 
-    const content = await generateSceneContent(safeOutline, aiCall, { agents, languageDirective });
+    const content = await generateSceneContent(outline, aiCall, {
+      agents,
+      languageDirective,
+      languageModel: outline.type === 'pbl' ? languageModel : undefined,
+    });
     if (!content) {
-      log.warn(`Skipping scene "${safeOutline.title}" — content generation failed`);
-      continue;
+      throw new Error(`Scene content generation failed: ${outline.title}`);
     }
 
-    const actions = await generateSceneActions(safeOutline, content, aiCall, {
+    const actions = await generateSceneActions(outline, content, aiCall, {
       agents,
       languageDirective,
     });
-    log.info(`Scene "${safeOutline.title}": ${actions.length} actions`);
+    log.info(`Scene "${outline.title}": ${actions.length} actions`);
 
-    const sceneId = createSceneWithActions(safeOutline, content, actions, api);
+    const sceneId = createSceneWithActions(outline, content, actions, api);
     if (!sceneId) {
-      log.warn(`Skipping scene "${safeOutline.title}" — scene creation failed`);
-      continue;
+      throw new Error(`Scene creation failed: ${outline.title}`);
     }
 
     generatedScenes += 1;

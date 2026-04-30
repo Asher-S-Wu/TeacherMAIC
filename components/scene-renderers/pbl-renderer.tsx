@@ -59,7 +59,7 @@ export function PBLRenderer({ content, mode: _mode, sceneId }: PBLRendererProps)
 
       updateConfig(newConfig);
     },
-    [projectConfig, updateConfig, t],
+    [projectConfig, updateConfig],
   );
 
   const handleReset = useCallback(() => {
@@ -84,11 +84,10 @@ export function PBLRenderer({ content, mode: _mode, sceneId }: PBLRendererProps)
     });
   }, [projectConfig, updateConfig]);
 
-  // Check for legacy format (old PBL with url/html)
   if (!projectConfig) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        <p>{t('pbl.legacyFormat')}</p>
+        <p>{t('pbl.invalidProject')}</p>
       </div>
     );
   }

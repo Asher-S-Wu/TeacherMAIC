@@ -22,7 +22,11 @@ export const metadata: Metadata = {
   description:
     'AI 智慧教学平台，支持将课堂资料变成互动式学习体验。',
   icons: {
-    icon: '/favicon.svg',
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', type: 'image/x-icon', sizes: '64x64' },
+    ],
+    apple: [{ url: '/apple-icon.png', type: 'image/png', sizes: '180x180' }],
   },
 };
 

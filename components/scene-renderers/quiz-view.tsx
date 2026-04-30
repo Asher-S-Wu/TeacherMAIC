@@ -47,6 +47,7 @@ async function gradeShortAnswerQuestion(
   q: QuizQuestion,
   userAnswer: string,
   language: string,
+  gradingFailedMessage: string,
 ): Promise<QuestionResult> {
   const pts = q.points ?? 1;
   try {
@@ -78,16 +79,12 @@ async function gradeShortAnswerQuestion(
     };
   } catch (err) {
     log.error('[quiz-view] AI grading failed for', q.id, err);
-    // Fallback: give half credit
     return {
       questionId: q.id,
       correct: null,
       status: 'incorrect',
-      earned: Math.round(pts * 0.5),
-      aiComment:
-        language === 'zh-CN'
-          ? '评分服务暂时不可用，已给予基础分。'
-          : 'Grading service unavailable. Base score given.',
+      earned: 0,
+      aiComment: gradingFailedMessage,
     };
   }
 }
@@ -746,7 +743,12 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
       const shortAnswerQs = questions.filter(isShortAnswer);
       const aiResults = await Promise.all(
         shortAnswerQs.map((q) =>
-          gradeShortAnswerQuestion(q, (answers[q.id] as string) ?? '', locale),
+          gradeShortAnswerQuestion(
+            q,
+            (answers[q.id] as string) ?? '',
+            locale,
+            t('quiz.gradingFailed'),
+          ),
         ),
       );
 
@@ -767,7 +769,7 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [phase, questions, answers, locale, sceneId]);
+  }, [phase, questions, answers, locale, sceneId, t]);
 
   const handleRetry = useCallback(() => {
     setPhase('not_started');

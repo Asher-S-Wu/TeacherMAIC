@@ -17,7 +17,6 @@ import type { LanguageModel } from 'ai';
 import type { Slide, SlideTheme } from '@/lib/types/slides';
 import type { Scene } from '@/lib/types/stage';
 import type { Action } from '@/lib/types/action';
-import { applyOutlineFallbacks } from './outline-generator';
 import { generateSceneContent, generateSceneActions } from './scene-generator';
 import type { AgentInfo, SceneGenerationContext, AICallFn } from './pipeline-types';
 import { buildLanguageText } from './prompt-formatters';
@@ -79,9 +78,6 @@ export async function buildSceneFromOutline(
   userProfile?: string,
   languageDirective?: string,
 ): Promise<Scene | null> {
-  // Apply type fallbacks
-  outline = applyOutlineFallbacks(outline, !!languageModel);
-
   const langText = buildLanguageText(languageDirective, outline.languageNote);
 
   // Step 1: Generate content (with images if available)

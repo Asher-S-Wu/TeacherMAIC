@@ -5,7 +5,6 @@
  * Stage 2: Scene Outlines → Full Scenes (slide/quiz/interactive/pbl with actions)
  */
 
-import type { ActionType } from './action';
 import type { MediaGenerationRequest } from '@/lib/media/types';
 
 // ==================== PDF Image Types ====================
@@ -100,24 +99,14 @@ export interface SceneOutline {
   quizConfig?: {
     questionCount: number;
     difficulty: 'easy' | 'medium' | 'hard';
-    questionTypes: ('single' | 'multiple' | 'text')[];
-  };
-  /**
-   * @deprecated Use widgetType + widgetOutline instead
-   * Legacy interactive config - kept for backward compatibility only
-   */
-  interactiveConfig?: {
-    conceptName: string;
-    conceptOverview: string;
-    designIdea: string;
-    subject?: string;
+    questionTypes: ('single' | 'multiple' | 'short_answer')[];
   };
   // PBL-specific config
   pblConfig?: {
     projectTopic: string;
     projectDescription: string;
     targetSkills: string[];
-    issueCount?: number;
+    issueCount: number;
   };
   // Widget fields (required for type === 'interactive' in unified mode)
   widgetType?: WidgetType;
@@ -179,31 +168,6 @@ export interface GeneratedInteractiveContent {
   widgetType?: WidgetType;
   widgetConfig?: WidgetConfig;
   teacherActions?: TeacherAction[];
-}
-
-// ==================== Legacy Types (for compatibility) ====================
-
-export interface SuggestedSlideElement {
-  type: 'text' | 'image' | 'shape' | 'chart' | 'latex' | 'line';
-  purpose: 'title' | 'subtitle' | 'content' | 'example' | 'diagram' | 'formula' | 'highlight';
-  contentHint: string;
-  position?: 'top' | 'center' | 'bottom' | 'left' | 'right';
-  chartType?: 'bar' | 'line' | 'pie' | 'radar';
-  textOutline?: string[];
-}
-
-export interface SuggestedQuizQuestion {
-  type: 'single' | 'multiple' | 'short_answer';
-  questionOutline: string;
-  suggestedOptions?: string[];
-  targetConceptId?: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-}
-
-export interface SuggestedAction {
-  type: ActionType;
-  description: string;
-  timing?: 'start' | 'middle' | 'end' | 'after-content';
 }
 
 // ==================== Generation Session ====================

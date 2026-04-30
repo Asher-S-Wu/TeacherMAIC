@@ -44,7 +44,7 @@ export interface Stage {
   /**
    * True when this classroom was generated with Interactive Mode enabled
    * (the INTERACTIVE_OUTLINES prompt branch).
-   * Absent on legacy classrooms, imports, and regular-mode generations.
+   * Only set when generation explicitly requested Interactive Mode.
    */
   interactiveMode?: boolean;
 }

@@ -45,38 +45,18 @@ export function getElementPercentageGeometry(
 }
 
 /**
- * Find percentage geometry info by scene and element ID
+ * Find percentage geometry info by element ID
  *
- * @param scene - Scene object
+ * @param elements - Current slide elements
  * @param elementId - Element ID
  * @param viewportSize - Viewport width base, default 1000px
  * @returns Percentage geometry info, or null if element is not found or has no position info
  */
 export function findElementGeometry(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- scene can be old or new format with different shapes
-  scene: Record<string, any>,
+  elements: PPTElement[],
   elementId: string,
   viewportSize: number = 1000,
 ): PercentageGeometry | null {
-  // Support two scene structures:
-  // 1. scene.elements (old format)
-  // 2. scene.content.canvas.elements (new format)
-  let elements: PPTElement[] | undefined;
-
-  if (scene.type === 'slide') {
-    if (scene.elements) {
-      // Old format
-      elements = scene.elements;
-    } else if (scene.content?.canvas?.elements) {
-      // New format
-      elements = scene.content.canvas.elements;
-    }
-  }
-
-  if (!elements) {
-    return null;
-  }
-
   const element = elements.find((el: PPTElement) => el.id === elementId);
   if (!element) {
     return null;

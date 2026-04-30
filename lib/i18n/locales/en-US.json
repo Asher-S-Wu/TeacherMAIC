@@ -204,6 +204,7 @@
     "submitAnswers": "Submit Answers",
     "aiGrading": "AI is grading...",
     "aiGradingWait": "Please wait, analyzing your answers",
+    "gradingFailed": "Grading failed. Please retry later.",
     "quizReport": "Quiz Report",
     "retry": "Retry"
   },
@@ -229,7 +230,7 @@
     "startRecording": "Start recording"
   },
   "pbl": {
-    "legacyFormat": "This PBL scene uses a legacy format. Please regenerate the course.",
+    "invalidProject": "PBL project data is invalid. Please regenerate the course.",
     "emptyProject": "PBL project has not been generated yet. Please create via course generation.",
     "roleSelection": {
       "title": "Choose Your Role",

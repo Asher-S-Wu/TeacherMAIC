@@ -41,10 +41,7 @@ export function ScreenCanvas() {
     if (!laserElementId) return null;
     const element = elements.find((el) => el.id === laserElementId);
     if (!element) return null;
-    return findElementGeometry(
-      { type: 'slide', content: { canvas: { elements } } } as Record<string, unknown>,
-      laserElementId,
-    );
+    return findElementGeometry(elements, laserElementId);
   }, [laserElementId, elements]);
 
   // Compute zoom target geometry
@@ -52,10 +49,7 @@ export function ScreenCanvas() {
     if (!zoomTarget) return null;
     const element = elements.find((el) => el.id === zoomTarget.elementId);
     if (!element) return null;
-    return findElementGeometry(
-      { type: 'slide', content: { canvas: { elements } } } as Record<string, unknown>,
-      zoomTarget.elementId,
-    );
+    return findElementGeometry(elements, zoomTarget.elementId);
   }, [zoomTarget, elements]);
 
   return (

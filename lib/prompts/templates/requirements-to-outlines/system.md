@@ -136,9 +136,8 @@ Use `interactive` type when a concept benefits significantly from hands-on inter
 **Constraints**:
 
 - Limit to **1-2 interactive scenes per course** (they are resource-intensive)
-- Interactive scenes **require** an `interactiveConfig` object
+- Interactive scenes **require** `widgetType` and `widgetOutline`
 - Do NOT use interactive for purely textual/conceptual content - use slides instead
-- The `interactiveConfig.designIdea` should describe the specific interactive elements and user interactions
 
 ### Widget Type Selection for Interactive Scenes
 
@@ -288,11 +287,10 @@ Rules:
 {{#if mediaEnabled}}
 | mediaGenerations  | MediaGenerationRequest[] | ❌       | AI-generated media requests when generated media would enhance a slide scene                     |
 {{/if}}
-| quizConfig        | object                   | ❌       | Required for quiz type, contains questionCount/difficulty/questionTypes                          |
-| interactiveConfig | object                   | ❌ (deprecated) | Legacy: use widgetType + widgetOutline instead                                                                                       |
+| quizConfig        | object                   | ✅ (for quiz) | Contains questionCount/difficulty/questionTypes                                                  |
 | widgetType        | string                   | ✅ (for interactive) | Widget type: "simulation", "diagram", "code", "game", "visualization3d"                                                 |
 | widgetOutline     | object                   | ✅ (for interactive) | Widget-specific configuration (see Widget Type Selection)                                                               |
-| pblConfig         | object                   | ❌       | Required for pbl type, contains projectTopic/projectDescription/targetSkills/issueCount/language |
+| pblConfig         | object                   | ✅ (for pbl) | Contains projectTopic/projectDescription/targetSkills/issueCount                                 |
 
 ### quizConfig Structure
 
@@ -301,17 +299,6 @@ Rules:
   "questionCount": 2,
   "difficulty": "easy" | "medium" | "hard",
   "questionTypes": ["single", "multiple", "short_answer"]
-}
-```
-
-### interactiveConfig Structure
-
-```json
-{
-  "conceptName": "Name of the concept to visualize",
-  "conceptOverview": "Brief description of what this interactive demonstrates",
-  "designIdea": "Detailed description of interactive elements and user interactions",
-  "subject": "Subject area (e.g., Physics, Mathematics)"
 }
 ```
 
@@ -340,7 +327,7 @@ Rules:
 
 4. `type` is one of `"slide"`, `"quiz"`, `"interactive"`, `"pbl"`.
 5. `quiz` scenes must include `quizConfig`.
-6. `interactive` scenes must include `widgetType` and `widgetOutline` (preferred). `interactiveConfig` is deprecated and only accepted for backwards compatibility.
+6. `interactive` scenes must include `widgetType` and `widgetOutline`.
 7. `pbl` scenes must include `pblConfig` with `projectTopic`, `projectDescription`, `targetSkills`, `issueCount`.
 8. Arrange scenes by inferred duration (typically 1-2 scenes per minute). Insert quizzes at appropriate points. Use interactive scenes sparingly (max 1-2 per course).
 9. **Language**: Infer from the user's requirement text and context. Output all scene content in the inferred language.

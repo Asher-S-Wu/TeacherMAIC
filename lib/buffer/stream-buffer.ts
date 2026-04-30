@@ -135,7 +135,7 @@ export interface StreamBufferCallbacks {
    * If it returns true, the tick loop will NOT advance to the next item —
    * the bubble stays on the current text (e.g. waiting for TTS playback to finish).
    */
-  shouldHoldAfterReveal?: () => { holding: boolean; segmentDone: number } | boolean;
+  shouldHoldAfterReveal?: () => { holding: boolean; segmentDone: number } | undefined;
 }
 
 // ─── Options ─────────────────────────────────────────────────────────
@@ -449,26 +449,15 @@ export class StreamBuffer {
     // TTS hold: after post-text delay, keep the bubble on screen while audio plays
     if (this._holdingForTTS) {
       const result = this.cb.shouldHoldAfterReveal?.();
-      if (result) {
-        if (typeof result === 'object') {
-          if (!result.holding) {
-            // TTS queue empty — release
-            this._holdingForTTS = false;
-            this._holdSegmentSnapshot = -1;
-            this.advanceNonText();
-            return;
-          }
-          if (result.segmentDone !== this._holdSegmentSnapshot) {
-            // A segment just finished — release even if next segment is starting
-            this._holdingForTTS = false;
-            this._holdSegmentSnapshot = -1;
-            this.advanceNonText();
-            return;
-          }
-          return; // Same segment still playing — stay on current item
+      if (result?.holding) {
+        if (result.segmentDone !== this._holdSegmentSnapshot) {
+          // A segment just finished — release even if next segment is starting
+          this._holdingForTTS = false;
+          this._holdSegmentSnapshot = -1;
+          this.advanceNonText();
+          return;
         }
-        // Boolean form (legacy): hold as long as true
-        return;
+        return; // Same segment still playing — stay on current item
       }
       this._holdingForTTS = false;
       this._holdSegmentSnapshot = -1;
@@ -512,7 +501,7 @@ export class StreamBuffer {
             if (this.cb.shouldHoldAfterReveal) {
               this._holdingForTTS = true;
               const snap = this.cb.shouldHoldAfterReveal();
-              this._holdSegmentSnapshot = typeof snap === 'object' ? snap.segmentDone : -1;
+              this._holdSegmentSnapshot = snap?.segmentDone ?? -1;
             }
             return; // next tick will count down, then advanceNonText
           }
@@ -520,9 +509,9 @@ export class StreamBuffer {
           // No post-text delay — check TTS hold immediately
           {
             const result = this.cb.shouldHoldAfterReveal?.();
-            if (result) {
+            if (result?.holding) {
               this._holdingForTTS = true;
-              this._holdSegmentSnapshot = typeof result === 'object' ? result.segmentDone : -1;
+              this._holdSegmentSnapshot = result.segmentDone;
               return; // TTS still playing — hold here
             }
           }

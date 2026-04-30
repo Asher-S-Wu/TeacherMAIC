@@ -9,7 +9,6 @@
 import { NextRequest } from 'next/server';
 import { callLLM } from '@/lib/ai/llm';
 import {
-  applyOutlineFallbacks,
   generateSceneContent,
   buildVisionUserContent,
 } from '@/lib/generation/generation-pipeline';
@@ -119,8 +118,7 @@ export async function POST(req: NextRequest) {
       return result.text;
     };
 
-    // ── Apply fallbacks ──
-    const effectiveOutline = applyOutlineFallbacks(outline, !!languageModel);
+    const effectiveOutline = outline;
 
     // ── Filter images assigned to this outline ──
     let assignedImages: PdfImage[] | undefined;

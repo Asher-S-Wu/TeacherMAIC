@@ -134,7 +134,7 @@ export function isPrivateIP(ip: string): boolean {
   if (
     (ipv6FirstHextet & 0xfe00) === 0xfc00 || // fc00::/7 unique local
     (ipv6FirstHextet & 0xffc0) === 0xfe80 || // fe80::/10 link-local
-    (ipv6FirstHextet & 0xffc0) === 0xfec0 // fec0::/10 site-local (deprecated)
+    (ipv6FirstHextet & 0xffc0) === 0xfec0 // fec0::/10 site-local
   ) {
     return true;
   }

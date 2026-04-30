@@ -23,9 +23,7 @@ import {
   formatTeacherPersonaForPrompt,
 } from '@/lib/generation/generation-pipeline';
 import type { AgentInfo } from '@/lib/generation/generation-pipeline';
-import { DEFAULT_LANGUAGE_DIRECTIVE } from '@/lib/generation/outline-generator';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
-import { nanoid } from 'nanoid';
 import type {
   UserRequirements,
   PdfImage,
@@ -35,6 +33,7 @@ import type {
 import { apiError } from '@/lib/server/api-response';
 import { createLogger } from '@/lib/logger';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
+import { validateSceneOutline } from '@/lib/generation/outline-validation';
 const log = createLogger('Outlines Stream');
 
 /**
@@ -55,8 +54,6 @@ function extractLanguageDirective(buffer: string): string | null {
 /**
  * Incremental JSON array parser.
  * Extracts complete top-level objects from a partially-streamed JSON array.
- * Supports both a flat array `[{...},{...}]` and a wrapper object
- * `{"languageDirective":"...","outlines":[{...},{...}]}`.
  * Returns newly found objects (skipping `alreadyParsed` count).
  */
 function extractNewOutlines(buffer: string, alreadyParsed: number): SceneOutline[] {
@@ -65,17 +62,10 @@ function extractNewOutlines(buffer: string, alreadyParsed: number): SceneOutline
   // Strip markdown fencing if present
   const stripped = buffer.replace(/^[\s\S]*?(?=[\[{])/, '');
 
-  // Find the outlines array — either nested in {"outlines": [...]} or a flat array
-  let arrayStart = -1;
+  // Find the outlines array inside the required wrapper object.
   const outlinesKeyIdx = stripped.indexOf('"outlines"');
-  if (outlinesKeyIdx >= 0) {
-    // Wrapper format: find [ after "outlines":
-    arrayStart = stripped.indexOf('[', outlinesKeyIdx);
-  } else {
-    // Flat array fallback
-    arrayStart = stripped.indexOf('[');
-  }
-
+  if (outlinesKeyIdx === -1) return results;
+  const arrayStart = stripped.indexOf('[', outlinesKeyIdx);
   if (arrayStart === -1) return results;
 
   let depth = 0;
@@ -306,12 +296,7 @@ export async function POST(req: NextRequest) {
                 // Try to extract new outlines from the accumulated text
                 const newOutlines = extractNewOutlines(fullText, parsedOutlines.length);
                 for (const outline of newOutlines) {
-                  // Ensure ID and order
-                  const enriched = {
-                    ...outline,
-                    id: outline.id || nanoid(),
-                    order: parsedOutlines.length + 1,
-                  };
+                  const enriched = validateSceneOutline(outline, parsedOutlines.length);
                   parsedOutlines.push(enriched);
 
                   const event = JSON.stringify({
@@ -323,13 +308,15 @@ export async function POST(req: NextRequest) {
                 }
               }
 
-              // Validate: got outlines?
-              if (parsedOutlines.length > 0) break;
+              // Validate: got the required wrapper fields.
+              if (parsedOutlines.length > 0 && languageDirective) break;
 
-              // Empty result — retry if we have attempts left
-              lastError = fullText.trim()
-                ? 'LLM response could not be parsed into outlines'
-                : 'LLM returned empty response';
+              lastError =
+                parsedOutlines.length > 0 && !languageDirective
+                  ? 'LLM response missing languageDirective'
+                  : fullText.trim()
+                    ? 'LLM response could not be parsed into outlines'
+                    : 'LLM returned empty response';
 
               if (attempt <= MAX_STREAM_RETRIES) {
                 log.warn(
@@ -362,24 +349,28 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          if (parsedOutlines.length > 0) {
+          if (parsedOutlines.length > 0 && languageDirective) {
             // Replace sequential gen_img_N/gen_vid_N with globally unique IDs
             const uniquifiedOutlines = uniquifyMediaElementIds(parsedOutlines);
             // Send done event with all outlines
             const doneEvent = JSON.stringify({
               type: 'done',
               outlines: uniquifiedOutlines,
-              languageDirective: languageDirective || DEFAULT_LANGUAGE_DIRECTIVE,
+              languageDirective,
             });
             controller.enqueue(encoder.encode(`data: ${doneEvent}\n\n`));
           } else {
             // All retries exhausted, no outlines produced
+            const finalError =
+              parsedOutlines.length > 0 && !languageDirective
+                ? 'LLM response missing languageDirective'
+                : lastError || 'Failed to generate outlines';
             log.error(
-              `Outline generation failed after ${MAX_STREAM_RETRIES + 1} attempts: ${lastError}`,
+              `Outline generation failed after ${MAX_STREAM_RETRIES + 1} attempts: ${finalError}`,
             );
             const errorEvent = JSON.stringify({
               type: 'error',
-              error: lastError || 'Failed to generate outlines',
+              error: finalError,
             });
             controller.enqueue(encoder.encode(`data: ${errorEvent}\n\n`));
           }

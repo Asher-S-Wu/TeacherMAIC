@@ -98,12 +98,14 @@ function emitItem(
       return { textSegmentIndex: textSegmentIndex + 1, actionSegmentIndex };
     }
   } else if (item.type === 'action') {
-    // Support both new format (name/params) and legacy format (tool_name/parameters)
+    if (typeof item.name !== 'string' || !item.name) {
+      return { textSegmentIndex, actionSegmentIndex };
+    }
     const action: ParsedAction = {
       actionId:
         (item.action_id as string) || `action-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      actionName: (item.name || item.tool_name) as string,
-      params: (item.params || item.parameters || {}) as Record<string, unknown>,
+      actionName: item.name,
+      params: (item.params || {}) as Record<string, unknown>,
     };
     result.actions.push(action);
     // Use per-call array index (not cumulative segment index) so that

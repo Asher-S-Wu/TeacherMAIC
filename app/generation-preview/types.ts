@@ -4,7 +4,6 @@ import type {
   SceneOutline,
   UserRequirements,
   PdfImage,
-  ImageMapping,
 } from '@/lib/types/generation';
 
 // Session state stored in sessionStorage
@@ -14,7 +13,6 @@ export interface GenerationSessionState {
   pdfText: string;
   pdfImages?: PdfImage[];
   imageStorageIds?: string[];
-  imageMapping?: ImageMapping;
   sceneOutlines?: SceneOutline[] | null;
   currentStep: 'generating' | 'complete';
   // PDF deferred parsing fields

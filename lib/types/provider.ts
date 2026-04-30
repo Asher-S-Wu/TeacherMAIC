@@ -74,7 +74,7 @@ export interface ThinkingCapability {
  * The adapter maps this to provider-specific providerOptions.
  */
 export interface ThinkingConfig {
-  /** Modern mode control. Kept separate from legacy enabled for provider APIs with auto/default. */
+  /** Mode control for provider APIs with auto/default thinking behavior. */
   mode?: ThinkingMode;
   /** Discrete reasoning effort for models that expose effort-based thinking controls. */
   effort?: ThinkingEffort;

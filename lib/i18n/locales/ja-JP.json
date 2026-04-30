@@ -204,6 +204,7 @@
     "submitAnswers": "回答を提出",
     "aiGrading": "AIが採点中...",
     "aiGradingWait": "回答を分析しています。お待ちください",
+    "gradingFailed": "採点に失敗しました。後でもう一度回答してください。",
     "quizReport": "クイズレポート",
     "retry": "やり直す"
   },
@@ -229,7 +230,7 @@
     "startRecording": "録音を開始"
   },
   "pbl": {
-    "legacyFormat": "このPBLシーンは旧形式です。コースを再生成してください。",
+    "invalidProject": "PBLプロジェクトデータが無効です。コースを再生成してください。",
     "emptyProject": "PBLプロジェクトがまだ生成されていません。コース生成から作成してください。",
     "roleSelection": {
       "title": "役割を選択",

@@ -5,8 +5,8 @@
  * offline generation pipeline, producing typed Action objects that preserve
  * the original interleaving order from the LLM output.
  *
- * For complete (non-streaming) responses, uses JSON.parse with partial-json
- * fallback for robustness.
+ * For complete (non-streaming) responses, parses the current structured
+ * action format into the app's Action objects.
  */
 
 import type { Action, ActionType } from '@/lib/types/action';
@@ -31,9 +31,6 @@ function stripCodeFences(text: string): string {
  * Expected format (new):
  * [{"type":"action","name":"spotlight","params":{"elementId":"..."}},
  *  {"type":"text","content":"speech content"},...]
- *
- * Also supports legacy format:
- * [{"type":"action","tool_name":"spotlight","parameters":{"elementId":"..."}},...]
  *
  * Text items become `speech` actions; action items are converted to their
  * respective action types (spotlight, discussion, etc.).
@@ -103,14 +100,13 @@ export function parseActionsFromStructuredOutput(
       }
     } else if (typedItem.type === 'action') {
       try {
-        // Support both new format (name/params) and legacy format (tool_name/parameters)
-        const actionName = typedItem.name || typedItem.tool_name;
-        const actionParams = (typedItem.params || typedItem.parameters || {}) as Record<
-          string,
-          unknown
-        >;
+        const actionName = typedItem.name;
+        if (typeof actionName !== 'string' || !actionName) {
+          throw new Error('Action item missing name');
+        }
+        const actionParams = (typedItem.params || {}) as Record<string, unknown>;
         actions.push({
-          id: (typedItem.action_id || typedItem.tool_id || `action_${nanoid(8)}`) as string,
+          id: (typedItem.action_id || `action_${nanoid(8)}`) as string,
           type: actionName as Action['type'],
           ...actionParams,
         } as Action);

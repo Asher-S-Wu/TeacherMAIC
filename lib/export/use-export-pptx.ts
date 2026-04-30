@@ -20,7 +20,7 @@ import type { Scene, SlideContent } from '@/lib/types/stage';
 import type { SpeechAction } from '@/lib/types/action';
 import { getElementRange, getLineElementPath, getTableSubThemeColor } from '@/lib/utils/element';
 import { type AST, toAST } from '@/lib/export/html-parser';
-import { type SvgPoints, toPoints, getSvgPathRange } from '@/lib/export/svg-path-parser';
+import { type SvgPoints, toPoints } from '@/lib/export/svg-path-parser';
 import { svg2Base64 } from '@/lib/export/svg2base64';
 import { latexToOmml } from '@/lib/export/latex-to-omml';
 import { createLogger } from '@/lib/logger';
@@ -903,47 +903,6 @@ async function buildPptxBlob(
             fontSize,
             align: el.align,
           });
-        } else if (el.path) {
-          // Fallback: render as SVG image (non-editable)
-          const range = getSvgPathRange(el.path);
-          const sw = el.strokeWidth || 0;
-          const vbX = range.minX - sw;
-          const vbY = range.minY - sw;
-          const vbW = range.maxX - range.minX + sw * 2;
-          const vbH = range.maxY - range.minY + sw * 2;
-
-          const svgNS = 'http://www.w3.org/2000/svg';
-          const svg = document.createElementNS(svgNS, 'svg');
-          svg.setAttribute('xmlns', svgNS);
-          svg.setAttribute('width', String(el.width));
-          svg.setAttribute('height', String(el.height));
-          svg.setAttribute('viewBox', `${vbX} ${vbY} ${vbW} ${vbH}`);
-          svg.setAttribute('stroke', el.color || '#000000');
-          svg.setAttribute('stroke-width', String(sw));
-          svg.setAttribute('fill', 'none');
-          svg.setAttribute('stroke-linecap', 'round');
-          svg.setAttribute('stroke-linejoin', 'round');
-
-          const path = document.createElementNS(svgNS, 'path');
-          path.setAttribute('d', el.path);
-          svg.appendChild(path);
-
-          const base64SVG = svg2Base64(svg);
-          if (!base64SVG) continue;
-
-          const latexOptions: pptxgen.ImageProps = {
-            data: base64SVG,
-            x: el.left / ratioPx2Inch,
-            y: el.top / ratioPx2Inch,
-            w: el.width / ratioPx2Inch,
-            h: el.height / ratioPx2Inch,
-          };
-          if (el.link) {
-            const linkOption = getLinkOption(el.link, slides);
-            if (linkOption) latexOptions.hyperlink = linkOption;
-          }
-
-          pptxSlide.addImage(latexOptions);
         }
       }
 

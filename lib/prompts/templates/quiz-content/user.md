@@ -7,4 +7,4 @@ Question Count: {{questionCount}}, Difficulty: {{difficulty}}, Question Types: {
 {{languageDirective}}
 
 Output JSON array directly (no explanation, no code blocks, no LaTeX):
-[{"id":"q1","type":"single","question":"Question text","options":["Option A","Option B","Option C","Option D"],"correctAnswer":"Option A"}]
+[{"id":"q1","type":"single","question":"Question text","options":[{"label":"Option A content","value":"A"},{"label":"Option B content","value":"B"},{"label":"Option C content","value":"C"},{"label":"Option D content","value":"D"}],"answer":["A"],"analysis":"Why A is correct.","points":10}]

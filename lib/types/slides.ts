@@ -590,15 +590,7 @@ export interface PPTTableElement extends PPTBaseElement {
  *
  * latex: latex代码
  *
- * html: KaTeX渲染的HTML字符串（新版公式使用）
- *
- * path: svg path（旧版SVG渲染，向后兼容，可选）
- *
- * color: 颜色（旧版SVG渲染，向后兼容，可选）
- *
- * strokeWidth: 路径宽度（旧版SVG渲染，向后兼容，可选）
- *
- * viewBox: SVG的viewBox属性（旧版SVG渲染，向后兼容，可选）
+ * html: KaTeX渲染的HTML字符串
  *
  * fixedRatio: 固定形状宽高比例（可选）
  *
@@ -608,10 +600,6 @@ export interface PPTLatexElement extends PPTBaseElement {
   type: 'latex';
   latex: string;
   html?: string;
-  path?: string;
-  color?: string;
-  strokeWidth?: number;
-  viewBox?: [number, number];
   fixedRatio?: boolean;
   align?: 'left' | 'center' | 'right';
 }
@@ -846,22 +834,4 @@ export interface SlideTemplate {
   id: string;
   cover: string;
   origin?: string;
-}
-
-/**
- * @deprecated SlideData is deprecated, use Slide instead
- */
-export interface SlideData {
-  id: string;
-  viewportSize: number;
-  viewportRatio: number;
-  theme: {
-    themeColors: string[];
-    fontColor: string;
-    fontName: string;
-    backgroundColor: string;
-  };
-  elements: PPTElement[];
-  background?: SlideBackground;
-  animations?: unknown[];
 }
