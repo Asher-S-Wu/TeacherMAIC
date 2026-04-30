@@ -232,7 +232,7 @@ export async function generateClassroom(
 
   // Web search
   let researchContext: string | undefined;
-  if (input.enableWebSearch) {
+  if (input.enableWebSearch ?? true) {
     const bailianKey = resolveWebSearchApiKey();
     if (!bailianKey) {
       throw new Error('已开启联网搜索，但阿里云百炼 API Key 未配置，请在 Vercel 配置 QWEN_API_KEY');

@@ -69,7 +69,7 @@ interface FormState {
 const initialFormState: FormState = {
   pdfFile: null,
   requirement: '',
-  webSearch: false,
+  webSearch: true,
   interactiveMode: false,
 };
 

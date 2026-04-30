@@ -215,6 +215,7 @@
     @apply border-border outline-ring/50;
   }
   html {
+    font-size: 125%;
     /* Always render the vertical scrollbar so layout doesn't horizontally
        shift when content grows/shrinks across the viewport-height threshold
        (e.g. expanding/collapsing recent classrooms). scrollbar-gutter:
@@ -222,6 +223,11 @@
        to forcing overflow-y: scroll as well. */
     scrollbar-gutter: stable;
     overflow-y: scroll;
+  }
+  @media (max-width: 768px) {
+    html {
+      font-size: 100%;
+    }
   }
   body {
     @apply bg-background text-foreground;
