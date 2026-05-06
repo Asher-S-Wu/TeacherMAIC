@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useRef, type ReactNode } from 'react';
-import { Paperclip, FileImage, FileText, X, Globe2 } from 'lucide-react';
+import { Bot, Paperclip, FileImage, FileText, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
-import { WEB_SEARCH_PROVIDERS } from '@/lib/web-search/constants';
 import type { SettingsSection } from '@/lib/types/settings';
 import { MediaPopover } from '@/components/generation/media-popover';
 
@@ -45,19 +44,14 @@ export function GenerationToolbar({
   voiceButton,
 }: GenerationToolbarProps) {
   const { t } = useI18n();
-  const webSearchProviderId = useSettingsStore((s) => s.webSearchProviderId);
-  const webSearchProvidersConfig = useSettingsStore((s) => s.webSearchProvidersConfig);
+  const currentProviderId = useSettingsStore((s) => s.providerId);
+  const currentModelId = useSettingsStore((s) => s.modelId);
+  const providersConfig = useSettingsStore((s) => s.providersConfig);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Check if the selected web search provider is configured on the server.
-  const webSearchProvider = WEB_SEARCH_PROVIDERS[webSearchProviderId];
-  const webSearchConfig = webSearchProvidersConfig[webSearchProviderId];
-  const webSearchAvailable = webSearchProvider
-    ? !webSearchProvider.requiresApiKey ||
-      !!webSearchConfig?.isServerConfigured
-    : false;
-
+  const currentProviderConfig = providersConfig?.[currentProviderId];
+  const currentModel = currentProviderConfig?.models.find((model) => model.id === currentModelId);
   const attachmentCount = (pdfFile ? 1 : 0) + imageFiles.length;
 
   const removeImageFile = (index: number) => {
@@ -103,14 +97,36 @@ export function GenerationToolbar({
   // ─── Pill button helper ─────────────────────────────
   const pillCls =
     'inline-flex h-[32px] min-w-0 items-center justify-center gap-[6px] rounded-full border px-[12px] text-[12px] font-medium leading-none transition-all cursor-pointer select-none whitespace-nowrap';
-  const iconPillCls =
-    'inline-flex size-[32px] items-center justify-center rounded-full border text-[12px] font-medium leading-none transition-all cursor-pointer select-none';
   const attachmentTriggerCls =
     'order-1 inline-flex size-[32px] shrink-0 items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground cursor-pointer select-none';
-  const pillActive = `${pillCls} border-violet-200/60 dark:border-violet-700/50 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300`;
 
   return (
     <div className="flex h-[32px] min-w-0 flex-1 flex-nowrap items-center gap-[8px] overflow-hidden">
+      {/* ── Server-managed model ── */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              pillCls,
+              'order-3 ml-auto border-violet-200/70 bg-violet-50 text-violet-700 dark:border-violet-800/70 dark:bg-violet-950/30 dark:text-violet-300 cursor-default',
+            )}
+          >
+            {currentProviderConfig?.icon ? (
+              <img
+                src={currentProviderConfig.icon}
+                alt=""
+                className="size-[14px] shrink-0 rounded-sm"
+              />
+            ) : (
+              <Bot className="size-[14px] shrink-0" />
+            )}
+            <span>{currentModel?.name || t('settings.serverManagedModel')}</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{t('settings.serverManagedModelDesc')}</TooltipContent>
+      </Tooltip>
+
       {/* ── Attachments ── */}
       <Popover>
         <PopoverTrigger asChild>
@@ -221,80 +237,16 @@ export function GenerationToolbar({
         <div className="order-2 flex h-[32px] shrink-0 items-center">{voiceButton}</div>
       )}
 
-      {/* ── Web Search ── */}
-      {webSearchAvailable ? (
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              className={cn(
-                webSearch ? pillActive : iconPillCls,
-                'order-3 ml-auto',
-                !webSearch &&
-                  'border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60',
-              )}
-            >
-              <Globe2 className={cn('size-[14px] shrink-0', webSearch && 'animate-pulse')} />
-              {webSearch && (
-                <span>{WEB_SEARCH_PROVIDERS[webSearchProviderId]?.name || 'Search'}</span>
-              )}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-64 p-3 space-y-3">
-            {/* Toggle */}
-            <button
-              onClick={() => onWebSearchChange(!webSearch)}
-              className={cn(
-                'w-full flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-all',
-                webSearch
-                  ? 'bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800'
-                  : 'border-border hover:bg-muted/50',
-              )}
-            >
-              <Globe2
-                className={cn(
-                  'size-4 shrink-0',
-                  webSearch ? 'text-violet-600 dark:text-violet-400' : 'text-muted-foreground',
-                )}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium">
-                  {webSearch ? t('toolbar.webSearchOn') : t('toolbar.webSearchOff')}
-                </p>
-                <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                  {t('toolbar.webSearchDesc')}
-                </p>
-              </div>
-            </button>
-
-            <p className="text-[10px] text-muted-foreground/70">
-              {WEB_SEARCH_PROVIDERS[webSearchProviderId]?.name || t('settings.serverManaged')}
-            </p>
-          </PopoverContent>
-        </Popover>
-      ) : (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              className={cn(
-                iconPillCls,
-                'order-3 ml-auto',
-                'border-border/50 text-muted-foreground/40 cursor-not-allowed',
-              )}
-              disabled
-            >
-              <Globe2 className="size-[14px]" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{t('toolbar.webSearchNoProvider')}</TooltipContent>
-        </Tooltip>
-      )}
-
       {/* ── Separator ── */}
       <div className="order-4 h-[18px] w-px shrink-0 bg-border/60" />
 
       {/* ── Media popover ── */}
       <div className="order-5 shrink-0">
-        <MediaPopover onSettingsOpen={onSettingsOpen} />
+        <MediaPopover
+          webSearch={webSearch}
+          onWebSearchChange={onWebSearchChange}
+          onSettingsOpen={onSettingsOpen}
+        />
       </div>
     </div>
   );

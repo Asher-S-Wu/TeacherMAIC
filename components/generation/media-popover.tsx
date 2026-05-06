@@ -7,9 +7,9 @@ import {
   Video,
   Volume2,
   Mic,
+  Globe2,
   SlidersHorizontal,
   ChevronRight,
-  Bot,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -28,25 +28,29 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import { ASR_PROVIDERS, getASRSupportedLanguages } from '@/lib/audio/constants';
 import type { ASRProviderId } from '@/lib/audio/types';
+import { WEB_SEARCH_PROVIDERS } from '@/lib/web-search/constants';
 import type { SettingsSection } from '@/lib/types/settings';
 
 interface MediaPopoverProps {
+  webSearch: boolean;
+  onWebSearchChange: (v: boolean) => void;
   onSettingsOpen: (section: SettingsSection) => void;
 }
 
-type TabId = 'image' | 'video' | 'tts' | 'asr';
+type TabId = 'search' | 'image' | 'video' | 'tts' | 'asr';
 
 const TABS: Array<{ id: TabId; icon: LucideIcon; label: string }> = [
+  { id: 'search', icon: Globe2, label: 'Search' },
   { id: 'image', icon: ImageIcon, label: 'Image' },
   { id: 'video', icon: Video, label: 'Video' },
   { id: 'tts', icon: Volume2, label: 'TTS' },
   { id: 'asr', icon: Mic, label: 'ASR' },
 ];
 
-export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
+export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: MediaPopoverProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId>('image');
+  const [activeTab, setActiveTab] = useState<TabId>('search');
 
   // ─── Store ───
   const imageGenerationEnabled = useSettingsStore((s) => s.imageGenerationEnabled);
@@ -58,9 +62,8 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const setTTSEnabled = useSettingsStore((s) => s.setTTSEnabled);
   const setASREnabled = useSettingsStore((s) => s.setASREnabled);
 
-  const currentProviderId = useSettingsStore((s) => s.providerId);
-  const currentModelId = useSettingsStore((s) => s.modelId);
-  const providersConfig = useSettingsStore((s) => s.providersConfig);
+  const webSearchProviderId = useSettingsStore((s) => s.webSearchProviderId);
+  const webSearchProvidersConfig = useSettingsStore((s) => s.webSearchProvidersConfig);
   const asrProviderId = useSettingsStore((s) => s.asrProviderId);
   const asrLanguage = useSettingsStore((s) => s.asrLanguage);
   const asrProvidersConfig = useSettingsStore((s) => s.asrProvidersConfig);
@@ -68,6 +71,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const setASRLanguage = useSettingsStore((s) => s.setASRLanguage);
 
   const enabledMap: Record<TabId, boolean> = {
+    search: webSearch,
     image: imageGenerationEnabled,
     video: videoGenerationEnabled,
     tts: ttsEnabled,
@@ -75,14 +79,19 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   };
 
   const enabledCount = [
+    webSearch,
     imageGenerationEnabled,
     videoGenerationEnabled,
     ttsEnabled,
     asrEnabled,
   ].filter(Boolean).length;
 
-  const currentProviderConfig = providersConfig?.[currentProviderId];
-  const currentModel = currentProviderConfig?.models.find((model) => model.id === currentModelId);
+  const webSearchProvider = WEB_SEARCH_PROVIDERS[webSearchProviderId];
+  const webSearchConfig = webSearchProvidersConfig[webSearchProviderId];
+  const webSearchAvailable = webSearchProvider
+    ? !webSearchProvider.requiresApiKey ||
+      !!webSearchConfig?.isServerConfigured
+    : false;
 
   const cfgOk = useCallback(
     (
@@ -118,8 +127,10 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      const first = (['image', 'video', 'tts', 'asr'] as TabId[]).find((id) => enabledMap[id]);
-      setActiveTab(first || 'image');
+      const first = (['search', 'image', 'video', 'tts', 'asr'] as TabId[]).find(
+        (id) => enabledMap[id],
+      );
+      setActiveTab(first || 'search');
     }
   };
 
@@ -135,14 +146,12 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
           )}
         >
           <SlidersHorizontal className="size-[14px]" />
-          {currentProviderConfig?.icon ? (
+          {webSearch && webSearchProvider?.icon ? (
             <img
-              src={currentProviderConfig.icon}
+              src={webSearchProvider.icon}
               alt=""
               className="size-[14px] shrink-0 rounded-sm"
             />
-          ) : (
-            <Bot className="size-[14px] shrink-0" />
           )}
           {imageGenerationEnabled && <ImageIcon className="size-[14px]" />}
           {videoGenerationEnabled && <Video className="size-[14px]" />}
@@ -152,30 +161,6 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
       </PopoverTrigger>
 
       <PopoverContent align="start" side="bottom" avoidCollisions={false} className="w-80 p-0">
-        <div className="border-b border-border/40 px-3.5 py-3">
-          <div className="flex items-center gap-2.5 rounded-lg bg-muted/45 px-3 py-2">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-background shadow-sm">
-              {currentProviderConfig?.icon ? (
-                <img
-                  src={currentProviderConfig.icon}
-                  alt=""
-                  className="size-4 rounded-sm"
-                />
-              ) : (
-                <Bot className="size-4 text-muted-foreground" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                {currentProviderConfig?.name || t('settings.serverManagedModel')}
-              </p>
-              <p className="truncate text-[11px] text-muted-foreground">
-                {currentModel?.name || t('settings.serverManagedModel')}
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* ── Tab bar (segmented control) ── */}
         <div className="p-2 pb-0">
           <div className="flex gap-0.5 p-0.5 bg-muted/60 rounded-lg">
@@ -207,6 +192,35 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
 
         {/* ── Tab content ── */}
         <div className="p-3 pt-2.5">
+          {activeTab === 'search' && (
+            <TabPanel
+              icon={Globe2}
+              label={webSearchProvider?.name || t('settings.webSearchSettings')}
+              enabled={webSearch}
+              onToggle={(enabled) => {
+                if (webSearchAvailable || !enabled) {
+                  onWebSearchChange(enabled);
+                }
+              }}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 rounded-lg bg-muted/45 px-2.5 py-2">
+                  {webSearchProvider?.icon && (
+                    <img src={webSearchProvider.icon} alt="" className="size-4 rounded-sm" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                    {webSearchProvider?.name || t('settings.serverManaged')}
+                  </span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground/70">
+                  {webSearchAvailable
+                    ? t('toolbar.webSearchDesc')
+                    : t('toolbar.webSearchNoProvider')}
+                </p>
+              </div>
+            </TabPanel>
+          )}
+
           {activeTab === 'image' && (
             <TabPanel
               icon={ImageIcon}
@@ -259,7 +273,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
           <button
             onClick={() => {
               setOpen(false);
-              onSettingsOpen(activeTab);
+              onSettingsOpen(activeTab === 'search' ? 'web-search' : activeTab);
             }}
             className="w-full flex items-center justify-between px-3.5 py-2.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
           >
