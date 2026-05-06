@@ -5,7 +5,6 @@
  * Follows the same architecture as lib/ai/providers.ts for consistency.
  *
  * Currently Supported Providers:
- * - unpdf: Built-in Node.js PDF parser with text and image extraction
  * - MinerU Cloud: Advanced cloud service with OCR, formula, and table extraction
  *
  * HOW TO ADD A NEW PROVIDER:
@@ -80,46 +79,27 @@
  *      };
  *    }
  *
- * 4. Add case to parsePDF() switch statement
- *    case 'tesseract-ocr':
- *      result = await parseWithTesseractOCR(config, pdfBuffer);
- *      break;
- *
- * 5. Add i18n translations in lib/i18n.ts
+ * 4. Add i18n translations in lib/i18n.ts
  *    providerTesseractOCR: { zh: 'Tesseract OCR', en: 'Tesseract OCR' }
  *
- * 6. Update features in constants.ts to reflect parser capabilities
+ * 5. Update features in constants.ts to reflect parser capabilities
  *    features: ['text', 'images', 'ocr'] // OCR-capable
  *
  * Provider Implementation Patterns:
  *
- * Pattern 1: Local Node.js Parser (like unpdf)
- * - Import parsing library
- * - Process Buffer directly
- * - Extract text and images synchronously or asynchronously
- * - Convert images to base64 data URLs
- * - Return immediately
- *
- * Pattern 2: Remote API (like MinerU)
+ * Pattern 1: Remote API (like MinerU)
  * - Upload PDF or provide URL
  * - Create task and get task ID
  * - Poll for completion (with timeout)
  * - Download results (text, images, metadata)
  * - Parse and convert to unified format
  *
- * Pattern 3: OCR-based Parser (Tesseract, Google Vision)
+ * Pattern 2: OCR-based Parser (Tesseract, Google Vision)
  * - Render PDF pages to images
  * - Send images to OCR service
  * - Collect text from all pages
  * - Combine with layout analysis if available
  * - Return combined text and original images
- *
- * Image Extraction Best Practices:
- * - Always convert to base64 data URLs (data:image/png;base64,...)
- * - Use PNG for lossless quality
- * - Use sharp for efficient image processing
- * - Handle errors per image (don't fail entire parsing)
- * - Log extraction failures but continue processing
  *
  * Metadata Recommendations:
  * - pageCount: Number of pages in PDF
@@ -136,15 +116,10 @@
  * - Always include provider name in error messages
  */
 
-import { extractText, getDocumentProxy, extractImages } from 'unpdf';
-import sharp from 'sharp';
 import type { PDFParserConfig } from './types';
 import type { ParsedPdfContent } from '@/lib/types/pdf';
 import { PDF_PROVIDERS } from './constants';
-import { createLogger } from '@/lib/logger';
 import { parseWithMinerUCloud } from './mineru-cloud';
-
-const log = createLogger('PDFProviders');
 
 /**
  * Parse PDF using the server-selected provider.
@@ -165,20 +140,7 @@ export async function parsePDF(
 
   const startTime = Date.now();
 
-  let result: ParsedPdfContent;
-
-  switch (config.providerId) {
-    case 'unpdf':
-      result = await parseWithUnpdf(pdfBuffer);
-      break;
-
-    case 'mineru-cloud':
-      result = await parseWithMinerUCloud(config, pdfBuffer);
-      break;
-
-    default:
-      throw new Error(`Unsupported PDF provider: ${config.providerId}`);
-  }
+  const result = await parseWithMinerUCloud(config, pdfBuffer);
 
   // Add processing time to metadata
   if (result.metadata) {
@@ -186,80 +148,6 @@ export async function parsePDF(
   }
 
   return result;
-}
-
-/**
- * Parse PDF using unpdf (existing implementation)
- */
-async function parseWithUnpdf(pdfBuffer: Buffer): Promise<ParsedPdfContent> {
-  const uint8Array = new Uint8Array(pdfBuffer);
-  const pdf = await getDocumentProxy(uint8Array);
-  const numPages = pdf.numPages;
-
-  // Extract text using the document proxy
-  const { text: pdfText } = await extractText(pdf, {
-    mergePages: true,
-  });
-
-  // Extract images using the same document proxy
-  const images: string[] = [];
-  const pdfImagesMeta: Array<{
-    id: string;
-    src: string;
-    pageNumber: number;
-    width: number;
-    height: number;
-  }> = [];
-  let imageCounter = 0;
-
-  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-    try {
-      const pageImages = await extractImages(pdf, pageNum);
-      for (let i = 0; i < pageImages.length; i++) {
-        const imgData = pageImages[i];
-        try {
-          // Use sharp to convert raw image data to PNG base64
-          const pngBuffer = await sharp(Buffer.from(imgData.data), {
-            raw: {
-              width: imgData.width,
-              height: imgData.height,
-              channels: imgData.channels,
-            },
-          })
-            .png()
-            .toBuffer();
-
-          // Convert to base64
-          const base64 = `data:image/png;base64,${pngBuffer.toString('base64')}`;
-          imageCounter++;
-          const imgId = `img_${imageCounter}`;
-          images.push(base64);
-          pdfImagesMeta.push({
-            id: imgId,
-            src: base64,
-            pageNumber: pageNum,
-            width: imgData.width,
-            height: imgData.height,
-          });
-        } catch (sharpError) {
-          log.error(`Failed to convert image ${i + 1} from page ${pageNum}:`, sharpError);
-        }
-      }
-    } catch (pageError) {
-      log.error(`Failed to extract images from page ${pageNum}:`, pageError);
-    }
-  }
-
-  return {
-    text: pdfText,
-    images,
-    metadata: {
-      pageCount: numPages,
-      parser: 'unpdf',
-      imageMapping: Object.fromEntries(pdfImagesMeta.map((m) => [m.id, m.src])),
-      pdfImages: pdfImagesMeta,
-    },
-  };
 }
 
 /**

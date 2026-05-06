@@ -552,7 +552,6 @@
     "enterCustomBaseUrl": "输入自定义 Base URL",
     "providerQwenTTS": "Qwen TTS（阿里云百炼）",
     "providerQwenASR": "Qwen ASR（阿里云百炼）",
-    "providerUnpdf": "unpdf（内置）",
     "providerMinerUCloud": "MinerU（云端）",
     "testTTS": "测试 TTS",
     "testASR": "测试 ASR",

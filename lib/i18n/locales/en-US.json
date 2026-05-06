@@ -552,7 +552,6 @@
     "enterCustomBaseUrl": "Enter custom Base URL",
     "providerQwenTTS": "Qwen TTS (Alibaba Cloud Bailian)",
     "providerQwenASR": "Qwen ASR (Alibaba Cloud Bailian)",
-    "providerUnpdf": "unpdf (Built-in)",
     "providerMinerUCloud": "MinerU (Cloud)",
     "testTTS": "Test TTS",
     "testASR": "Test ASR",

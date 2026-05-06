@@ -1,6 +1,6 @@
 /**
  * PDF Provider Constants
- * Separated from pdf-providers.ts to avoid importing sharp in client components
+ * Separated from pdf-providers.ts to keep client components free of server parser imports
  */
 
 import type { PDFProviderId, PDFProviderConfig } from './types';
@@ -11,14 +11,6 @@ export const MINERU_CLOUD_DEFAULT_BASE = 'https://mineru.net/api/v4';
  * PDF Provider Registry
  */
 export const PDF_PROVIDERS: Record<PDFProviderId, PDFProviderConfig> = {
-  unpdf: {
-    id: 'unpdf',
-    name: 'unpdf',
-    requiresApiKey: false,
-    icon: '/logos/unpdf.svg',
-    features: ['text', 'images', 'metadata'],
-  },
-
   'mineru-cloud': {
     id: 'mineru-cloud',
     name: 'MinerU (Cloud)',

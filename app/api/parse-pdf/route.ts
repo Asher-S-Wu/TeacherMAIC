@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     const mineruApiKey = resolvePDFApiKey('mineru-cloud');
-    const effectiveProviderId: PDFProviderId = mineruApiKey ? 'mineru-cloud' : 'unpdf';
+    const effectiveProviderId: PDFProviderId = 'mineru-cloud';
     pdfFileName = storedPdf.file.filename;
     resolvedProviderId = effectiveProviderId;
 

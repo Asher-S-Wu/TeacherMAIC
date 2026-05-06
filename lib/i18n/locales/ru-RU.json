@@ -545,7 +545,6 @@
     "enterCustomBaseUrl": "Введите адрес подключения",
     "providerQwenTTS": "Qwen TTS (Alibaba Cloud Bailian)",
     "providerQwenASR": "Qwen ASR (Alibaba Cloud Bailian)",
-    "providerUnpdf": "unpdf (встроенный)",
     "providerMinerUCloud": "MinerU (Облако)",
     "testTTS": "Тест TTS",
     "testASR": "Тест ASR",

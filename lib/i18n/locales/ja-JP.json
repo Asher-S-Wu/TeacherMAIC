@@ -545,7 +545,6 @@
     "enterCustomBaseUrl": "接続先を入力",
     "providerQwenTTS": "Qwen TTS（Alibaba Cloud百錬）",
     "providerQwenASR": "Qwen ASR（Alibaba Cloud百錬）",
-    "providerUnpdf": "unpdf（組み込み）",
     "providerMinerUCloud": "MinerU（クラウド）",
     "testTTS": "TTSをテスト",
     "testASR": "ASRをテスト",

@@ -334,9 +334,8 @@ const getDefaultAudioConfig = () => ({
 
 // Initialize default PDF config
 const getDefaultPDFConfig = () => ({
-  pdfProviderId: 'unpdf' as PDFProviderId,
+  pdfProviderId: 'mineru-cloud' as PDFProviderId,
   pdfProvidersConfig: {
-    unpdf: { apiKey: '', enabled: true },
     'mineru-cloud': { apiKey: '', enabled: false },
   } as Record<PDFProviderId, { apiKey: string; enabled: boolean }>,
 });
@@ -680,11 +679,6 @@ export const useSettingsStore = create<SettingsState>()(
 
               const defaultPDF = getDefaultPDFConfig();
               const newPDFConfig = {
-                unpdf: {
-                  ...defaultPDF.pdfProvidersConfig.unpdf,
-                  apiKey: '',
-                  enabled: true,
-                },
                 'mineru-cloud': {
                   ...defaultPDF.pdfProvidersConfig['mineru-cloud'],
                   apiKey: '',
@@ -749,9 +743,7 @@ export const useSettingsStore = create<SettingsState>()(
                 modelId: DEFAULT_MODEL_ID,
                 ttsProviderId: 'qwen-tts' as TTSProviderId,
                 asrProviderId: 'qwen-asr' as ASRProviderId,
-                pdfProviderId: newPDFConfig['mineru-cloud'].isServerConfigured
-                  ? ('mineru-cloud' as PDFProviderId)
-                  : ('unpdf' as PDFProviderId),
+                pdfProviderId: 'mineru-cloud' as PDFProviderId,
                 imageProviderId: 'qwen-image' as ImageProviderId,
                 imageModelId: 'qwen-image-2.0-pro',
                 imageGenerationEnabled,
