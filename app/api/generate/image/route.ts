@@ -16,12 +16,15 @@ import { resolveImageApiKey } from '@/lib/server/provider-config';
 import type { ImageProviderId, ImageGenerationOptions } from '@/lib/media/types';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { requireCurrentUser } from '@/lib/server/auth';
+import { saveBufferForUser, saveRemoteFileForUser } from '@/lib/server/file-storage';
 
 const log = createLogger('ImageGeneration API');
 
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as ImageGenerationOptions;
+    const user = await requireCurrentUser();
 
     if (!body.prompt) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing prompt');
@@ -53,7 +56,27 @@ export async function POST(request: NextRequest) {
 
     const result = await generateImage({ providerId, apiKey, model }, body);
 
-    return apiSuccess({ result });
+    const filename = `generated-image-${Date.now()}.png`;
+    const file = result.base64
+      ? await saveBufferForUser(
+          user._id,
+          Buffer.from(result.base64, 'base64'),
+          filename,
+          'image/png',
+          'media',
+          { mediaType: 'image' },
+        )
+      : result.url
+        ? await saveRemoteFileForUser(user._id, result.url, filename, 'image/png', 'media', {
+            mediaType: 'image',
+          })
+        : null;
+
+    if (!file) {
+      return apiError('GENERATION_FAILED', 500, '图片生成没有返回文件。');
+    }
+
+    return apiSuccess({ result: { ...result, base64: undefined, url: file.url, file } });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('SensitiveContent') || message.includes('sensitive information')) {

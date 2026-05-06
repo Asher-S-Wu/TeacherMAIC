@@ -27,21 +27,22 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
       setIsProcessing(true);
 
       try {
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'recording.webm');
-
         // Get current ASR configuration from settings store
         // Note: This requires importing useSettingsStore in browser context
+        let language = 'auto';
         if (typeof window !== 'undefined') {
           const { useSettingsStore } = await import('@/lib/store/settings');
-          const { asrLanguage } = useSettingsStore.getState();
-
-          formData.append('language', asrLanguage);
+          language = useSettingsStore.getState().asrLanguage;
         }
+
+        const { uploadAccountBlob } = await import('@/lib/utils/image-storage');
+        const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
+        const saved = await uploadAccountBlob(audioFile, audioFile.name, 'audio');
 
         const response = await fetch('/api/transcription', {
           method: 'POST',
-          body: formData,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileId: saved.id, language }),
         });
 
         if (!response.ok) {

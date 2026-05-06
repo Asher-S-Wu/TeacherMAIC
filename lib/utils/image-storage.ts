@@ -1,81 +1,104 @@
 /**
- * Account file storage helpers.
- *
- * Files are uploaded to MongoDB GridFS through /api/files. The browser does
- * not keep account data in IndexedDB.
+ * Account file storage helpers backed by Vercel Private Blob.
  */
 
-function base64ToBlob(base64DataUrl: string): Blob {
-  const parts = base64DataUrl.split(',');
-  const mimeMatch = parts[0].match(/:(.*?);/);
-  const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-  const base64Data = parts[1];
-  const byteString = atob(base64Data);
-  const arrayBuffer = new ArrayBuffer(byteString.length);
-  const uint8Array = new Uint8Array(arrayBuffer);
+import type { PutBlobResult } from '@vercel/blob';
+import { upload } from '@vercel/blob/client';
 
-  for (let i = 0; i < byteString.length; i++) {
-    uint8Array[i] = byteString.charCodeAt(i);
-  }
-
-  return new Blob([uint8Array], { type: mimeType });
+export interface StoredAccountFile {
+  id: string;
+  url: string;
+  name: string;
+  type: string;
+  size: number;
+  kind: string;
 }
 
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+function safePathPart(value: string): string {
+  return (
+    value
+      .split(/[/\\]/)
+      .pop()
+      ?.trim()
+      .replace(/[^\w.\-\u4e00-\u9fa5]+/g, '-')
+      .slice(0, 120) || 'file'
+  );
 }
 
-async function uploadBlob(blob: Blob, filename: string, kind: string): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', new File([blob], filename, { type: blob.type || 'application/octet-stream' }));
-  formData.append('kind', kind);
+function makeUploadPath(filename: string): string {
+  return `client-${crypto.randomUUID()}-${safePathPart(filename)}`;
+}
 
-  const response = await fetch('/api/files', {
+export async function uploadAccountBlob(
+  blob: Blob,
+  filename: string,
+  kind: string,
+  metadata: Record<string, unknown> = {},
+): Promise<StoredAccountFile> {
+  const file =
+    blob instanceof File
+      ? blob
+      : new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+  const contentType = file.type || 'application/octet-stream';
+
+  const uploaded = (await upload(makeUploadPath(filename), file, {
+    access: 'private',
+    contentType,
+    handleUploadUrl: '/api/files/upload',
+    multipart: file.size > 5 * 1024 * 1024,
+    clientPayload: JSON.stringify({
+      kind,
+      filename,
+      size: file.size,
+      contentType,
+    }),
+  })) as PutBlobResult;
+
+  const response = await fetch('/api/files/register', {
     method: 'POST',
-    body: formData,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      blob: uploaded,
+      filename,
+      contentType,
+      size: file.size,
+      kind,
+      metadata,
+    }),
   });
+
   const data = await response.json().catch(() => null);
   if (!response.ok || !data?.success) {
-    throw new Error(data?.error || '文件上传失败');
+    throw new Error(data?.error || '文件保存失败');
   }
-  return data.file.id as string;
+
+  return data.file as StoredAccountFile;
 }
 
-export async function storeImages(
-  images: Array<{ id: string; src: string; pageNumber?: number }>,
-): Promise<string[]> {
-  const storedIds: string[] = [];
-
-  for (const img of images) {
-    const blob = base64ToBlob(img.src);
-    const fileId = await uploadBlob(blob, `${img.id}.png`, 'pdf-image');
-    storedIds.push(`${img.id}:${fileId}`);
-  }
-
-  return storedIds;
+export async function storePdfBlob(file: File): Promise<string> {
+  const saved = await uploadAccountBlob(file, file.name, 'pdf');
+  return saved.id;
 }
 
-export async function loadImageMapping(imageIds: string[]): Promise<Record<string, string>> {
-  const mapping: Record<string, string> = {};
+export async function storeImageFile(
+  file: File,
+  metadata: Record<string, unknown> = {},
+): Promise<StoredAccountFile> {
+  return uploadAccountBlob(file, file.name, 'image', metadata);
+}
 
-  for (const storageId of imageIds) {
-    const separatorIndex = storageId.indexOf(':');
-    const originalId = separatorIndex > 0 ? storageId.slice(0, separatorIndex) : storageId;
-    const fileId = separatorIndex > 0 ? storageId.slice(separatorIndex + 1) : storageId;
-    const response = await fetch(`/api/files/${encodeURIComponent(fileId)}`);
-    if (!response.ok) {
-      throw new Error(`文件读取失败：${fileId}`);
-    }
-    const blob = await response.blob();
-    mapping[originalId] = await blobToBase64(blob);
-  }
+export async function storeMediaBlob(
+  blob: Blob,
+  filename: string,
+  kind: string,
+): Promise<StoredAccountFile> {
+  return uploadAccountBlob(blob, filename, kind);
+}
 
-  return mapping;
+export async function loadPdfBlob(key: string): Promise<Blob | null> {
+  const response = await fetch(`/api/files/${encodeURIComponent(key)}`);
+  if (!response.ok) return null;
+  return response.blob();
 }
 
 export async function cleanupSessionImages(_sessionId: string): Promise<void> {}
@@ -84,14 +107,4 @@ export async function cleanupOldImages(_hoursOld: number = 24): Promise<void> {}
 
 export async function getImageStorageSize(): Promise<number> {
   return 0;
-}
-
-export async function storePdfBlob(file: File): Promise<string> {
-  return uploadBlob(file, file.name, 'pdf');
-}
-
-export async function loadPdfBlob(key: string): Promise<Blob | null> {
-  const response = await fetch(`/api/files/${encodeURIComponent(key)}`);
-  if (!response.ok) return null;
-  return response.blob();
 }

@@ -61,7 +61,8 @@ export async function collectMediaFiles(scenes: Scene[]): Promise<CollectedMedia
     if (scene.content?.type !== 'slide') continue;
     for (const element of scene.content.canvas.elements) {
       if (!('src' in element) || typeof element.src !== 'string') continue;
-      if (!element.src.startsWith('/api/files/')) continue;
+      const filePath = getAccountFilePath(element.src);
+      if (!filePath) continue;
       const response = await fetch(element.src);
       if (!response.ok) continue;
       const blob = await response.blob();
@@ -81,6 +82,11 @@ export async function collectMediaFiles(scenes: Scene[]): Promise<CollectedMedia
     }
   }
   return collected;
+}
+
+function getAccountFilePath(src: string): string | null {
+  const url = new URL(src, window.location.origin);
+  return url.pathname.startsWith('/api/files/') ? url.pathname : null;
 }
 
 // ─── Export: Action Serialization ──────────────────────────────

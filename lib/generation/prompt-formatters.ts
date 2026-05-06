@@ -82,7 +82,8 @@ export function formatImageDescription(img: PdfImage): string {
     dimInfo = ` | size: ${img.width}×${img.height} (aspect ratio ${ratio})`;
   }
   const desc = img.description ? ` | ${img.description}` : '';
-  return `- **${img.id}**: from PDF page ${img.pageNumber}${dimInfo}${desc}`;
+  const origin = img.pageNumber > 0 ? `from PDF page ${img.pageNumber}` : 'uploaded reference image';
+  return `- **${img.id}**: ${origin}${dimInfo}${desc}`;
 }
 
 /**
@@ -95,7 +96,8 @@ export function formatImagePlaceholder(img: PdfImage): string {
     const ratio = (img.width / img.height).toFixed(2);
     dimInfo = ` | size: ${img.width}×${img.height} (aspect ratio ${ratio})`;
   }
-  return `- **${img.id}**: image from PDF page ${img.pageNumber}${dimInfo} [see attached]`;
+  const origin = img.pageNumber > 0 ? `image from PDF page ${img.pageNumber}` : 'uploaded reference image';
+  return `- **${img.id}**: ${origin}${dimInfo} [see attached]`;
 }
 
 /**

@@ -4,7 +4,7 @@ import { useCallback, useRef } from 'react';
 import { useStageStore } from '@/lib/store/stage';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { useSettingsStore } from '@/lib/store/settings';
-import type { SceneOutline, PdfImage, ImageMapping } from '@/lib/types/generation';
+import type { SceneOutline, PdfImage } from '@/lib/types/generation';
 import type { AgentInfo } from '@/lib/generation/generation-pipeline';
 import type { Scene } from '@/lib/types/stage';
 import type { SpeechAction } from '@/lib/types/action';
@@ -51,7 +51,6 @@ async function fetchSceneContent(
     allOutlines: SceneOutline[];
     stageId: string;
     pdfImages?: PdfImage[];
-    imageMapping?: ImageMapping;
     stageInfo: {
       name: string;
       description?: string;
@@ -130,7 +129,7 @@ export async function generateAndStoreTTS(
   const data = await response
     .json()
     .catch(() => ({ success: false, error: response.statusText || 'Invalid TTS response' }));
-  if (!response.ok || !data.success || !data.base64 || !data.format) {
+  if (!response.ok || !data.success || !data.file?.url) {
     const err = new Error(
       data.details || data.error || `TTS request failed: HTTP ${response.status}`,
     );
@@ -138,24 +137,7 @@ export async function generateAndStoreTTS(
     throw err;
   }
 
-  const binary = atob(data.base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  const blob = new Blob([bytes], { type: `audio/${data.format}` });
-  const formData = new FormData();
-  formData.append('file', new File([blob], `${audioId}.${data.format}`, { type: blob.type }));
-  formData.append('kind', 'audio');
-  const upload = await fetch('/api/files', {
-    method: 'POST',
-    body: formData,
-  });
-  const uploadData = await upload.json().catch(() => null);
-  if (!upload.ok || !uploadData?.success) {
-    throw new Error(uploadData?.error || 'Audio upload failed');
-  }
-  return uploadData.file.url;
+  return data.file.url;
 }
 
 /** Generate TTS for all speech actions in a scene. Returns result. */
@@ -214,7 +196,6 @@ export interface UseSceneGeneratorOptions {
 
 export interface GenerationParams {
   pdfImages?: PdfImage[];
-  imageMapping?: ImageMapping;
   stageInfo: {
     name: string;
     description?: string;
@@ -314,7 +295,6 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
               allOutlines: outlines,
               stageId: stage.id,
               pdfImages: params.pdfImages,
-              imageMapping: params.imageMapping,
               stageInfo: params.stageInfo,
               agents: params.agents,
               languageDirective: params.languageDirective,
@@ -469,7 +449,6 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
             allOutlines: state.outlines,
             stageId: state.stage.id,
             pdfImages: params.pdfImages,
-            imageMapping: params.imageMapping,
             stageInfo: params.stageInfo,
             agents: params.agents,
             languageDirective: params.languageDirective,

@@ -3,7 +3,7 @@
  *
  * Tracks per-element media generation status (pending → generating → done/failed).
  * Drives skeleton loading in slide renderer components.
- * File persistence is handled by MongoDB GridFS. The store only tracks runtime
+ * File persistence is handled by private account files. The store only tracks runtime
  * generation status for skeleton loading.
  */
 

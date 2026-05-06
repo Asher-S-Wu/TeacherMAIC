@@ -121,17 +121,17 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
       <PopoverTrigger asChild>
         <button
           className={cn(
-            'inline-flex h-8 items-center justify-center gap-1.5 rounded-full border px-2.5 text-xs font-medium leading-none transition-all cursor-pointer select-none whitespace-nowrap',
+            'inline-flex h-[32px] items-center justify-center gap-[6px] rounded-full border px-[10px] text-[12px] font-medium leading-none transition-all cursor-pointer select-none whitespace-nowrap',
             enabledCount > 0
               ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-violet-200/60 dark:border-violet-700/50'
               : 'text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 border-border/50',
           )}
         >
-          <SlidersHorizontal className="size-3.5" />
-          {imageGenerationEnabled && <ImageIcon className="size-3.5" />}
-          {videoGenerationEnabled && <Video className="size-3.5" />}
-          {ttsEnabled && <Volume2 className="size-3.5" />}
-          {asrEnabled && <Mic className="size-3.5" />}
+          <SlidersHorizontal className="size-[14px]" />
+          {imageGenerationEnabled && <ImageIcon className="size-[14px]" />}
+          {videoGenerationEnabled && <Video className="size-[14px]" />}
+          {ttsEnabled && <Volume2 className="size-[14px]" />}
+          {asrEnabled && <Mic className="size-[14px]" />}
         </button>
       </PopoverTrigger>
 

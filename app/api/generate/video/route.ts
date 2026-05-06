@@ -15,6 +15,8 @@ import { resolveVideoApiKey } from '@/lib/server/provider-config';
 import type { VideoProviderId, VideoGenerationOptions } from '@/lib/media/types';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { requireCurrentUser } from '@/lib/server/auth';
+import { saveRemoteFileForUser } from '@/lib/server/file-storage';
 
 const log = createLogger('VideoGeneration API');
 const QWEN_VIDEO_PROVIDER_ID: VideoProviderId = 'qwen-video';
@@ -23,6 +25,7 @@ const QWEN_VIDEO_MODEL_ID = 'happyhorse-1.0-t2v';
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as VideoGenerationOptions;
+    const user = await requireCurrentUser();
 
     if (!body.prompt) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing prompt');
@@ -56,7 +59,34 @@ export async function POST(request: NextRequest) {
       `Video generated: url=${result.url ? 'yes' : 'no'}, ${result.width}x${result.height}, ${result.duration}s`,
     );
 
-    return apiSuccess({ result });
+    const file = await saveRemoteFileForUser(
+      user._id,
+      result.url,
+      `generated-video-${Date.now()}.mp4`,
+      'video/mp4',
+      'video',
+      { mediaType: 'video' },
+    );
+    const posterFile = result.poster
+      ? await saveRemoteFileForUser(
+          user._id,
+          result.poster,
+          `generated-video-poster-${Date.now()}.png`,
+          'image/png',
+          'poster',
+          { mediaType: 'poster' },
+        )
+      : undefined;
+
+    return apiSuccess({
+      result: {
+        ...result,
+        url: file.url,
+        poster: posterFile?.url,
+        file,
+        posterFile,
+      },
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('SensitiveContent') || message.includes('sensitive information')) {

@@ -13,17 +13,12 @@ import { useSettingsStore } from '@/lib/store/settings';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { getAvailableProvidersWithVoices } from '@/lib/audio/voice-resolver';
 import { useI18n } from '@/lib/hooks/use-i18n';
-import {
-  loadImageMapping,
-  loadPdfBlob,
-  cleanupOldImages,
-  storeImages,
-} from '@/lib/utils/image-storage';
+import { cleanupOldImages } from '@/lib/utils/image-storage';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
 import { nanoid } from 'nanoid';
 import type { Stage } from '@/lib/types/stage';
-import type { SceneOutline, PdfImage, ImageMapping } from '@/lib/types/generation';
+import type { SceneOutline, PdfImage } from '@/lib/types/generation';
 import { AgentRevealModal } from '@/components/agent/agent-reveal-modal';
 import { createLogger } from '@/lib/logger';
 import { type GenerationSessionState, ALL_STEPS, getActiveSteps } from './types';
@@ -144,31 +139,10 @@ function GenerationPreviewContent() {
       // Step 0: Parse PDF if needed
       if (hasPdfToAnalyze) {
         log.debug('=== Generation Preview: Parsing PDF ===');
-        const pdfBlob = await loadPdfBlob(currentSession.pdfStorageKey!);
-        if (!pdfBlob) {
-          throw new Error(t('generation.pdfLoadFailed'));
-        }
-
-        // Ensure pdfBlob is a valid Blob with content
-        if (!(pdfBlob instanceof Blob) || pdfBlob.size === 0) {
-          log.error('Invalid PDF blob:', {
-            type: typeof pdfBlob,
-            size: pdfBlob instanceof Blob ? pdfBlob.size : 'N/A',
-          });
-          throw new Error(t('generation.pdfLoadFailed'));
-        }
-
-        // Wrap as a File to guarantee multipart/form-data with correct content-type
-        const pdfFile = new File([pdfBlob], currentSession.pdfFileName || 'document.pdf', {
-          type: 'application/pdf',
-        });
-
-        const parseFormData = new FormData();
-        parseFormData.append('pdf', pdfFile);
-
         const parseResponse = await fetch('/api/parse-pdf', {
           method: 'POST',
-          body: parseFormData,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileId: currentSession.pdfStorageKey }),
           signal,
         });
 
@@ -189,63 +163,38 @@ function GenerationPreviewContent() {
           pdfText = pdfText.substring(0, MAX_PDF_CONTENT_CHARS);
         }
 
-        // Create image metadata and store images
-        // Prefer metadata.pdfImages (both parsers now return this)
         const rawPdfImages = parseResult.data.metadata?.pdfImages;
-        const images = rawPdfImages
+        const parsedPdfImages: PdfImage[] = rawPdfImages
           ? rawPdfImages.map(
               (img: {
                 id: string;
-                src?: string;
                 pageNumber?: number;
                 description?: string;
                 width?: number;
                 height?: number;
+                storageId?: string;
               }) => ({
                 id: img.id,
-                src: img.src || '',
+                src: '',
                 pageNumber: img.pageNumber || 1,
                 description: img.description,
                 width: img.width,
                 height: img.height,
+                storageId: img.storageId,
               }),
             )
-          : (parseResult.data.images as string[]).map((src: string, i: number) => ({
-              id: `img_${i + 1}`,
-              src,
-              pageNumber: 1,
-            }));
-
-        const imageStorageIds = await storeImages(images);
-
-        const pdfImages: PdfImage[] = images.map(
-          (
-            img: {
-              id: string;
-              src: string;
-              pageNumber: number;
-              description?: string;
-              width?: number;
-              height?: number;
-            },
-            i: number,
-          ) => ({
-            id: img.id,
-            src: '',
-            pageNumber: img.pageNumber,
-            description: img.description,
-            width: img.width,
-            height: img.height,
-            storageId: imageStorageIds[i],
-          }),
-        );
+          : [];
+        const pdfImages: PdfImage[] = [
+          ...(currentSession.pdfImages || []),
+          ...parsedPdfImages,
+        ];
 
         // Update session with parsed PDF data
         const updatedSession = {
           ...currentSession,
           pdfText,
           pdfImages,
-          imageStorageIds,
+          imageStorageIds: pdfImages.map((img) => img.storageId).filter(Boolean) as string[],
           pdfStorageKey: undefined, // Clear so we don't re-parse
         };
         setSession(updatedSession);
@@ -253,12 +202,15 @@ function GenerationPreviewContent() {
 
         // Truncation warnings
         const warnings: string[] = [];
-        if ((parseResult.data.text as string).length > MAX_PDF_CONTENT_CHARS) {
+        const originalTextLength =
+          Number(parseResult.data.metadata?.originalTextLength) ||
+          (parseResult.data.text as string).length;
+        if (originalTextLength > MAX_PDF_CONTENT_CHARS) {
           warnings.push(t('generation.textTruncated', { n: MAX_PDF_CONTENT_CHARS }));
         }
-        if (images.length > MAX_VISION_IMAGES) {
+        if (pdfImages.length > MAX_VISION_IMAGES) {
           warnings.push(
-            t('generation.imageTruncated', { total: images.length, max: MAX_VISION_IMAGES }),
+            t('generation.imageTruncated', { total: pdfImages.length, max: MAX_VISION_IMAGES }),
           );
         }
         if (warnings.length > 0) {
@@ -311,13 +263,6 @@ function GenerationPreviewContent() {
         activeSteps = getActiveSteps(currentSession);
       }
 
-      // Load imageMapping early (needed for both outline and scene generation)
-      let imageMapping: ImageMapping = {};
-      if (currentSession.imageStorageIds && currentSession.imageStorageIds.length > 0) {
-        log.debug('Loading PDF images from account file storage');
-        imageMapping = await loadImageMapping(currentSession.imageStorageIds);
-      }
-
       // Create stage client-side
       const stageId = nanoid(10);
       const stage: Stage = {
@@ -355,7 +300,6 @@ function GenerationPreviewContent() {
                 requirements: currentSession.requirements,
                 pdfText: currentSession.pdfText,
                 pdfImages: currentSession.pdfImages,
-                imageMapping,
                 researchContext: currentSession.researchContext,
               }),
             ),
@@ -640,7 +584,6 @@ function GenerationPreviewContent() {
             outline: firstOutline,
             allOutlines: outlines,
             pdfImages: currentSession.pdfImages,
-            imageMapping,
             stageInfo,
             stageId: stage.id,
             agents,
@@ -719,27 +662,11 @@ function GenerationPreviewContent() {
               continue;
             }
             const ttsData = await resp.json();
-            if (!ttsData.success) {
+            if (!ttsData.success || !ttsData.file?.url) {
               ttsFailCount++;
               continue;
             }
-            const binary = atob(ttsData.base64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            const blob = new Blob([bytes], { type: `audio/${ttsData.format}` });
-            const audioForm = new FormData();
-            audioForm.append('file', new File([blob], `${audioId}.${ttsData.format}`, { type: blob.type }));
-            audioForm.append('kind', 'audio');
-            const uploadResp = await fetch('/api/files', {
-              method: 'POST',
-              body: audioForm,
-            });
-            const uploadData = await uploadResp.json().catch(() => null);
-            if (!uploadResp.ok || !uploadData?.success) {
-              ttsFailCount++;
-              continue;
-            }
-            action.audioUrl = uploadData.file.url;
+            action.audioUrl = ttsData.file.url;
           } catch (err) {
             log.warn(`[TTS] Failed for ${audioId}:`, err);
             ttsFailCount++;

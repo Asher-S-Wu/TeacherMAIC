@@ -131,10 +131,9 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
       if (!res.ok) throw new Error(`TTS API error: ${res.status}`);
 
       const data = await res.json();
-      if (!data.base64) throw new Error('No audio in response');
+      if (!data.file?.url) throw new Error('No audio in response');
 
-      const audioUrl = `data:audio/${data.format || 'mp3'};base64,${data.base64}`;
-      const audio = new Audio(audioUrl);
+      const audio = new Audio(data.file.url);
       audio.playbackRate = playbackSpeed;
       audio.volume = ttsMuted ? 0 : ttsVolume;
       audioRef.current = audio;

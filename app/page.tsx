@@ -36,8 +36,8 @@ import { GenerationToolbar } from '@/components/generation/generation-toolbar';
 import { AgentBar } from '@/components/agent/agent-bar';
 import { useTheme } from '@/lib/hooks/use-theme';
 import { nanoid } from 'nanoid';
-import { storePdfBlob } from '@/lib/utils/image-storage';
-import type { UserRequirements } from '@/lib/types/generation';
+import { storeImageFile, storePdfBlob } from '@/lib/utils/image-storage';
+import type { PdfImage, UserRequirements } from '@/lib/types/generation';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useUserProfileStore, AVATAR_OPTIONS } from '@/lib/store/user-profile';
 import {
@@ -61,6 +61,7 @@ const log = createLogger('Home');
 
 interface FormState {
   pdfFile: File | null;
+  imageFiles: File[];
   requirement: string;
   webSearch: boolean;
   interactiveMode: boolean;
@@ -68,6 +69,7 @@ interface FormState {
 
 const initialFormState: FormState = {
   pdfFile: null,
+  imageFiles: [],
   requirement: '',
   webSearch: true,
   interactiveMode: false,
@@ -264,6 +266,7 @@ function HomePage() {
       let pdfStorageKey: string | undefined;
       let pdfFileName: string | undefined;
       let pdfProviderId: string | undefined;
+      const sourceImages: PdfImage[] = [];
 
       if (form.pdfFile) {
         pdfStorageKey = await storePdfBlob(form.pdfFile);
@@ -273,12 +276,24 @@ function HomePage() {
         pdfProviderId = settings.pdfProviderId;
       }
 
+      for (let i = 0; i < form.imageFiles.length; i++) {
+        const file = form.imageFiles[i];
+        const saved = await storeImageFile(file, { source: 'home-attachment' });
+        sourceImages.push({
+          id: `user_img_${i + 1}`,
+          src: '',
+          pageNumber: 0,
+          description: `用户上传的参考图片：${file.name}`,
+          storageId: saved.id,
+        });
+      }
+
       const sessionState = {
         sessionId: nanoid(),
         requirements,
         pdfText: '',
-        pdfImages: [],
-        imageStorageIds: [],
+        pdfImages: sourceImages,
+        imageStorageIds: sourceImages.map((img) => img.storageId).filter(Boolean),
         pdfStorageKey,
         pdfFileName,
         pdfProviderId,
@@ -437,7 +452,7 @@ function HomePage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
         className={cn(
-          'relative z-20 w-full max-w-[800px] flex flex-col items-center',
+          'relative z-20 w-full max-w-[960px] flex flex-col items-center',
           classrooms.length === 0 ? 'justify-center min-h-[calc(100dvh-8rem)]' : 'mt-[10vh]',
         )}
       >
@@ -504,8 +519,8 @@ function HomePage() {
             />
 
             {/* Toolbar row */}
-            <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
-              <div className="flex max-w-full shrink-0 items-center">
+            <div className="flex items-center gap-[8px] overflow-hidden px-[12px] pb-[12px]">
+              <div className="flex min-w-0 flex-1 items-center overflow-hidden">
                 <GenerationToolbar
                   webSearch={form.webSearch}
                   onWebSearchChange={(v) => updateForm('webSearch', v)}
@@ -515,12 +530,14 @@ function HomePage() {
                   }}
                   pdfFile={form.pdfFile}
                   onPdfFileChange={(f) => updateForm('pdfFile', f)}
+                  imageFiles={form.imageFiles}
+                  onImageFilesChange={(files) => updateForm('imageFiles', files)}
                   onPdfError={setError}
                 />
               </div>
 
               {/* Right-side buttons as a single shrink-wrapped group */}
-              <div className="ml-auto flex h-8 shrink-0 items-center gap-2">
+              <div className="ml-auto flex h-[32px] shrink-0 items-center gap-[8px]">
                 {/* Interactive mode toggle */}
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -529,7 +546,7 @@ function HomePage() {
                       transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                       onClick={() => updateForm('interactiveMode', !form.interactiveMode)}
                       className={cn(
-                        'relative inline-flex h-8 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-medium leading-none transition-all cursor-pointer select-none whitespace-nowrap',
+                        'relative inline-flex h-[32px] items-center justify-center gap-[6px] rounded-full border px-[12px] text-[12px] font-medium leading-none transition-all cursor-pointer select-none whitespace-nowrap',
                         form.interactiveMode
                           ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.35)] dark:shadow-[0_0_12px_rgba(6,182,212,0.25)]'
                           : 'border-cyan-300/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20',
@@ -543,7 +560,7 @@ function HomePage() {
                           }}
                         />
                       )}
-                      <Atom className="size-3.5 relative z-10 animate-[spin_3s_linear_infinite]" />
+                      <Atom className="relative z-10 size-[14px] animate-[spin_3s_linear_infinite]" />
                       <span className="relative z-10">{t('toolbar.interactiveModeLabel')}</span>
                     </motion.button>
                   </TooltipTrigger>
@@ -555,7 +572,7 @@ function HomePage() {
                 {/* Voice input */}
                 <SpeechButton
                   size="md"
-                  className="rounded-full"
+                  className="h-[32px] w-[32px] rounded-full"
                   onTranscription={(text) => {
                     setForm((prev) => {
                       const next = prev.requirement + (prev.requirement ? ' ' : '') + text;
@@ -570,14 +587,14 @@ function HomePage() {
                   onClick={handleGenerate}
                   disabled={!canGenerate}
                   className={cn(
-                    'flex h-8 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium leading-none transition-all',
+                    'flex h-[32px] items-center justify-center gap-[6px] rounded-full px-[14px] text-[13px] font-medium leading-none transition-all',
                     canGenerate
                       ? 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm cursor-pointer'
                       : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
                   )}
                 >
                   <span>{t('toolbar.enterClassroom')}</span>
-                  <ArrowUp className="size-4" />
+                  <ArrowUp className="size-[14px]" />
                 </button>
               </div>
             </div>

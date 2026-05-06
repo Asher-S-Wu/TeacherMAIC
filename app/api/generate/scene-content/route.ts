@@ -17,6 +17,8 @@ import type { SceneOutline, PdfImage, ImageMapping } from '@/lib/types/generatio
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
+import { requireCurrentUser } from '@/lib/server/auth';
+import { loadImageMappingForUser } from '@/lib/server/file-storage';
 
 const log = createLogger('Scene Content API');
 
@@ -29,7 +31,6 @@ export async function POST(req: NextRequest) {
       outline: rawOutline,
       allOutlines,
       pdfImages,
-      imageMapping,
       stageInfo: _stageInfo,
       stageId,
       agents,
@@ -38,7 +39,6 @@ export async function POST(req: NextRequest) {
       outline: SceneOutline;
       allOutlines: SceneOutline[];
       pdfImages?: PdfImage[];
-      imageMapping?: ImageMapping;
       stageInfo: {
         name: string;
         description?: string;
@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
 
     // Detect vision capability
     const hasVision = !!modelInfo?.capabilities?.vision;
+    const user = await requireCurrentUser();
 
     // Vision-aware AI call function
     const aiCall = async (
@@ -131,6 +132,7 @@ export async function POST(req: NextRequest) {
       const suggestedIds = new Set(effectiveOutline.suggestedImageIds);
       assignedImages = pdfImages.filter((img) => suggestedIds.has(img.id));
     }
+    const imageMapping = hasVision ? await loadImageMappingForUser(assignedImages, user) : {};
 
     // ── Media generation is handled client-side in parallel (media-orchestrator.ts) ──
     // The content generator receives placeholder IDs (gen_img_1, gen_vid_1) as-is.

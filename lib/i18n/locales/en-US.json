@@ -13,6 +13,9 @@
     "pdfParser": "Parser",
     "pdfUpload": "Upload PDF",
     "removePdf": "Remove file",
+    "attachmentParser": "Document parser",
+    "attachmentUpload": "Add PDF or images",
+    "addAttachment": "Add another file",
     "webSearchOn": "Enabled",
     "webSearchOff": "Click to enable",
     "webSearchDesc": "Search the web for up-to-date information before generation",
@@ -317,7 +320,11 @@
     "generateFailed": "Failed to generate classroom, please try again",
     "requirementPlaceholder": "Tell me anything you want to learn, e.g.\n\"Teach me Python from scratch in 30 minutes\"\n\"Explain Fourier Transform on the whiteboard\"\n\"How to play the board game Avalon\"",
     "requirementRequired": "Please enter course requirements",
-    "fileTooLarge": "File too large. Please select a PDF file smaller than 50MB"
+    "fileTooLarge": "File too large. Please select a PDF file smaller than 50MB",
+    "imageFileTooLarge": "Image too large. Please select an image smaller than 20MB",
+    "imageCountLimit": "You can add up to 10 images",
+    "unsupportedAttachment": "Please choose a PDF, PNG, JPG, or WEBP file",
+    "attachmentSizeLimit": "PDF up to 50MB, images up to 20MB"
   },
   "generation": {
     "analyzingPdf": "Analyzing PDF Document",

@@ -31,9 +31,10 @@ export async function GET(
     return new NextResponse(webStream, {
       status: 200,
       headers: {
-        'Content-Type': result.file.contentType || 'application/octet-stream',
-        'Content-Length': String(result.file.length),
+        'Content-Type': result.blob.contentType || result.file.contentType || 'application/octet-stream',
+        'Content-Length': String(result.blob.size || result.file.size),
         'Cache-Control': 'private, max-age=31536000, immutable',
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   } catch (error) {

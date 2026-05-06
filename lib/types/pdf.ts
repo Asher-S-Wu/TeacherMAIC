@@ -53,6 +53,7 @@ export interface ParsedPdfContent {
       description?: string;
       width?: number;
       height?: number;
+      storageId?: string;
     }>;
     [key: string]: unknown;
   };

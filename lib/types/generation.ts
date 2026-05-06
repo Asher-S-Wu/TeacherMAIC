@@ -14,8 +14,8 @@ import type { MediaGenerationRequest } from '@/lib/media/types';
  */
 export interface PdfImage {
   id: string; // e.g., "img_1", "img_2"
-  src: string; // base64 data URL, or empty when the file is saved separately
-  pageNumber: number; // Page number in PDF
+  src: string; // Empty when the file is saved separately
+  pageNumber: number; // Page number in PDF, or 0 for user-uploaded reference images
   description?: string; // Optional description for AI context
   storageId?: string; // Reference to account file storage
   width?: number; // Image width (px or normalized)

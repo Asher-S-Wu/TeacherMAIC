@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import type { ClassroomManifest, ManifestScene } from '@/lib/export/classroom-zip-types';
 import { createLogger } from '@/lib/logger';
+import { uploadAccountBlob } from '@/lib/utils/image-storage';
 import { saveStageData } from '@/lib/utils/stage-storage';
 import type { Action } from '@/lib/types/action';
 import type { Scene, Stage } from '@/lib/types/stage';
@@ -13,18 +14,25 @@ import type { Scene, Stage } from '@/lib/types/stage';
 const log = createLogger('ImportClassroom');
 
 async function uploadZipBlob(blob: Blob, filename: string, kind: string): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', new File([blob], filename, { type: blob.type || 'application/octet-stream' }));
-  formData.append('kind', kind);
-  const response = await fetch('/api/files', {
-    method: 'POST',
-    body: formData,
-  });
-  const data = await response.json().catch(() => null);
-  if (!response.ok || !data?.success) {
-    throw new Error(data?.error || '导入文件保存失败');
-  }
-  return data.file.url;
+  const saved = await uploadAccountBlob(
+    new Blob([blob], { type: blob.type || mimeFromFilename(filename) }),
+    filename,
+    kind,
+  );
+  return saved.url;
+}
+
+function mimeFromFilename(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  if (ext === 'png') return 'image/png';
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'mp4') return 'video/mp4';
+  if (ext === 'webm') return 'video/webm';
+  if (ext === 'mp3') return 'audio/mpeg';
+  if (ext === 'wav') return 'audio/wav';
+  if (ext === 'ogg') return 'audio/ogg';
+  return 'application/octet-stream';
 }
 
 function rewriteImportedActions(

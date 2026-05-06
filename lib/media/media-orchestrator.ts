@@ -3,7 +3,7 @@
  *
  * Dispatches media generation API calls for all mediaGenerations across outlines.
  * Runs entirely on the frontend — calls /api/generate/image and /api/generate/video,
- * fetches result blobs, saves them to the signed-in account, and updates the Zustand store.
+ * receives private account file URLs, and updates the Zustand store.
  */
 
 import { useMediaGenerationStore } from '@/lib/store/media-generation';
@@ -108,32 +108,20 @@ async function generateSingleMedia(
   try {
     let resultUrl: string;
     let posterUrl: string | undefined;
-    let mimeType: string;
 
     if (req.type === 'image') {
       const result = await callImageApi(req, abortSignal);
       resultUrl = result.url;
-      mimeType = 'image/png';
     } else {
       const result = await callVideoApi(req, abortSignal);
       resultUrl = result.url;
       posterUrl = result.poster;
-      mimeType = 'video/mp4';
     }
 
     if (abortSignal?.aborted) return;
 
-    // Fetch blob from URL
-    const blob = await fetchAsBlob(resultUrl);
-    const posterBlob = posterUrl ? await fetchAsBlob(posterUrl).catch(() => undefined) : undefined;
-
-    const resultFile = await uploadMediaBlob(blob, `${req.elementId}.${req.type === 'image' ? 'png' : 'mp4'}`, req.type);
-    const posterFile = posterBlob
-      ? await uploadMediaBlob(posterBlob, `${req.elementId}-poster.png`, 'poster')
-      : undefined;
-
-    replacePlaceholderInStage(stageId, req.elementId, resultFile.url);
-    useMediaGenerationStore.getState().markDone(req.elementId, resultFile.url, posterFile?.url);
+    replacePlaceholderInStage(stageId, req.elementId, resultUrl);
+    useMediaGenerationStore.getState().markDone(req.elementId, resultUrl, posterUrl);
   } catch (err) {
     if (abortSignal?.aborted) return;
     const message = err instanceof Error ? err.message : String(err);
@@ -141,25 +129,6 @@ async function generateSingleMedia(
     log.error(`Failed ${req.elementId}:`, message);
     useMediaGenerationStore.getState().markFailed(req.elementId, message, errorCode);
   }
-}
-
-async function uploadMediaBlob(
-  blob: Blob,
-  filename: string,
-  kind: string,
-): Promise<{ id: string; url: string }> {
-  const formData = new FormData();
-  formData.append('file', new File([blob], filename, { type: blob.type || 'application/octet-stream' }));
-  formData.append('kind', kind);
-  const response = await fetch('/api/files', {
-    method: 'POST',
-    body: formData,
-  });
-  const data = await response.json().catch(() => null);
-  if (!response.ok || !data?.success) {
-    throw new Error(data?.error || 'Media upload failed');
-  }
-  return data.file;
 }
 
 function replacePlaceholderInStage(stageId: string, elementId: string, url: string): void {
@@ -220,9 +189,7 @@ async function callImageApi(
   if (!data.success)
     throw new MediaApiError(data.error || 'Image generation failed', data.errorCode);
 
-  // Result may have url or base64
-  const url =
-    data.result?.url || (data.result?.base64 ? `data:image/png;base64,${data.result.base64}` : '');
+  const url = data.result?.url;
   if (!url) throw new Error('No image URL in response');
   return { url };
 }
@@ -255,29 +222,4 @@ async function callVideoApi(
   const url = data.result?.url;
   if (!url) throw new Error('No video URL in response');
   return { url, poster: data.result?.poster };
-}
-
-async function fetchAsBlob(url: string): Promise<Blob> {
-  // For data URLs, convert directly
-  if (url.startsWith('data:')) {
-    const res = await fetch(url);
-    return res.blob();
-  }
-  // For remote URLs, proxy through our server to bypass CORS restrictions
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    const res = await fetch('/api/proxy-media', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || `Proxy fetch failed: ${res.status}`);
-    }
-    return res.blob();
-  }
-  // Relative URLs (shouldn't happen, but handle gracefully)
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch blob: ${res.status}`);
-  return res.blob();
 }

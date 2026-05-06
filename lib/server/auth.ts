@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual, createHash } from 'crypto';
 import { promisify } from 'util';
 import { getCollections, getMongo, type UserDoc } from '@/lib/server/mongodb';
+import { deleteAccountFilesForUser } from '@/lib/server/file-storage';
 
 const scrypt = promisify(scryptCallback);
 
@@ -178,17 +179,10 @@ export function objectIdFromString(id: string): ObjectId {
 }
 
 export async function deleteAllDataForUser(userId: ObjectId): Promise<void> {
-  const { db, bucket } = await getMongo();
+  const { db } = await getMongo();
   const c = getCollections(db);
-  const files = await db
-    .collection<{ _id: ObjectId }>('files.files')
-    .find({ 'metadata.userId': userId.toString() }, { projection: { _id: 1 } })
-    .toArray();
 
-  for (const file of files) {
-    await bucket.delete(file._id);
-  }
-
+  await deleteAccountFilesForUser(userId);
   await Promise.all([
     c.authSessions.deleteMany({ userId }),
     c.classrooms.deleteMany({ userId }),

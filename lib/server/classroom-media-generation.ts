@@ -2,13 +2,13 @@
  * Server-side media and TTS generation for classrooms.
  *
  * Generates image/video files and TTS audio for a classroom,
- * saves them to MongoDB GridFS, and returns serving URL mappings.
+ * saves them to private account files, and returns serving URL mappings.
  */
 
 import path from 'path';
 import { createLogger } from '@/lib/logger';
 import type { ObjectId } from 'mongodb';
-import { saveBufferForUser } from '@/lib/server/file-storage';
+import { saveBufferForUser, saveRemoteFileForUser } from '@/lib/server/file-storage';
 import { generateImage } from '@/lib/media/image-providers';
 import { generateVideo, normalizeVideoOptions } from '@/lib/media/video-providers';
 import { generateTTS } from '@/lib/audio/tts-providers';
@@ -36,19 +36,6 @@ const log = createLogger('ClassroomMedia');
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const DOWNLOAD_TIMEOUT_MS = 120_000; // 2 minutes
-const DOWNLOAD_MAX_SIZE = 100 * 1024 * 1024; // 100 MB
-
-async function downloadToBuffer(url: string): Promise<Buffer> {
-  const resp = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
-  if (!resp.ok) throw new Error(`Download failed: ${resp.status} ${resp.statusText}`);
-  const contentLength = Number(resp.headers.get('content-length') || 0);
-  if (contentLength > DOWNLOAD_MAX_SIZE) {
-    throw new Error(`File too large: ${contentLength} bytes (max ${DOWNLOAD_MAX_SIZE})`);
-  }
-  return Buffer.from(await resp.arrayBuffer());
-}
 
 // ---------------------------------------------------------------------------
 // Image / Video generation
@@ -96,25 +83,42 @@ export async function generateMediaForClassroom(
         { prompt: req.prompt, aspectRatio: req.aspectRatio || '16:9' },
       );
 
-      let buf: Buffer;
-      let ext: string;
+      let saved: Awaited<ReturnType<typeof saveBufferForUser>>;
+      let filename: string;
       if (result.base64) {
-        buf = Buffer.from(result.base64, 'base64');
-        ext = 'png';
+        filename = `${req.elementId}.png`;
+        saved = await saveBufferForUser(
+          userId,
+          Buffer.from(result.base64, 'base64'),
+          filename,
+          'image/png',
+          'media',
+          {
+            classroomId,
+            elementId: req.elementId,
+            mediaType: 'image',
+          },
+        );
       } else if (result.url) {
-        buf = await downloadToBuffer(result.url);
         const urlExt = path.extname(new URL(result.url).pathname).replace('.', '');
-        ext = ['png', 'jpg', 'jpeg', 'webp'].includes(urlExt) ? urlExt : 'png';
+        const ext = ['png', 'jpg', 'jpeg', 'webp'].includes(urlExt) ? urlExt : 'png';
+        filename = `${req.elementId}.${ext}`;
+        saved = await saveRemoteFileForUser(
+          userId,
+          result.url,
+          filename,
+          ext === 'jpg' ? 'image/jpeg' : `image/${ext}`,
+          'media',
+          {
+            classroomId,
+            elementId: req.elementId,
+            mediaType: 'image',
+          },
+        );
       } else {
         throw new Error(`图片生成没有返回文件：${req.elementId}`);
       }
 
-      const filename = `${req.elementId}.${ext}`;
-      const saved = await saveBufferForUser(userId, buf, filename, `image/${ext}`, 'media', {
-        classroomId,
-        elementId: req.elementId,
-        mediaType: 'image',
-      });
       mediaMap[req.elementId] = `${baseUrl}${saved.url}`;
       log.info(`Generated image: ${filename}`);
     }
@@ -140,13 +144,19 @@ export async function generateMediaForClassroom(
         normalized,
       );
 
-      const buf = await downloadToBuffer(result.url);
       const filename = `${req.elementId}.mp4`;
-      const saved = await saveBufferForUser(userId, buf, filename, 'video/mp4', 'media', {
-        classroomId,
-        elementId: req.elementId,
-        mediaType: 'video',
-      });
+      const saved = await saveRemoteFileForUser(
+        userId,
+        result.url,
+        filename,
+        'video/mp4',
+        'video',
+        {
+          classroomId,
+          elementId: req.elementId,
+          mediaType: 'video',
+        },
+      );
       mediaMap[req.elementId] = `${baseUrl}${saved.url}`;
       log.info(`Generated video: ${filename}`);
     }

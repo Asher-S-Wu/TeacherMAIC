@@ -28,9 +28,10 @@ import type {
   UserRequirements,
   PdfImage,
   SceneOutline,
-  ImageMapping,
 } from '@/lib/types/generation';
 import { apiError } from '@/lib/server/api-response';
+import { requireCurrentUser } from '@/lib/server/auth';
+import { loadImageMappingForUser } from '@/lib/server/file-storage';
 import { createLogger } from '@/lib/logger';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { validateSceneOutline } from '@/lib/generation/outline-validation';
@@ -133,11 +134,10 @@ export async function POST(req: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Requirements are required');
     }
 
-    const { requirements, pdfText, pdfImages, imageMapping, researchContext, agents } = body as {
+    const { requirements, pdfText, pdfImages, researchContext, agents } = body as {
       requirements: UserRequirements;
       pdfText?: string;
       pdfImages?: PdfImage[];
-      imageMapping?: ImageMapping;
       researchContext?: string;
       agents?: AgentInfo[];
     };
@@ -151,6 +151,10 @@ export async function POST(req: NextRequest) {
 
     // Detect vision capability
     const hasVision = !!modelInfo?.capabilities?.vision;
+    const user = await requireCurrentUser();
+    const imageMapping = hasVision
+      ? await loadImageMappingForUser(pdfImages?.slice(0, MAX_VISION_IMAGES), user)
+      : {};
 
     // Build prompt (same logic as generateSceneOutlinesFromRequirements)
     let availableImagesText = 'No images available';

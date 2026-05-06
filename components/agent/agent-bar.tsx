@@ -132,9 +132,9 @@ function AgentVoicePill({
         });
         if (!res.ok) throw new Error('TTS error');
         const data = await res.json();
-        if (!data.base64) throw new Error('No audio');
+        if (!data.file?.url) throw new Error('No audio');
 
-        const audio = new Audio(`data:audio/${data.format || 'mp3'};base64,${data.base64}`);
+        const audio = new Audio(data.file.url);
         previewAudioRef.current = audio;
         audio.addEventListener('ended', () => setPreviewingId(null));
         audio.addEventListener('error', () => setPreviewingId(null));
@@ -363,8 +363,8 @@ function TeacherVoicePill({
         });
         if (!res.ok) throw new Error('TTS error');
         const data = await res.json();
-        if (!data.base64) throw new Error('No audio');
-        const audio = new Audio(`data:audio/${data.format || 'mp3'};base64,${data.base64}`);
+        if (!data.file?.url) throw new Error('No audio');
+        const audio = new Audio(data.file.url);
         previewAudioRef.current = audio;
         audio.addEventListener('ended', () => setPreviewingId(null));
         audio.addEventListener('error', () => setPreviewingId(null));

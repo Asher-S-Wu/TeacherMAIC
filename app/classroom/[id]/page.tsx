@@ -3,7 +3,6 @@
 import { Stage } from '@/components/stage';
 import { ThemeProvider } from '@/lib/hooks/use-theme';
 import { useStageStore } from '@/lib/store';
-import { loadImageMapping } from '@/lib/utils/image-storage';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useSceneGenerator } from '@/lib/hooks/use-scene-generator';
@@ -121,24 +120,16 @@ export default function ClassroomDetailPage() {
       const genParamsStr = sessionStorage.getItem('generationParams');
       const params = genParamsStr ? JSON.parse(genParamsStr) : {};
 
-      // Reconstruct imageMapping from uploaded PDF image storage IDs
-      const storageIds = (params.pdfImages || [])
-        .map((img: { storageId?: string }) => img.storageId)
-        .filter(Boolean);
-
-      loadImageMapping(storageIds).then((imageMapping) => {
-        generateRemaining({
-          pdfImages: params.pdfImages,
-          imageMapping,
-          stageInfo: {
-            name: stage.name || '',
-            description: stage.description,
-            style: stage.style,
-          },
-          agents: params.agents,
-          userProfile: params.userProfile,
-          languageDirective: params.languageDirective || stage.languageDirective,
-        });
+      generateRemaining({
+        pdfImages: params.pdfImages,
+        stageInfo: {
+          name: stage.name || '',
+          description: stage.description,
+          style: stage.style,
+        },
+        agents: params.agents,
+        userProfile: params.userProfile,
+        languageDirective: params.languageDirective || stage.languageDirective,
       });
     } else if (outlines.length > 0 && stage) {
       // All scenes are generated, but some media may not have finished.

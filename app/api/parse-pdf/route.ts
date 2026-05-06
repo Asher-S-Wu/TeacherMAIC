@@ -5,32 +5,30 @@ import type { PDFProviderId } from '@/lib/pdf/types';
 import type { ParsedPdfContent } from '@/lib/types/pdf';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { requireCurrentUser } from '@/lib/server/auth';
+import { getFileBufferForUser, saveDataUrlForUser } from '@/lib/server/file-storage';
+import { MAX_PDF_CONTENT_CHARS } from '@/lib/constants/generation';
 const log = createLogger('Parse PDF');
 
 export async function POST(req: NextRequest) {
   let pdfFileName: string | undefined;
   let resolvedProviderId: string | undefined;
   try {
-    const contentType = req.headers.get('content-type') || '';
-    if (!contentType.includes('multipart/form-data')) {
-      log.error('Invalid Content-Type for PDF upload:', contentType);
-      return apiError(
-        'INVALID_REQUEST',
-        400,
-        `Invalid Content-Type: expected multipart/form-data, got "${contentType}"`,
-      );
+    const user = await requireCurrentUser();
+    const body = (await req.json()) as { fileId?: string };
+
+    if (!body.fileId) {
+      return apiError('MISSING_REQUIRED_FIELD', 400, '缺少 PDF 文件');
     }
 
-    const formData = await req.formData();
-    const pdfFile = formData.get('pdf') as File | null;
-
-    if (!pdfFile) {
-      return apiError('MISSING_REQUIRED_FIELD', 400, 'No PDF file provided');
+    const storedPdf = await getFileBufferForUser(body.fileId, user);
+    if (!storedPdf || storedPdf.file.contentType !== 'application/pdf') {
+      return apiError('INVALID_REQUEST', 400, 'PDF 文件不存在');
     }
 
     const mineruApiKey = resolvePDFApiKey('mineru-cloud');
     const effectiveProviderId: PDFProviderId = mineruApiKey ? 'mineru-cloud' : 'unpdf';
-    pdfFileName = pdfFile?.name;
+    pdfFileName = storedPdf.file.filename;
     resolvedProviderId = effectiveProviderId;
 
     const config = {
@@ -38,21 +36,60 @@ export async function POST(req: NextRequest) {
       apiKey: mineruApiKey,
     };
 
-    // Convert PDF to buffer
-    const arrayBuffer = await pdfFile.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
     // Parse PDF using the provider system
-    const result = await parsePDF(config, buffer);
+    const result = await parsePDF(config, storedPdf.buffer);
+
+    const rawPdfImages =
+      result.metadata?.pdfImages?.length
+        ? result.metadata.pdfImages
+        : result.images.map((src, index) => ({
+            id: `img_${index + 1}`,
+            src,
+            pageNumber: 1,
+          }));
+
+    const pdfImages = [];
+    for (const image of rawPdfImages) {
+      if (!image.src) continue;
+      const saved = await saveDataUrlForUser(
+        user._id,
+        image.src,
+        `${image.id}.png`,
+        'pdf-image',
+        {
+          sourcePdfId: body.fileId,
+          pageNumber: image.pageNumber,
+          imageId: image.id,
+        },
+      );
+      pdfImages.push({
+        id: image.id,
+        src: '',
+        pageNumber: image.pageNumber || 1,
+        description: image.description,
+        width: image.width,
+        height: image.height,
+        storageId: saved.id,
+      });
+    }
 
     // Add file metadata
+    const originalTextLength = result.text.length;
     const resultWithMetadata: ParsedPdfContent = {
       ...result,
+      text:
+        originalTextLength > MAX_PDF_CONTENT_CHARS
+          ? result.text.substring(0, MAX_PDF_CONTENT_CHARS)
+          : result.text,
+      images: [],
       metadata: {
         ...result.metadata,
         pageCount: result.metadata?.pageCount ?? 0, // Ensure pageCount is always a number
-        fileName: pdfFile.name,
-        fileSize: pdfFile.size,
+        fileName: storedPdf.file.filename,
+        fileSize: storedPdf.file.size,
+        originalTextLength,
+        imageMapping: undefined,
+        pdfImages,
       },
     };
 

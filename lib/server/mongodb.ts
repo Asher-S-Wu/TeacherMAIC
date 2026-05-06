@@ -1,4 +1,4 @@
-import { GridFSBucket, MongoClient, type Collection, type Db, type ObjectId } from 'mongodb';
+import { MongoClient, type Collection, type Db, type ObjectId } from 'mongodb';
 import type { Stage, Scene } from '@/lib/types/stage';
 import type { ChatSession } from '@/lib/types/chat';
 import type { SceneOutline } from '@/lib/types/generation';
@@ -8,7 +8,6 @@ declare global {
     | {
         client: MongoClient;
         db: Db;
-        bucket: GridFSBucket;
         indexesReady?: Promise<void>;
       }
     | undefined;
@@ -120,6 +119,22 @@ export interface ClassroomJobDoc {
   error?: string;
 }
 
+export interface AccountFileDoc {
+  _id: ObjectId;
+  userId: ObjectId;
+  kind: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  pathname: string;
+  url: string;
+  downloadUrl?: string;
+  etag?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface MongoCollections {
   users: Collection<UserDoc>;
   authSessions: Collection<AuthSessionDoc>;
@@ -129,6 +144,7 @@ export interface MongoCollections {
   quizStates: Collection<QuizStateDoc>;
   userSettings: Collection<UserSettingsDoc>;
   classroomJobs: Collection<ClassroomJobDoc>;
+  accountFiles: Collection<AccountFileDoc>;
 }
 
 function getMongoUri(): string {
@@ -158,7 +174,6 @@ async function createMongo() {
   return {
     client,
     db,
-    bucket: new GridFSBucket(db, { bucketName: 'files' }),
   };
 }
 
@@ -187,6 +202,7 @@ export function getCollections(db: Db): MongoCollections {
     quizStates: db.collection<QuizStateDoc>('quizStates'),
     userSettings: db.collection<UserSettingsDoc>('userSettings'),
     classroomJobs: db.collection<ClassroomJobDoc>('classroomJobs'),
+    accountFiles: db.collection<AccountFileDoc>('accountFiles'),
   };
 }
 
@@ -207,6 +223,8 @@ async function ensureMongoIndexes(db: Db): Promise<void> {
     c.userSettings.createIndex({ userId: 1, key: 1 }, { unique: true }),
     c.classroomJobs.createIndex({ userId: 1, id: 1 }, { unique: true }),
     c.classroomJobs.createIndex({ id: 1 }, { unique: true }),
-    db.collection('files.files').createIndex({ 'metadata.userId': 1 }),
+    c.accountFiles.createIndex({ userId: 1, createdAt: -1 }),
+    c.accountFiles.createIndex({ pathname: 1 }, { unique: true }),
+    c.accountFiles.createIndex({ url: 1 }, { unique: true }),
   ]);
 }

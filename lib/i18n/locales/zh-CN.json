@@ -13,6 +13,9 @@
     "pdfParser": "解析器",
     "pdfUpload": "上传 PDF",
     "removePdf": "移除文件",
+    "attachmentParser": "文档解析",
+    "attachmentUpload": "添加 PDF 或图片",
+    "addAttachment": "继续添加文件",
     "webSearchOn": "已开启",
     "webSearchOff": "点击开启",
     "webSearchDesc": "生成前搜索网络获取最新资料，让内容更丰富准确",
@@ -317,7 +320,11 @@
     "generateFailed": "生成课堂失败，请重试",
     "requirementPlaceholder": "输入你想学的任何内容，例如：\n「从零学 Python，30 分钟写出第一个程序」\n「用白板给我讲解傅里叶变换」\n「阿瓦隆桌游怎么玩」",
     "requirementRequired": "请输入课程需求",
-    "fileTooLarge": "文件过大，请选择小于50MB的PDF文件"
+    "fileTooLarge": "文件过大，请选择小于50MB的PDF文件",
+    "imageFileTooLarge": "图片过大，请选择小于20MB的图片",
+    "imageCountLimit": "最多可以添加10张图片",
+    "unsupportedAttachment": "请选择 PDF、PNG、JPG 或 WEBP 文件",
+    "attachmentSizeLimit": "PDF 最大50MB，图片最大20MB"
   },
   "generation": {
     "analyzingPdf": "解析 PDF 文档",
