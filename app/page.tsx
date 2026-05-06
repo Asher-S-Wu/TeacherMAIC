@@ -519,63 +519,66 @@ function HomePage() {
                 />
               </div>
 
-              {/* Interactive mode toggle */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-                    onClick={() => updateForm('interactiveMode', !form.interactiveMode)}
-                    className={cn(
-                      'relative inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all cursor-pointer select-none whitespace-nowrap border shrink-0 h-8',
-                      form.interactiveMode
-                        ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.35)] dark:shadow-[0_0_12px_rgba(6,182,212,0.25)]'
-                        : 'border-cyan-300/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20',
-                    )}
-                  >
-                    {form.interactiveMode && (
-                      <span
-                        className="absolute inset-[-4px] rounded-full border border-cyan-400/40 dark:border-cyan-400/25"
-                        style={{
-                          animation: 'interactive-mode-breathe 2s ease-in-out infinite',
-                        }}
-                      />
-                    )}
-                    <Atom className="size-3.5 relative z-10 animate-[spin_3s_linear_infinite]" />
-                    <span className="relative z-10">{t('toolbar.interactiveModeLabel')}</span>
-                  </motion.button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  {t('toolbar.interactiveModeHint')}
-                </TooltipContent>
-              </Tooltip>
+              {/* Right-side buttons as a single shrink-wrapped group */}
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Interactive mode toggle */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                      onClick={() => updateForm('interactiveMode', !form.interactiveMode)}
+                      className={cn(
+                        'relative inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all cursor-pointer select-none whitespace-nowrap border h-8',
+                        form.interactiveMode
+                          ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.35)] dark:shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                          : 'border-cyan-300/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20',
+                      )}
+                    >
+                      {form.interactiveMode && (
+                        <span
+                          className="absolute inset-[-4px] rounded-full border border-cyan-400/40 dark:border-cyan-400/25"
+                          style={{
+                            animation: 'interactive-mode-breathe 2s ease-in-out infinite',
+                          }}
+                        />
+                      )}
+                      <Atom className="size-3.5 relative z-10 animate-[spin_3s_linear_infinite]" />
+                      <span className="relative z-10">{t('toolbar.interactiveModeLabel')}</span>
+                    </motion.button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {t('toolbar.interactiveModeHint')}
+                  </TooltipContent>
+                </Tooltip>
 
-              {/* Voice input */}
-              <SpeechButton
-                size="md"
-                onTranscription={(text) => {
-                  setForm((prev) => {
-                    const next = prev.requirement + (prev.requirement ? ' ' : '') + text;
-                    updateRequirementCache(next);
-                    return { ...prev, requirement: next };
-                  });
-                }}
-              />
+                {/* Voice input */}
+                <SpeechButton
+                  size="md"
+                  onTranscription={(text) => {
+                    setForm((prev) => {
+                      const next = prev.requirement + (prev.requirement ? ' ' : '') + text;
+                      updateRequirementCache(next);
+                      return { ...prev, requirement: next };
+                    });
+                  }}
+                />
 
-              {/* Send button */}
-              <button
-                onClick={handleGenerate}
-                disabled={!canGenerate}
-                className={cn(
-                  'shrink-0 h-8 rounded-lg flex items-center justify-center gap-1.5 transition-all px-3',
-                  canGenerate
-                    ? 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm cursor-pointer'
-                    : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
-                )}
-              >
-                <span className="text-sm font-medium">{t('toolbar.enterClassroom')}</span>
-                <ArrowUp className="size-4" />
-              </button>
+                {/* Send button */}
+                <button
+                  onClick={handleGenerate}
+                  disabled={!canGenerate}
+                  className={cn(
+                    'h-8 rounded-lg flex items-center justify-center gap-1.5 transition-all px-3',
+                    canGenerate
+                      ? 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm cursor-pointer'
+                      : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
+                  )}
+                >
+                  <span className="text-sm font-medium">{t('toolbar.enterClassroom')}</span>
+                  <ArrowUp className="size-4" />
+                </button>
+              </div>
             </div>
           </div>
         </motion.div>
