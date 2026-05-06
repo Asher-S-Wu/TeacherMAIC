@@ -496,7 +496,7 @@ function HomePage() {
           initial={{ opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.35 }}
-          className="w-full"
+          className="relative z-20 w-full"
         >
           <div className="w-full rounded-2xl border border-border/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl shadow-black/[0.03] dark:shadow-black/20 transition-shadow focus-within:shadow-2xl focus-within:shadow-violet-500/[0.06]">
             {/* ── Greeting + Profile + Agents ── */}
@@ -533,6 +533,19 @@ function HomePage() {
                   imageFiles={form.imageFiles}
                   onImageFilesChange={(files) => updateForm('imageFiles', files)}
                   onPdfError={setError}
+                  voiceButton={
+                    <SpeechButton
+                      size="md"
+                      className="h-[32px] w-[32px] rounded-full"
+                      onTranscription={(text) => {
+                        setForm((prev) => {
+                          const next = prev.requirement + (prev.requirement ? ' ' : '') + text;
+                          updateRequirementCache(next);
+                          return { ...prev, requirement: next };
+                        });
+                      }}
+                    />
+                  }
                 />
               </div>
 
@@ -568,19 +581,6 @@ function HomePage() {
                     {t('toolbar.interactiveModeHint')}
                   </TooltipContent>
                 </Tooltip>
-
-                {/* Voice input */}
-                <SpeechButton
-                  size="md"
-                  className="h-[32px] w-[32px] rounded-full"
-                  onTranscription={(text) => {
-                    setForm((prev) => {
-                      const next = prev.requirement + (prev.requirement ? ' ' : '') + text;
-                      updateRequirementCache(next);
-                      return { ...prev, requirement: next };
-                    });
-                  }}
-                />
 
                 {/* Send button */}
                 <button

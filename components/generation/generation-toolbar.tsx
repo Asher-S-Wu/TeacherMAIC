@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Bot, Paperclip, FileImage, FileText, X, Globe2 } from 'lucide-react';
+import { useState, useRef, type ReactNode } from 'react';
+import { Paperclip, FileImage, FileText, X, Globe2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
-import { PDF_PROVIDERS } from '@/lib/pdf/constants';
 import { WEB_SEARCH_PROVIDERS } from '@/lib/web-search/constants';
 import type { SettingsSection } from '@/lib/types/settings';
 import { MediaPopover } from '@/components/generation/media-popover';
@@ -30,6 +29,7 @@ export interface GenerationToolbarProps {
   imageFiles: File[];
   onImageFilesChange: (files: File[]) => void;
   onPdfError: (error: string | null) => void;
+  voiceButton?: ReactNode;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -42,12 +42,9 @@ export function GenerationToolbar({
   imageFiles,
   onImageFilesChange,
   onPdfError,
+  voiceButton,
 }: GenerationToolbarProps) {
   const { t } = useI18n();
-  const currentProviderId = useSettingsStore((s) => s.providerId);
-  const currentModelId = useSettingsStore((s) => s.modelId);
-  const providersConfig = useSettingsStore((s) => s.providersConfig);
-  const pdfProviderId = useSettingsStore((s) => s.pdfProviderId);
   const webSearchProviderId = useSettingsStore((s) => s.webSearchProviderId);
   const webSearchProvidersConfig = useSettingsStore((s) => s.webSearchProvidersConfig);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -60,9 +57,6 @@ export function GenerationToolbar({
     ? !webSearchProvider.requiresApiKey ||
       !!webSearchConfig?.isServerConfigured
     : false;
-
-  const currentProviderConfig = providersConfig?.[currentProviderId];
-  const currentModel = currentProviderConfig?.models.find((model) => model.id === currentModelId);
 
   const attachmentCount = (pdfFile ? 1 : 0) + imageFiles.length;
 
@@ -111,84 +105,29 @@ export function GenerationToolbar({
     'inline-flex h-[32px] min-w-0 items-center justify-center gap-[6px] rounded-full border px-[12px] text-[12px] font-medium leading-none transition-all cursor-pointer select-none whitespace-nowrap';
   const iconPillCls =
     'inline-flex size-[32px] items-center justify-center rounded-full border text-[12px] font-medium leading-none transition-all cursor-pointer select-none';
-  const pillMuted = `${pillCls} border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60`;
+  const attachmentTriggerCls =
+    'order-1 inline-flex size-[32px] shrink-0 items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground cursor-pointer select-none';
   const pillActive = `${pillCls} border-violet-200/60 dark:border-violet-700/50 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300`;
 
   return (
-    <div className="flex min-w-0 flex-nowrap items-center gap-[8px] overflow-hidden">
-      {/* ── Server-managed model ── */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            className={cn(
-              pillCls,
-              'border-violet-200/70 bg-violet-50 text-violet-700 dark:border-violet-800/70 dark:bg-violet-950/30 dark:text-violet-300 cursor-default',
-            )}
-          >
-            {currentProviderConfig?.icon ? (
-              <img
-                src={currentProviderConfig.icon}
-                alt={currentProviderConfig.name}
-                className="size-[14px] shrink-0 rounded-sm"
-              />
-            ) : (
-              <Bot className="size-[14px] shrink-0" />
-            )}
-            <span>{currentModel?.name || t('settings.serverManagedModel')}</span>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{t('settings.serverManagedModelDesc')}</TooltipContent>
-      </Tooltip>
-
-      {/* ── Separator ── */}
-      <div className="h-[18px] w-px shrink-0 bg-border/60" />
-
+    <div className="flex h-[32px] min-w-0 flex-1 flex-nowrap items-center gap-[8px] overflow-hidden">
       {/* ── Attachments ── */}
       <Popover>
         <PopoverTrigger asChild>
-          {attachmentCount > 0 ? (
-            <button className={pillActive}>
-              <Paperclip className="size-[14px]" />
-              <span className="max-w-[120px] truncate">
-                {pdfFile?.name || imageFiles[0]?.name}
-                {attachmentCount > 1 ? ` +${attachmentCount - 1}` : ''}
-              </span>
-              <span
-                role="button"
-                className="inline-flex size-[16px] items-center justify-center rounded-full transition-colors hover:bg-violet-200 dark:hover:bg-violet-800"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPdfFileChange(null);
-                  onImageFilesChange([]);
-                }}
-              >
-                <X className="size-[10px]" />
-              </span>
-            </button>
-          ) : (
-            <button
-              className={cn(
-                iconPillCls,
-                'border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60',
-              )}
-            >
-              <Paperclip className="size-[14px] shrink-0" />
-            </button>
-          )}
+          <button
+            type="button"
+            aria-label={t('toolbar.addAttachment')}
+            className={cn(
+              attachmentTriggerCls,
+              attachmentCount > 0 && 'text-violet-600 dark:text-violet-300',
+            )}
+          >
+            <Paperclip className="size-[16px] shrink-0" />
+          </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-72 p-0">
-          <div className="flex items-center gap-2 px-3 pt-3 pb-2">
-            <span className="text-xs font-medium text-muted-foreground shrink-0">
-              {t('toolbar.attachmentParser')}
-            </span>
-            <span className="min-w-0 flex-1 truncate rounded-md bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
-              {PDF_PROVIDERS[pdfProviderId]?.name || t('settings.serverManaged')}
-            </span>
-          </div>
-
           {/* Upload area / file info */}
-          <div className="px-3 pb-3">
+          <div className="px-3 pt-3 pb-3">
             <input
               type="file"
               ref={fileInputRef}
@@ -278,6 +217,10 @@ export function GenerationToolbar({
         </PopoverContent>
       </Popover>
 
+      {voiceButton && (
+        <div className="order-2 flex h-[32px] shrink-0 items-center">{voiceButton}</div>
+      )}
+
       {/* ── Web Search ── */}
       {webSearchAvailable ? (
         <Popover>
@@ -285,6 +228,7 @@ export function GenerationToolbar({
             <button
               className={cn(
                 webSearch ? pillActive : iconPillCls,
+                'order-3 ml-auto',
                 !webSearch &&
                   'border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60',
               )}
@@ -333,6 +277,7 @@ export function GenerationToolbar({
             <button
               className={cn(
                 iconPillCls,
+                'order-3 ml-auto',
                 'border-border/50 text-muted-foreground/40 cursor-not-allowed',
               )}
               disabled
@@ -345,10 +290,12 @@ export function GenerationToolbar({
       )}
 
       {/* ── Separator ── */}
-      <div className="h-[18px] w-px shrink-0 bg-border/60" />
+      <div className="order-4 h-[18px] w-px shrink-0 bg-border/60" />
 
       {/* ── Media popover ── */}
-      <MediaPopover onSettingsOpen={onSettingsOpen} />
+      <div className="order-5 shrink-0">
+        <MediaPopover onSettingsOpen={onSettingsOpen} />
+      </div>
     </div>
   );
 }

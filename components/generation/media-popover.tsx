@@ -9,6 +9,7 @@ import {
   Mic,
   SlidersHorizontal,
   ChevronRight,
+  Bot,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -57,6 +58,9 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const setTTSEnabled = useSettingsStore((s) => s.setTTSEnabled);
   const setASREnabled = useSettingsStore((s) => s.setASREnabled);
 
+  const currentProviderId = useSettingsStore((s) => s.providerId);
+  const currentModelId = useSettingsStore((s) => s.modelId);
+  const providersConfig = useSettingsStore((s) => s.providersConfig);
   const asrProviderId = useSettingsStore((s) => s.asrProviderId);
   const asrLanguage = useSettingsStore((s) => s.asrLanguage);
   const asrProvidersConfig = useSettingsStore((s) => s.asrProvidersConfig);
@@ -76,6 +80,9 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
     ttsEnabled,
     asrEnabled,
   ].filter(Boolean).length;
+
+  const currentProviderConfig = providersConfig?.[currentProviderId];
+  const currentModel = currentProviderConfig?.models.find((model) => model.id === currentModelId);
 
   const cfgOk = useCallback(
     (
@@ -128,6 +135,15 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
           )}
         >
           <SlidersHorizontal className="size-[14px]" />
+          {currentProviderConfig?.icon ? (
+            <img
+              src={currentProviderConfig.icon}
+              alt=""
+              className="size-[14px] shrink-0 rounded-sm"
+            />
+          ) : (
+            <Bot className="size-[14px] shrink-0" />
+          )}
           {imageGenerationEnabled && <ImageIcon className="size-[14px]" />}
           {videoGenerationEnabled && <Video className="size-[14px]" />}
           {ttsEnabled && <Volume2 className="size-[14px]" />}
@@ -136,6 +152,30 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
       </PopoverTrigger>
 
       <PopoverContent align="start" side="bottom" avoidCollisions={false} className="w-80 p-0">
+        <div className="border-b border-border/40 px-3.5 py-3">
+          <div className="flex items-center gap-2.5 rounded-lg bg-muted/45 px-3 py-2">
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-background shadow-sm">
+              {currentProviderConfig?.icon ? (
+                <img
+                  src={currentProviderConfig.icon}
+                  alt=""
+                  className="size-4 rounded-sm"
+                />
+              ) : (
+                <Bot className="size-4 text-muted-foreground" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">
+                {currentProviderConfig?.name || t('settings.serverManagedModel')}
+              </p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {currentModel?.name || t('settings.serverManagedModel')}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* ── Tab bar (segmented control) ── */}
         <div className="p-2 pb-0">
           <div className="flex gap-0.5 p-0.5 bg-muted/60 rounded-lg">
