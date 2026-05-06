@@ -505,7 +505,7 @@ function HomePage() {
 
             {/* Toolbar row */}
             <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
-              <div className="flex min-w-0 flex-1 items-center">
+              <div className="flex max-w-full shrink-0 items-center">
                 <GenerationToolbar
                   webSearch={form.webSearch}
                   onWebSearchChange={(v) => updateForm('webSearch', v)}
@@ -520,7 +520,7 @@ function HomePage() {
               </div>
 
               {/* Right-side buttons as a single shrink-wrapped group */}
-              <div className="flex h-8 shrink-0 items-center gap-2">
+              <div className="ml-auto flex h-8 shrink-0 items-center gap-2">
                 {/* Interactive mode toggle */}
                 <Tooltip>
                   <TooltipTrigger asChild>
