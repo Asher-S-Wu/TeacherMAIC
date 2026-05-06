@@ -603,7 +603,7 @@ function HomePage() {
           <button
             onClick={triggerFileSelect}
             disabled={importing}
-            className="relative z-10 mt-4 flex items-center gap-1.5 text-sm text-muted-foreground/40 hover:text-foreground/60 transition-colors"
+            className="relative z-0 mt-4 flex items-center gap-1.5 text-sm text-muted-foreground/40 hover:text-foreground/60 transition-colors"
           >
             <Upload className="size-3.5" />
             <span>{t('import.classroom')}</span>
