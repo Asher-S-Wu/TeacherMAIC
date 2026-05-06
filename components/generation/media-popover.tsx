@@ -152,7 +152,7 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
               alt=""
               className="size-[14px] shrink-0 rounded-sm"
             />
-          )}
+          ) : null}
           {imageGenerationEnabled && <ImageIcon className="size-[14px]" />}
           {videoGenerationEnabled && <Video className="size-[14px]" />}
           {ttsEnabled && <Volume2 className="size-[14px]" />}
