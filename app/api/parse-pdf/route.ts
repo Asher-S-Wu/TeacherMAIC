@@ -9,6 +9,7 @@ import { requireCurrentUser } from '@/lib/server/auth';
 import { getFileBufferForUser, saveDataUrlForUser } from '@/lib/server/file-storage';
 import { MAX_PDF_CONTENT_CHARS } from '@/lib/constants/generation';
 const log = createLogger('Parse PDF');
+type ParsedPdfImage = NonNullable<NonNullable<ParsedPdfContent['metadata']>['pdfImages']>[number];
 
 export async function POST(req: NextRequest) {
   let pdfFileName: string | undefined;
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
     // Parse PDF using the provider system
     const result = await parsePDF(config, storedPdf.buffer);
 
-    const rawPdfImages =
+    const rawPdfImages: ParsedPdfImage[] =
       result.metadata?.pdfImages?.length
         ? result.metadata.pdfImages
         : result.images.map((src, index) => ({

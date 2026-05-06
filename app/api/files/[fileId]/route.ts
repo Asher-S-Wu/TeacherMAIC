@@ -17,18 +17,7 @@ export async function GET(
       return NextResponse.json({ error: '文件不存在' }, { status: 404 });
     }
 
-    const webStream = new ReadableStream({
-      start(controller) {
-        result.stream.on('data', (chunk: Buffer | string) => controller.enqueue(chunk));
-        result.stream.on('end', () => controller.close());
-        result.stream.on('error', (err) => controller.error(err));
-      },
-      cancel() {
-        result.stream.destroy();
-      },
-    });
-
-    return new NextResponse(webStream, {
+    return new NextResponse(result.stream, {
       status: 200,
       headers: {
         'Content-Type': result.blob.contentType || result.file.contentType || 'application/octet-stream',
