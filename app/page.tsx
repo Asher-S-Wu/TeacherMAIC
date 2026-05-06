@@ -504,7 +504,7 @@ function HomePage() {
             />
 
             {/* Toolbar row */}
-            <div className="px-3 pb-3 flex items-end gap-2">
+            <div className="px-3 pb-3 flex items-end gap-2 flex-wrap">
               <div className="flex-1 min-w-0">
                 <GenerationToolbar
                   webSearch={form.webSearch}
