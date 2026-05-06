@@ -504,8 +504,8 @@ function HomePage() {
             />
 
             {/* Toolbar row */}
-            <div className="px-3 pb-3 flex items-end gap-2 flex-wrap">
-              <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+              <div className="flex min-w-0 flex-1 items-center">
                 <GenerationToolbar
                   webSearch={form.webSearch}
                   onWebSearchChange={(v) => updateForm('webSearch', v)}
@@ -520,7 +520,7 @@ function HomePage() {
               </div>
 
               {/* Right-side buttons as a single shrink-wrapped group */}
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex h-8 shrink-0 items-center gap-2">
                 {/* Interactive mode toggle */}
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -529,7 +529,7 @@ function HomePage() {
                       transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                       onClick={() => updateForm('interactiveMode', !form.interactiveMode)}
                       className={cn(
-                        'relative inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all cursor-pointer select-none whitespace-nowrap border h-8',
+                        'relative inline-flex h-8 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-medium leading-none transition-all cursor-pointer select-none whitespace-nowrap',
                         form.interactiveMode
                           ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.35)] dark:shadow-[0_0_12px_rgba(6,182,212,0.25)]'
                           : 'border-cyan-300/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20',
@@ -555,6 +555,7 @@ function HomePage() {
                 {/* Voice input */}
                 <SpeechButton
                   size="md"
+                  className="rounded-full"
                   onTranscription={(text) => {
                     setForm((prev) => {
                       const next = prev.requirement + (prev.requirement ? ' ' : '') + text;
@@ -569,13 +570,13 @@ function HomePage() {
                   onClick={handleGenerate}
                   disabled={!canGenerate}
                   className={cn(
-                    'h-8 rounded-lg flex items-center justify-center gap-1.5 transition-all px-3',
+                    'flex h-8 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium leading-none transition-all',
                     canGenerate
                       ? 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm cursor-pointer'
                       : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
                   )}
                 >
-                  <span className="text-sm font-medium">{t('toolbar.enterClassroom')}</span>
+                  <span>{t('toolbar.enterClassroom')}</span>
                   <ArrowUp className="size-4" />
                 </button>
               </div>

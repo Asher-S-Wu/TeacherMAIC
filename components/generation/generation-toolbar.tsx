@@ -70,12 +70,14 @@ export function GenerationToolbar({
 
   // ─── Pill button helper ─────────────────────────────
   const pillCls =
-    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all cursor-pointer select-none whitespace-nowrap border';
+    'inline-flex h-8 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-medium leading-none transition-all cursor-pointer select-none whitespace-nowrap';
+  const iconPillCls =
+    'inline-flex size-8 items-center justify-center rounded-full border text-xs font-medium leading-none transition-all cursor-pointer select-none';
   const pillMuted = `${pillCls} border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60`;
   const pillActive = `${pillCls} border-violet-200/60 dark:border-violet-700/50 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300`;
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex h-8 items-center gap-2">
       {/* ── Server-managed model ── */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -102,7 +104,7 @@ export function GenerationToolbar({
       </Tooltip>
 
       {/* ── Separator ── */}
-      <div className="w-px h-4 bg-border/60 mx-1" />
+      <div className="h-5 w-px bg-border/60" />
 
       {/* ── PDF (parser + upload) combined Popover ── */}
       <Popover>
@@ -123,7 +125,12 @@ export function GenerationToolbar({
               </span>
             </button>
           ) : (
-            <button className={pillMuted}>
+            <button
+              className={cn(
+                iconPillCls,
+                'border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60',
+              )}
+            >
               <Paperclip className="size-3.5" />
             </button>
           )}
@@ -207,7 +214,13 @@ export function GenerationToolbar({
       {webSearchAvailable ? (
         <Popover>
           <PopoverTrigger asChild>
-            <button className={webSearch ? pillActive : pillMuted}>
+            <button
+              className={cn(
+                webSearch ? pillActive : iconPillCls,
+                !webSearch &&
+                  'border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60',
+              )}
+            >
               <Globe2 className={cn('size-3.5', webSearch && 'animate-pulse')} />
               {webSearch && (
                 <span>{WEB_SEARCH_PROVIDERS[webSearchProviderId]?.name || 'Search'}</span>
@@ -250,7 +263,10 @@ export function GenerationToolbar({
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              className={cn(pillCls, 'text-muted-foreground/40 cursor-not-allowed')}
+              className={cn(
+                iconPillCls,
+                'border-border/50 text-muted-foreground/40 cursor-not-allowed',
+              )}
               disabled
             >
               <Globe2 className="size-3.5" />
@@ -261,7 +277,7 @@ export function GenerationToolbar({
       )}
 
       {/* ── Separator ── */}
-      <div className="w-px h-4 bg-border/60 mx-1" />
+      <div className="h-5 w-px bg-border/60" />
 
       {/* ── Media popover ── */}
       <MediaPopover onSettingsOpen={onSettingsOpen} />
