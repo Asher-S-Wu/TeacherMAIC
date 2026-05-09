@@ -33,9 +33,9 @@ async function transcribeWithArkAudioUnderstanding(
 ): Promise<ASRTranscriptionResult> {
   const baseUrl = config.baseUrl || ASR_PROVIDERS['ark-asr'].defaultBaseUrl!;
   const base64Audio =
-    audioBuffer instanceof Buffer
-      ? audioBuffer.toString('base64')
-      : Buffer.from(await audioBuffer.arrayBuffer()).toString('base64');
+    audioBuffer instanceof Blob
+      ? Buffer.from(await audioBuffer.arrayBuffer()).toString('base64')
+      : audioBuffer.toString('base64');
   const languageHint =
     config.language && config.language !== 'auto'
       ? `识别语言提示：${config.language}。`
