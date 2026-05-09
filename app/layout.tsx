@@ -1,7 +1,5 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
-import { GeistSans } from 'geist/font/sans';
-import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import 'animate.css';
 import 'katex/dist/katex.min.css';
@@ -15,6 +13,7 @@ const inter = localFont({
   src: '../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2',
   variable: '--font-sans',
   weight: '100 900',
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -43,7 +42,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className={inter.variable} suppressHydrationWarning>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
+        className="antialiased"
         suppressHydrationWarning
       >
         <ThemeProvider>
