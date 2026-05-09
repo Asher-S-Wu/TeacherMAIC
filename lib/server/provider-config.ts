@@ -17,6 +17,7 @@ interface ServerProviderEntry {
   apiKey: string;
   baseUrl?: string;
   models?: string[];
+  resourceId?: string;
 }
 
 interface ServerConfig {
@@ -34,6 +35,8 @@ interface ServerConfig {
 // ---------------------------------------------------------------------------
 
 const ARK_API_KEY_ENV = 'ARK_API_KEY';
+const VOLCENGINE_TTS_API_KEY_ENV = 'VOLCENGINE_TTS_API_KEY';
+const VOLCENGINE_TTS_RESOURCE_ID_ENV = 'VOLCENGINE_TTS_RESOURCE_ID';
 
 const PDF_ENV_MAP: Record<string, string> = {
   PDF_MINERU_CLOUD: 'mineru-cloud',
@@ -68,6 +71,12 @@ function loadArkOnlySection(providerId: string): Record<string, ServerProviderEn
   return apiKey ? { [providerId]: { apiKey } } : {};
 }
 
+function loadDoubaoSpeechSection(providerId: string): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[VOLCENGINE_TTS_API_KEY_ENV] || undefined;
+  const resourceId = process.env[VOLCENGINE_TTS_RESOURCE_ID_ENV] || 'seed-tts-2.0';
+  return apiKey ? { [providerId]: { apiKey, resourceId } } : {};
+}
+
 // ---------------------------------------------------------------------------
 // Module-level cache (process singleton)
 // ---------------------------------------------------------------------------
@@ -77,7 +86,7 @@ let _config: ServerConfig | null = null;
 function buildConfig(): ServerConfig {
   return {
     providers: loadLLMEnvSection(),
-    tts: loadArkOnlySection('ark-tts'),
+    tts: loadDoubaoSpeechSection('ark-tts'),
     asr: loadArkOnlySection('ark-asr'),
     pdf: loadEnvSection(PDF_ENV_MAP),
     image: loadArkOnlySection('ark-image'),
@@ -151,6 +160,10 @@ export function getServerTTSProviders(): Record<string, { baseUrl?: string }> {
 
 export function resolveTTSApiKey(providerId: string): string {
   return getConfig().tts[providerId]?.apiKey || '';
+}
+
+export function resolveTTSResourceId(providerId: string): string | undefined {
+  return getConfig().tts[providerId]?.resourceId;
 }
 
 export function resolveTTSBaseUrl(_providerId: string, _clientBaseUrl?: string): string | undefined {

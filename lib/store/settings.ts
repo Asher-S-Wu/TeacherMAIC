@@ -16,6 +16,7 @@ import {
   ARK_TTS_MODEL_ID,
   ASR_PROVIDERS,
   DEFAULT_TTS_VOICES,
+  TTS_PROVIDERS,
 } from '@/lib/audio/constants';
 import { ARK_IMAGE_MODEL_ID, ARK_VIDEO_MODEL_ID } from '@/lib/ai/ark-models';
 import type { PDFProviderId } from '@/lib/pdf/types';
@@ -78,6 +79,11 @@ function pruneThinkingConfigs(
   return Object.fromEntries(
     Object.entries(thinkingConfigs).filter(([key]) => validKeys.has(key)),
   ) as Record<string, ThinkingConfig>;
+}
+
+function isValidTTSVoice(providerId: TTSProviderId, voice: string | undefined): voice is string {
+  if (!voice) return false;
+  return TTS_PROVIDERS[providerId]?.voices.some((item) => item.id === voice) ?? false;
 }
 
 /** Available playback speed tiers */
@@ -479,15 +485,22 @@ export const useSettingsStore = create<SettingsState>()(
         // Audio actions
         setTTSProvider: (providerId) =>
           set((state) => {
-            const shouldUpdateVoice = state.ttsProviderId !== providerId;
             const defaultVoice = DEFAULT_TTS_VOICES[providerId as BuiltInTTSProviderId];
+            const voice = isValidTTSVoice(providerId, state.ttsVoice)
+              ? state.ttsVoice
+              : defaultVoice;
             return {
               ttsProviderId: providerId,
-              ...(shouldUpdateVoice && { ttsVoice: defaultVoice }),
+              ttsVoice: voice,
             };
           }),
 
-        setTTSVoice: (voice) => set({ ttsVoice: voice }),
+        setTTSVoice: (voice) =>
+          set((state) => ({
+            ttsVoice: isValidTTSVoice(state.ttsProviderId, voice)
+              ? voice
+              : DEFAULT_TTS_VOICES[state.ttsProviderId as BuiltInTTSProviderId],
+          })),
 
         setTTSSpeed: (speed) => set({ ttsSpeed: speed }),
 
@@ -736,6 +749,11 @@ export const useSettingsStore = create<SettingsState>()(
                 state.imageGenerationEnabled && !!newImageConfig['ark-image'].isServerConfigured;
               const videoGenerationEnabled =
                 state.videoGenerationEnabled && !!newVideoConfig['ark-video'].isServerConfigured;
+              const ttsVoice = isValidTTSVoice('ark-tts', state.ttsVoice)
+                ? state.ttsVoice
+                : DEFAULT_TTS_VOICES['ark-tts'];
+              const ttsEnabled =
+                state.ttsEnabled && !!newTTSConfig['ark-tts'].isServerConfigured;
 
               return {
                 providersConfig: newProvidersConfig,
@@ -748,6 +766,8 @@ export const useSettingsStore = create<SettingsState>()(
                 providerId: DEFAULT_PROVIDER_ID,
                 modelId: DEFAULT_MODEL_ID,
                 ttsProviderId: 'ark-tts' as TTSProviderId,
+                ttsVoice,
+                ttsEnabled,
                 asrProviderId: 'ark-asr' as ASRProviderId,
                 pdfProviderId: 'mineru-cloud' as PDFProviderId,
                 imageProviderId: 'ark-image' as ImageProviderId,
@@ -777,6 +797,9 @@ export const useSettingsStore = create<SettingsState>()(
           persisted.thinkingConfigs,
           currentState.providersConfig,
         );
+        const ttsVoice = isValidTTSVoice('ark-tts', persisted.ttsVoice)
+          ? persisted.ttsVoice
+          : DEFAULT_TTS_VOICES['ark-tts'];
         return {
           ...merged,
           providersConfig: currentState.providersConfig,
@@ -789,6 +812,7 @@ export const useSettingsStore = create<SettingsState>()(
           providerId: DEFAULT_PROVIDER_ID,
           modelId: DEFAULT_MODEL_ID,
           ttsProviderId: 'ark-tts' as TTSProviderId,
+          ttsVoice,
           asrProviderId: 'ark-asr' as ASRProviderId,
           pdfProviderId: currentState.pdfProviderId,
           imageProviderId: 'ark-image' as ImageProviderId,

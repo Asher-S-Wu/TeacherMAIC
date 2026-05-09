@@ -18,7 +18,7 @@
     "addAttachment": "继续添加文件",
     "webSearchOn": "已开启",
     "webSearchOff": "点击开启",
-    "webSearchDesc": "生成前搜索网络获取最新资料，让内容更丰富准确",
+    "webSearchDesc": "生成前智能判断是否需要联网获取资料，让内容更准确",
     "webSearchProvider": "搜索引擎",
     "webSearchNoProvider": "联网搜索暂时不可用，请稍后再试",
     "selectProvider": "选择模型服务商",
@@ -365,7 +365,7 @@
     "outlineEmptyResponse": "模型未返回有效的大纲内容，请检查模型配置后重试",
     "outlineGenerateFailed": "大纲生成失败，请稍后重试",
     "webSearching": "网络搜索",
-    "webSearchingDesc": "正在搜索网络获取最新资料",
+    "webSearchingDesc": "正在判断是否需要联网获取资料",
     "webSearchFailed": "网络搜索失败"
   },
   "settings": {
@@ -550,7 +550,7 @@
     "asrApiKey": "服务状态",
     "enterApiKey": "无需输入",
     "enterCustomBaseUrl": "输入自定义 Base URL",
-    "providerArkTTS": "火山方舟语音合成",
+    "providerArkTTS": "豆包语音合成",
     "providerArkASR": "火山方舟语音识别",
     "providerMinerUCloud": "MinerU（云端）",
     "testTTS": "测试 TTS",

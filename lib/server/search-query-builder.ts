@@ -11,6 +11,18 @@ interface SearchQueryRewriteResponse {
   query: string;
 }
 
+interface WebSearchDecisionResponse {
+  shouldSearch: boolean;
+  reason?: string;
+}
+
+export interface WebSearchDecisionResult {
+  shouldSearch: boolean;
+  reason: string;
+  rawRequirementLength: number;
+  hasPdfContext: boolean;
+}
+
 export interface SearchQueryBuildResult {
   query: string;
   rewriteAttempted: boolean;
@@ -36,6 +48,42 @@ function shouldRewriteSearchQuery(
   normalizedPdfExcerpt: string,
 ): boolean {
   return normalizedRequirement.length > 400 || Boolean(normalizedPdfExcerpt);
+}
+
+export async function decideWebSearch(
+  requirement: string,
+  pdfText: string | undefined,
+  aiCall: AICallFn,
+): Promise<WebSearchDecisionResult> {
+  const normalizedRequirement = normalizeSearchRequirement(requirement);
+  const pdfExcerpt = normalizePdfExcerpt(pdfText);
+  const prompts = buildPrompt(PROMPT_IDS.WEB_SEARCH_DECISION, {
+    requirement: normalizedRequirement,
+    pdfExcerpt: pdfExcerpt || 'None',
+  });
+
+  if (!prompts) {
+    throw new Error('联网搜索判断提示词不存在');
+  }
+
+  try {
+    const response = await aiCall(prompts.system, prompts.user);
+    const parsed = parseJsonResponse<WebSearchDecisionResponse>(response);
+
+    if (typeof parsed?.shouldSearch !== 'boolean') {
+      throw new Error('联网搜索判断结果格式不正确');
+    }
+
+    return {
+      shouldSearch: parsed.shouldSearch,
+      reason: normalizeSearchRequirement(parsed.reason || ''),
+      rawRequirementLength: normalizedRequirement.length,
+      hasPdfContext: Boolean(pdfExcerpt),
+    };
+  } catch (error) {
+    log.warn('Web search decision failed:', error);
+    throw new Error('联网搜索智能判断失败');
+  }
 }
 
 export async function buildSearchQuery(

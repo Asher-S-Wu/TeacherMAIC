@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       : '';
 
     const voiceJsonField = voiceListStr
-      ? ',\n      "voice": "string (voice id from available list, e.g. \'ark-tts::zh_female_kailangjiejie_moon_bigtts\')"'
+      ? ',\n      "voice": "string (voice id from available list, e.g. \'ark-tts::zh_female_vv_uranus_bigtts\')"'
       : '';
 
     const userPrompt = `Generate agent profiles for the following course:

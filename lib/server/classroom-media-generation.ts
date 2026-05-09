@@ -23,6 +23,7 @@ import {
   resolveImageApiKey,
   resolveVideoApiKey,
   resolveTTSApiKey,
+  resolveTTSResourceId,
 } from '@/lib/server/provider-config';
 import type { SceneOutline } from '@/lib/types/generation';
 import type { Scene } from '@/lib/types/stage';
@@ -36,6 +37,12 @@ const log = createLogger('ClassroomMedia');
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function audioMimeType(format: string): string {
+  if (format === 'mp3') return 'audio/mpeg';
+  if (format === 'ogg_opus') return 'audio/ogg';
+  return `audio/${format}`;
+}
 
 // ---------------------------------------------------------------------------
 // Image / Video generation
@@ -239,6 +246,7 @@ export async function generateTTSForClassroom(
         {
           providerId,
           modelId: DEFAULT_TTS_MODELS[providerId as keyof typeof DEFAULT_TTS_MODELS] || '',
+          resourceId: resolveTTSResourceId(providerId),
           apiKey,
           voice,
           speed: speechAction.speed,
@@ -252,7 +260,7 @@ export async function generateTTSForClassroom(
         userId,
         audioBuffer,
         filename,
-        `audio/${result.format || format}`,
+        audioMimeType(result.format || format),
         'audio',
         {
           classroomId,

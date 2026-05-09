@@ -17,7 +17,7 @@ import {
 
 export { ARK_TTS_MODEL_ID, ARK_TTS_MODEL_NAME };
 export const ARK_ASR_MODEL_ID = ARK_LLM_MODEL_ID;
-const ARK_TTS_BASE_URL = 'https://ai-gateway.vei.volces.com/v1';
+const ARK_TTS_BASE_URL = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
 
 export const ARK_ASR_LANGUAGES = [
   'auto',
@@ -43,52 +43,59 @@ export const ARK_ASR_LANGUAGES = [
 
 export const ARK_TTS_VOICES: TTSVoiceInfo[] = [
   {
-    id: 'zh_female_kailangjiejie_moon_bigtts',
-    name: '开朗姐姐',
+    id: 'zh_female_vv_uranus_bigtts',
+    name: 'vivi 2.0',
     language: 'zh-CN',
     gender: 'female',
-    description: 'arkVoiceKailangJiejie',
   },
   {
-    id: 'zh_male_jingqiangkanye_moon_bigtts',
-    name: '京腔侃爷',
+    id: 'zh_male_dayi_saturn_bigtts',
+    name: '大壹',
     language: 'zh-CN',
     gender: 'male',
-    description: 'arkVoiceJingqiangKanye',
   },
   {
-    id: 'zh_female_wanqudashu_moon_bigtts',
-    name: '湾区大叔',
-    language: 'zh-CN',
-    gender: 'male',
-    description: 'arkVoiceWanquDashu',
-  },
-  {
-    id: 'BV700_V2_streaming',
-    name: '灿灿 2.0',
+    id: 'zh_female_mizai_saturn_bigtts',
+    name: '黑猫侦探社咪仔',
     language: 'zh-CN',
     gender: 'female',
-    description: 'arkVoiceCancan',
   },
   {
-    id: 'BV701_V2_streaming',
-    name: '擎苍 2.0',
+    id: 'zh_female_jitangnv_saturn_bigtts',
+    name: '鸡汤女',
+    language: 'zh-CN',
+    gender: 'female',
+  },
+  {
+    id: 'zh_female_meilinvyou_saturn_bigtts',
+    name: '魅力女友',
+    language: 'zh-CN',
+    gender: 'female',
+  },
+  {
+    id: 'zh_female_santongyongns_saturn_bigtts',
+    name: '流畅女声',
+    language: 'zh-CN',
+    gender: 'female',
+  },
+  {
+    id: 'zh_male_ruyayichen_saturn_bigtts',
+    name: '儒雅逸辰',
     language: 'zh-CN',
     gender: 'male',
-    description: 'arkVoiceQingcang',
   },
 ];
 
 export const TTS_PROVIDERS: Record<BuiltInTTSProviderId, TTSProviderConfig> = {
   'ark-tts': {
     id: 'ark-tts',
-    name: '火山方舟语音合成',
+    name: '豆包语音合成',
     requiresApiKey: true,
     defaultBaseUrl: ARK_TTS_BASE_URL,
     models: [{ id: ARK_TTS_MODEL_ID, name: ARK_TTS_MODEL_NAME }],
     defaultModelId: ARK_TTS_MODEL_ID,
     voices: ARK_TTS_VOICES,
-    supportedFormats: ['mp3', 'wav', 'pcm'],
+    supportedFormats: ['mp3', 'pcm', 'ogg_opus'],
     speedRange: {
       min: 0.5,
       max: 2,
@@ -111,7 +118,7 @@ export const ASR_PROVIDERS: Record<BuiltInASRProviderId, ASRProviderConfig> = {
 };
 
 export const DEFAULT_TTS_VOICES: Record<BuiltInTTSProviderId, string> = {
-  'ark-tts': 'zh_female_kailangjiejie_moon_bigtts',
+  'ark-tts': 'zh_female_vv_uranus_bigtts',
 };
 
 export const DEFAULT_TTS_MODELS: Record<BuiltInTTSProviderId, string> = {

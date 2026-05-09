@@ -13,6 +13,7 @@ import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   buildSearchQuery,
+  decideWebSearch,
   SEARCH_QUERY_REWRITE_EXCERPT_LENGTH,
 } from '@/lib/server/search-query-builder';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     const boundedPdfText = pdfText?.slice(0, SEARCH_QUERY_REWRITE_EXCERPT_LENGTH);
 
     const { model: languageModel, thinkingConfig } = await resolveModelFromRequest(req, body);
-    const aiCall: AICallFn = async (systemPrompt, userPrompt) => {
+    const createAiCall = (operation: string): AICallFn => async (systemPrompt, userPrompt) => {
       const result = await callLLM(
         {
           model: languageModel,
@@ -60,16 +61,37 @@ export async function POST(req: NextRequest) {
           ],
           maxOutputTokens: 256,
         },
-        'web-search-query-rewrite',
+        operation,
         undefined,
         thinkingConfig,
       );
       return result.text;
     };
+    const decisionAiCall = createAiCall('web-search-decision');
+    const rewriteAiCall = createAiCall('web-search-query-rewrite');
 
-    const searchQuery = await buildSearchQuery(query, boundedPdfText, aiCall);
+    const decision = await decideWebSearch(query, boundedPdfText, decisionAiCall);
+    if (!decision.shouldSearch) {
+      log.info('Skipping web search after smart decision', {
+        reason: decision.reason,
+        hasPdfContext: decision.hasPdfContext,
+        rawRequirementLength: decision.rawRequirementLength,
+      });
+      return apiSuccess({
+        answer: '',
+        sources: [],
+        context: '',
+        query,
+        responseTime: 0,
+        skipped: true,
+        reason: decision.reason,
+      });
+    }
+
+    const searchQuery = await buildSearchQuery(query, boundedPdfText, rewriteAiCall);
 
     log.info('Running web search API request', {
+      decisionReason: decision.reason,
       hasPdfContext: searchQuery.hasPdfContext,
       rawRequirementLength: searchQuery.rawRequirementLength,
       rewriteAttempted: searchQuery.rewriteAttempted,

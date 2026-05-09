@@ -9,15 +9,24 @@
 
 import { NextRequest } from 'next/server';
 import { generateTTS } from '@/lib/audio/tts-providers';
-import { resolveTTSApiKey } from '@/lib/server/provider-config';
+import {
+  resolveTTSApiKey,
+  resolveTTSResourceId,
+} from '@/lib/server/provider-config';
 import type { TTSProviderId } from '@/lib/audio/types';
-import { ARK_TTS_MODEL_ID } from '@/lib/audio/constants';
+import { ARK_TTS_MODEL_ID, TTS_PROVIDERS } from '@/lib/audio/constants';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
 import { saveBufferForUser } from '@/lib/server/file-storage';
 
 const log = createLogger('TTS API');
+
+function audioMimeType(format: string): string {
+  if (format === 'mp3') return 'audio/mpeg';
+  if (format === 'ogg_opus') return 'audio/ogg';
+  return `audio/${format}`;
+}
 
 export async function POST(req: NextRequest) {
   let ttsVoice: string | undefined;
@@ -45,11 +54,26 @@ export async function POST(req: NextRequest) {
 
     const effectiveProviderId: TTSProviderId = 'ark-tts';
     const apiKey = resolveTTSApiKey(effectiveProviderId);
+    if (!apiKey) {
+      return apiError(
+        'MISSING_API_KEY',
+        401,
+        '语音生成暂时不可用，请稍后再试。',
+      );
+    }
+
+    const validVoiceIds = new Set(
+      TTS_PROVIDERS[effectiveProviderId].voices.map((voice) => voice.id),
+    );
+    if (!validVoiceIds.has(ttsVoice)) {
+      return apiError('INVALID_REQUEST', 400, '当前语音角色不可用，请重新选择语音。');
+    }
 
     // Build TTS config
     const config = {
       providerId: effectiveProviderId,
       modelId: ARK_TTS_MODEL_ID,
+      resourceId: resolveTTSResourceId(effectiveProviderId),
       voice: ttsVoice,
       speed: ttsSpeed ?? 1.0,
       apiKey,
@@ -66,7 +90,7 @@ export async function POST(req: NextRequest) {
       user._id,
       Buffer.from(audio),
       `${audioId}.${format}`,
-      `audio/${format}`,
+      audioMimeType(format),
       'audio',
       { audioId },
     );

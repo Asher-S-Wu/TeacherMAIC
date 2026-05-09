@@ -1,7 +1,7 @@
 /**
  * Audio Provider Type Definitions
  *
- * TTS and ASR are limited to Volcengine Ark models.
+ * TTS uses Doubao Speech; ASR uses Volcengine Ark audio understanding.
  */
 
 export type BuiltInTTSProviderId = 'ark-tts';
@@ -37,6 +37,7 @@ export interface TTSProviderConfig {
 export interface TTSModelConfig {
   providerId: TTSProviderId;
   modelId?: string;
+  resourceId?: string;
   apiKey?: string;
   baseUrl?: string;
   voice: string;

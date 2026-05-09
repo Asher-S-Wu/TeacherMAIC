@@ -15,7 +15,7 @@ import { createLogger } from '@/lib/logger';
 import { isProviderKeyRequired } from '@/lib/ai/providers';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { resolveModel } from '@/lib/server/resolve-model';
-import { buildSearchQuery } from '@/lib/server/search-query-builder';
+import { buildSearchQuery, decideWebSearch } from '@/lib/server/search-query-builder';
 import { searchWithArk, formatSearchResultsAsContext } from '@/lib/web-search/ark';
 import { persistClassroom } from '@/lib/server/classroom-storage';
 import {
@@ -203,7 +203,11 @@ export async function generateClassroom(
     return result.text;
   };
 
-  const searchQueryAiCall: AICallFn = async (systemPrompt, userPrompt, _images) => {
+  const createSearchAiCall = (operation: string): AICallFn => async (
+    systemPrompt,
+    userPrompt,
+    _images,
+  ) => {
     const result = await callLLM(
       {
         model: languageModel,
@@ -213,10 +217,12 @@ export async function generateClassroom(
         ],
         maxOutputTokens: 256,
       },
-      'web-search-query-rewrite',
+      operation,
     );
     return result.text;
   };
+  const searchDecisionAiCall = createSearchAiCall('web-search-decision');
+  const searchQueryAiCall = createSearchAiCall('web-search-query-rewrite');
 
   const requirements: UserRequirements = {
     requirement,
@@ -237,22 +243,32 @@ export async function generateClassroom(
     if (!arkSearchKey) {
       throw new Error('已开启联网搜索，但火山方舟 API Key 未配置，请在 Vercel 配置 ARK_API_KEY');
     }
-    const searchQuery = await buildSearchQuery(requirement, pdfText, searchQueryAiCall);
+    const searchDecision = await decideWebSearch(requirement, pdfText, searchDecisionAiCall);
+    if (!searchDecision.shouldSearch) {
+      log.info('Skipping web search after smart decision', {
+        reason: searchDecision.reason,
+        hasPdfContext: searchDecision.hasPdfContext,
+        rawRequirementLength: searchDecision.rawRequirementLength,
+      });
+    } else {
+      const searchQuery = await buildSearchQuery(requirement, pdfText, searchQueryAiCall);
 
-    log.info('Running web search for classroom generation', {
-      hasPdfContext: searchQuery.hasPdfContext,
-      rawRequirementLength: searchQuery.rawRequirementLength,
-      rewriteAttempted: searchQuery.rewriteAttempted,
-      finalQueryLength: searchQuery.finalQueryLength,
-    });
+      log.info('Running web search for classroom generation', {
+        decisionReason: searchDecision.reason,
+        hasPdfContext: searchQuery.hasPdfContext,
+        rawRequirementLength: searchQuery.rawRequirementLength,
+        rewriteAttempted: searchQuery.rewriteAttempted,
+        finalQueryLength: searchQuery.finalQueryLength,
+      });
 
-    const searchResult = await searchWithArk({
-      query: searchQuery.query,
-      apiKey: arkSearchKey,
-    });
-    researchContext = formatSearchResultsAsContext(searchResult);
-    if (researchContext) {
-      log.info(`Web search returned ${searchResult.sources.length} sources`);
+      const searchResult = await searchWithArk({
+        query: searchQuery.query,
+        apiKey: arkSearchKey,
+      });
+      researchContext = formatSearchResultsAsContext(searchResult);
+      if (researchContext) {
+        log.info(`Web search returned ${searchResult.sources.length} sources`);
+      }
     }
   }
 

@@ -1,5 +1,6 @@
 import type { TTSModelConfig } from './types';
 import { ARK_TTS_MODEL_ID, TTS_PROVIDERS } from './constants';
+import { randomUUID } from 'crypto';
 
 export interface TTSGenerationResult {
   audio: Uint8Array;
@@ -11,57 +12,76 @@ export async function generateTTS(
   text: string,
 ): Promise<TTSGenerationResult> {
   if (!config.apiKey) {
-    throw new Error('API key required for 火山方舟语音合成. Set ARK_API_KEY in Vercel.');
+    throw new Error(
+      'API Key required for 豆包语音合成. Set VOLCENGINE_TTS_API_KEY in Vercel.',
+    );
   }
-  return generateArkTTS(config, text);
+  return generateDoubaoSpeechTTS(config, text);
 }
 
-async function generateArkTTS(
+async function generateDoubaoSpeechTTS(
   config: TTSModelConfig,
   text: string,
 ): Promise<TTSGenerationResult> {
-  const baseUrl = config.baseUrl || TTS_PROVIDERS['ark-tts'].defaultBaseUrl!;
-  const format = config.format || 'wav';
+  const endpoint = config.baseUrl || TTS_PROVIDERS['ark-tts'].defaultBaseUrl!;
+  const format = config.format || 'mp3';
+  const speechRate = Math.max(-50, Math.min(100, Math.round(((config.speed || 1) - 1) * 100)));
 
-  const response = await fetch(`${baseUrl}/audio/speech`, {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
+      'X-Api-Key': config.apiKey!,
+      'X-Api-Resource-Id': config.resourceId || config.modelId || ARK_TTS_MODEL_ID,
+      'X-Api-Request-Id': randomUUID(),
     },
     body: JSON.stringify({
-      model: config.modelId || ARK_TTS_MODEL_ID,
-      input: text,
-      voice: config.voice,
-      response_format: format,
-      speed: config.speed || 1,
+      user: { uid: 'teachermaic' },
+      req_params: {
+        text,
+        speaker: config.voice,
+        audio_params: {
+          format,
+          sample_rate: 24000,
+          speech_rate: speechRate,
+        },
+      },
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => response.statusText);
-    throw new Error(`火山方舟语音合成失败（${response.status}）：${errorText}`);
+    throw new Error(`豆包语音合成失败（${response.status}）：${errorText}`);
   }
 
-  const contentType = response.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    const data = await response.json();
-    const audioUrl = data.url || data.audio?.url || data.data?.[0]?.url;
-    if (!audioUrl) {
-      throw new Error(`火山方舟语音合成没有返回音频：${JSON.stringify(data)}`);
+  const bodyText = await response.text();
+  const audioChunks: Buffer[] = [];
+
+  for (const line of bodyText.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    let data: { code?: number; message?: string; data?: string };
+    try {
+      data = JSON.parse(trimmed) as { code?: number; message?: string; data?: string };
+    } catch {
+      throw new Error(`豆包语音合成返回了无法解析的数据：${trimmed.slice(0, 200)}`);
     }
-    const audioResponse = await fetch(audioUrl);
-    if (!audioResponse.ok) {
-      throw new Error(`下载火山方舟语音失败：${audioResponse.statusText}`);
+
+    if (data.code && data.code !== 0 && data.code !== 20000000) {
+      throw new Error(`豆包语音合成失败（${data.code}）：${data.message || '未知错误'}`);
     }
-    return {
-      audio: new Uint8Array(await audioResponse.arrayBuffer()),
-      format,
-    };
+    if (data.data) {
+      audioChunks.push(Buffer.from(data.data, 'base64'));
+    }
+  }
+
+  if (audioChunks.length === 0) {
+    throw new Error(`豆包语音合成没有返回音频：${bodyText.slice(0, 500)}`);
   }
 
   return {
-    audio: new Uint8Array(await response.arrayBuffer()),
+    audio: new Uint8Array(Buffer.concat(audioChunks)),
     format,
   };
 }
