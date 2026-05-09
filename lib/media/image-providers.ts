@@ -1,7 +1,3 @@
-/**
- * Image Generation Service -- Qwen Image only.
- */
-
 import type {
   ImageProviderId,
   ImageGenerationConfig,
@@ -9,16 +5,16 @@ import type {
   ImageGenerationResult,
   ImageProviderConfig,
 } from './types';
-import { generateWithQwenImage } from './adapters/qwen-image-adapter';
+import { ARK_IMAGE_MODEL_ID, ARK_IMAGE_MODEL_NAME, ARK_BASE_URL } from '@/lib/ai/ark-models';
+import { generateWithArkImage } from './adapters/ark-image-adapter';
 
 export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
-  'qwen-image': {
-    id: 'qwen-image',
-    name: 'Qwen Image',
+  'ark-image': {
+    id: 'ark-image',
+    name: '火山方舟图片生成',
     requiresApiKey: true,
-    defaultBaseUrl: 'https://dashscope-intl.aliyuncs.com',
-    icon: '/logos/bailian.svg',
-    models: [{ id: 'qwen-image-2.0-pro', name: 'Qwen Image 2.0 Pro' }],
+    defaultBaseUrl: ARK_BASE_URL,
+    models: [{ id: ARK_IMAGE_MODEL_ID, name: ARK_IMAGE_MODEL_NAME }],
     supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16', '3:4'],
   },
 };
@@ -27,14 +23,15 @@ export async function generateImage(
   config: ImageGenerationConfig,
   options: ImageGenerationOptions,
 ): Promise<ImageGenerationResult> {
-  return generateWithQwenImage(config, options);
+  return generateWithArkImage(config, options);
 }
 
 export function aspectRatioToDimensions(
   ratio: string,
-  maxWidth = 1024,
+  maxSide = 2048,
 ): { width: number; height: number } {
   const [w, h] = ratio.split(':').map(Number);
-  if (!w || !h) return { width: maxWidth, height: Math.round((maxWidth * 9) / 16) };
-  return { width: maxWidth, height: Math.round((maxWidth * h) / w) };
+  if (!w || !h) return { width: maxSide, height: Math.round((maxSide * 9) / 16) };
+  if (w >= h) return { width: maxSide, height: Math.round((maxSide * h) / w) };
+  return { width: Math.round((maxSide * w) / h), height: maxSide };
 }

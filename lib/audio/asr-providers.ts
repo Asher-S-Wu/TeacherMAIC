@@ -1,12 +1,20 @@
-/**
- * Qwen ASR provider implementation.
- */
-
 import type { ASRModelConfig } from './types';
-import { ASR_PROVIDERS, QWEN_ASR_MODEL_ID } from './constants';
+import { ARK_ASR_MODEL_ID, ASR_PROVIDERS } from './constants';
 
 export interface ASRTranscriptionResult {
   text: string;
+}
+
+interface ArkChatResponse {
+  choices?: Array<{
+    message?: {
+      content?: string | Array<{ text?: string; type?: string }>;
+    };
+  }>;
+  error?: {
+    code?: string;
+    message?: string;
+  };
 }
 
 export async function transcribeAudio(
@@ -14,76 +22,77 @@ export async function transcribeAudio(
   audioBuffer: Buffer | Blob,
 ): Promise<ASRTranscriptionResult> {
   if (!config.apiKey) {
-    throw new Error('API key required for Qwen ASR. Set QWEN_API_KEY in Vercel.');
+    throw new Error('API key required for 火山方舟语音识别. Set ARK_API_KEY in Vercel.');
   }
-  return transcribeQwenASR(config, audioBuffer);
+  return transcribeWithArkAudioUnderstanding(config, audioBuffer);
 }
 
-async function transcribeQwenASR(
+async function transcribeWithArkAudioUnderstanding(
   config: ASRModelConfig,
   audioBuffer: Buffer | Blob,
 ): Promise<ASRTranscriptionResult> {
-  const baseUrl = ASR_PROVIDERS['qwen-asr'].defaultBaseUrl!;
+  const baseUrl = config.baseUrl || ASR_PROVIDERS['ark-asr'].defaultBaseUrl!;
+  const base64Audio =
+    audioBuffer instanceof Buffer
+      ? audioBuffer.toString('base64')
+      : Buffer.from(await audioBuffer.arrayBuffer()).toString('base64');
+  const languageHint =
+    config.language && config.language !== 'auto'
+      ? `识别语言提示：${config.language}。`
+      : '自动判断音频语言。';
 
-  let base64Audio: string;
-  if (audioBuffer instanceof Buffer) {
-    base64Audio = audioBuffer.toString('base64');
-  } else if (audioBuffer instanceof Blob) {
-    const arrayBuffer = await audioBuffer.arrayBuffer();
-    base64Audio = Buffer.from(arrayBuffer).toString('base64');
-  } else {
-    throw new Error('Invalid audio buffer type');
-  }
-
-  const requestBody: Record<string, unknown> = {
-    model: QWEN_ASR_MODEL_ID,
-    input: {
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: config.modelId || ARK_ASR_MODEL_ID,
       messages: [
         {
           role: 'user',
           content: [
             {
-              audio: `data:audio/wav;base64,${base64Audio}`,
+              type: 'text',
+              text: `请把这段音频完整转写成纯文本。${languageHint}只输出转写内容，不要解释。`,
+            },
+            {
+              type: 'input_audio',
+              input_audio: {
+                data: base64Audio,
+                format: 'audio/wav',
+              },
             },
           ],
         },
       ],
-    },
-  };
-
-  if (config.language && config.language !== 'auto') {
-    requestBody.parameters = {
-      asr_options: {
-        language: config.language,
-      },
-    };
-  }
-
-  const response = await fetch(`${baseUrl}/services/aigc/multimodal-generation/generation`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-      'Content-Type': 'application/json; charset=utf-8',
-      'X-DashScope-Audio-Format': 'wav',
-    },
-    body: JSON.stringify(requestBody),
+    }),
   });
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => response.statusText);
-    if (errorText.includes('audio is empty') || errorText.includes('InvalidParameter')) {
-      return { text: '' };
-    }
-    throw new Error(`Qwen ASR API error: ${errorText}`);
+    throw new Error(`火山方舟语音识别失败（${response.status}）：${errorText}`);
   }
 
-  const data = await response.json();
-  const messageContent = data.output?.choices?.[0]?.message?.content;
-  if (!Array.isArray(messageContent) || messageContent.length === 0) {
-    return { text: '' };
+  const data = (await response.json()) as ArkChatResponse;
+  if (data.error) {
+    throw new Error(`火山方舟语音识别失败：${data.error.message || data.error.code || '未知错误'}`);
   }
 
-  return { text: messageContent[0]?.text || '' };
+  const content = data.choices?.[0]?.message?.content;
+  if (typeof content === 'string') {
+    return { text: content.trim() };
+  }
+  if (Array.isArray(content)) {
+    const text = content
+      .map((item) => item.text || '')
+      .join('')
+      .trim();
+    if (text) return { text };
+  }
+
+  throw new Error('火山方舟语音识别没有返回转写文字');
 }
 
 export async function getCurrentASRConfig(): Promise<ASRModelConfig> {
@@ -95,8 +104,8 @@ export async function getCurrentASRConfig(): Promise<ASRModelConfig> {
   const { asrLanguage } = useSettingsStore.getState();
 
   return {
-    providerId: 'qwen-asr',
-    modelId: QWEN_ASR_MODEL_ID,
+    providerId: 'ark-asr',
+    modelId: ARK_ASR_MODEL_ID,
     language: asrLanguage,
   };
 }

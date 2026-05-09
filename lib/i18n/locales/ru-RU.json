@@ -430,9 +430,9 @@
     "close": "Закрыть",
     "save": "Сохранить",
     "providers": "LLM",
-    "addProviderDescription": "Провайдер языковой модели зафиксирован на Qwen",
+    "addProviderDescription": "Провайдер языковой модели зафиксирован на Volcengine Ark",
     "providerNames": {
-      "qwen": "Qwen"
+      "ark": "Volcengine Ark"
     },
     "providerTypes": {
       "openai": "Протокол OpenAI"
@@ -543,8 +543,8 @@
     "asrApiKey": "Статус сервиса",
     "enterApiKey": "Ввод не требуется",
     "enterCustomBaseUrl": "Введите адрес подключения",
-    "providerQwenTTS": "Qwen TTS (Alibaba Cloud Bailian)",
-    "providerQwenASR": "Qwen ASR (Alibaba Cloud Bailian)",
+    "providerArkTTS": "Volcengine Ark TTS",
+    "providerArkASR": "Volcengine Ark ASR",
     "providerMinerUCloud": "MinerU (Облако)",
     "testTTS": "Тест TTS",
     "testASR": "Тест ASR",
@@ -570,6 +570,11 @@
     "transcriptionResult": "Результат транскрибирования",
     "noTranscriptionResult": "Нет результата транскрибирования",
     "defaultValue": "По умолчанию",
+    "arkVoiceKailangJiejie": "Яркий, естественный голос для уроков",
+    "arkVoiceJingqiangKanye": "Спокойный и выразительный мужской голос",
+    "arkVoiceWanquDashu": "Зрелый, теплый повествовательный голос",
+    "arkVoiceCancan": "Чистый и живой женский голос",
+    "arkVoiceQingcang": "Уверенный и четкий мужской голос",
     "qwenVoiceCherry": "Солнечный, тёплый и естественный",
     "qwenVoiceSerena": "Нежный и мягкий",
     "qwenVoiceEthan": "Энергичный и живой",
@@ -754,7 +759,7 @@
     "imageSection": "Текст в изображение",
     "imageProvider": "Провайдер генерации изображений",
     "imageModel": "Модель генерации изображений",
-    "providerQwenImage": "Qwen Image (Alibaba)",
+    "providerArkImage": "Volcengine Ark Image",
     "testImageGeneration": "Тест генерации изображений",
     "imageTestSuccess": "Тест генерации изображений пройден",
     "imageTestFailed": "Тест генерации изображений не пройден",
@@ -768,7 +773,7 @@
     "videoSection": "Текст в видео",
     "videoProvider": "Провайдер генерации видео",
     "videoModel": "Модель генерации видео",
-    "providerQwenVideo": "Qwen Video (Alibaba)",
+    "providerArkVideo": "Volcengine Ark Video",
     "testVideoGeneration": "Тест генерации видео",
     "videoTestSuccess": "Тест генерации видео пройден",
     "videoTestFailed": "Тест генерации видео не пройден",

@@ -5,7 +5,7 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId = 'qwen';
+export type BuiltInProviderId = 'ark';
 
 /**
  * Provider ID
@@ -30,7 +30,7 @@ export type ThinkingMode = 'default' | 'disabled' | 'enabled' | 'auto';
 export type ThinkingEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
 
-export type ThinkingRequestAdapter = 'none' | 'qwen';
+export type ThinkingRequestAdapter = 'none';
 
 /**
  * Describes a model's thinking/reasoning API control capability.

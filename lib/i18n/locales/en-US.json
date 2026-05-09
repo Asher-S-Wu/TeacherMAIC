@@ -437,9 +437,9 @@
     "close": "Close",
     "save": "Save",
     "providers": "LLM",
-    "addProviderDescription": "The language model provider is fixed to Qwen",
+    "addProviderDescription": "The language model provider is fixed to Volcengine Ark",
     "providerNames": {
-      "qwen": "Qwen"
+      "ark": "Volcengine Ark"
     },
     "providerTypes": {
       "openai": "OpenAI Protocol"
@@ -550,8 +550,8 @@
     "asrApiKey": "Service status",
     "enterApiKey": "No input needed",
     "enterCustomBaseUrl": "Enter custom Base URL",
-    "providerQwenTTS": "Qwen TTS (Alibaba Cloud Bailian)",
-    "providerQwenASR": "Qwen ASR (Alibaba Cloud Bailian)",
+    "providerArkTTS": "Volcengine Ark TTS",
+    "providerArkASR": "Volcengine Ark ASR",
     "providerMinerUCloud": "MinerU (Cloud)",
     "testTTS": "Test TTS",
     "testASR": "Test ASR",
@@ -577,6 +577,11 @@
     "transcriptionResult": "Transcription Result",
     "noTranscriptionResult": "No transcription result",
     "defaultValue": "Default",
+    "arkVoiceKailangJiejie": "Bright, natural, suitable for teaching",
+    "arkVoiceJingqiangKanye": "Calm and expressive male voice",
+    "arkVoiceWanquDashu": "Mature, warm, narrative voice",
+    "arkVoiceCancan": "Clear and lively female voice",
+    "arkVoiceQingcang": "Steady and clear male voice",
     "qwenVoiceCherry": "Sunny, warm and natural",
     "qwenVoiceSerena": "Gentle and soft",
     "qwenVoiceEthan": "Energetic and vibrant",
@@ -761,7 +766,7 @@
     "imageSection": "Text to Image",
     "imageProvider": "Image Generation Provider",
     "imageModel": "Image Generation Model",
-    "providerQwenImage": "Qwen Image (Alibaba)",
+    "providerArkImage": "Volcengine Ark Image",
     "testImageGeneration": "Test Image Generation",
     "imageTestSuccess": "Image generation test succeeded",
     "imageTestFailed": "Image generation test failed",
@@ -775,7 +780,7 @@
     "videoSection": "Text to Video",
     "videoProvider": "Video Generation Provider",
     "videoModel": "Video Generation Model",
-    "providerQwenVideo": "Qwen Video (Alibaba)",
+    "providerArkVideo": "Volcengine Ark Video",
     "testVideoGeneration": "Test Video Generation",
     "videoTestSuccess": "Video generation test succeeded",
     "videoTestFailed": "Video generation test failed",

@@ -4,10 +4,10 @@
  * Unified types for image generation and video generation.
  *
  * Currently Supported Image Providers:
- * - Qwen Image (Alibaba Cloud DashScope image generation)
+ * - Volcengine Ark Seedream
  *
  * Currently Supported Video Providers:
- * - Qwen Video / HappyHorse (Alibaba Cloud DashScope text-to-video)
+ * - Volcengine Ark Seedance
  *
  */
 
@@ -21,7 +21,7 @@
  * Add new image providers here as union members.
  * Keep in sync with IMAGE_PROVIDERS registry in constants.ts
  */
-export type ImageProviderId = 'qwen-image';
+export type ImageProviderId = 'ark-image';
 
 /**
  * Image Provider Configuration
@@ -126,7 +126,7 @@ export interface ImageGenerationResult {
  * Add new video providers here as union members.
  * Keep in sync with VIDEO_PROVIDERS registry in constants.ts
  */
-export type VideoProviderId = 'qwen-video';
+export type VideoProviderId = 'ark-video';
 
 /**
  * Video Provider Configuration

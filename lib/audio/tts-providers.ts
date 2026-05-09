@@ -1,9 +1,5 @@
-/**
- * Qwen TTS provider implementation.
- */
-
 import type { TTSModelConfig } from './types';
-import { QWEN_TTS_MODEL_ID, TTS_PROVIDERS } from './constants';
+import { ARK_TTS_MODEL_ID, TTS_PROVIDERS } from './constants';
 
 export interface TTSGenerationResult {
   audio: Uint8Array;
@@ -15,56 +11,58 @@ export async function generateTTS(
   text: string,
 ): Promise<TTSGenerationResult> {
   if (!config.apiKey) {
-    throw new Error('API key required for Qwen TTS. Set QWEN_API_KEY in Vercel.');
+    throw new Error('API key required for 火山方舟语音合成. Set ARK_API_KEY in Vercel.');
   }
-  return generateQwenTTS(config, text);
+  return generateArkTTS(config, text);
 }
 
-async function generateQwenTTS(
+async function generateArkTTS(
   config: TTSModelConfig,
   text: string,
 ): Promise<TTSGenerationResult> {
-  const baseUrl = TTS_PROVIDERS['qwen-tts'].defaultBaseUrl!;
-  const rate = Math.round(((config.speed || 1.0) - 1.0) * 500);
+  const baseUrl = config.baseUrl || TTS_PROVIDERS['ark-tts'].defaultBaseUrl!;
+  const format = config.format || 'wav';
 
-  const response = await fetch(`${baseUrl}/services/aigc/multimodal-generation/generation`, {
+  const response = await fetch(`${baseUrl}/audio/speech`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
-      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: QWEN_TTS_MODEL_ID,
-      input: {
-        text,
-        voice: config.voice,
-        language_type: 'Chinese',
-      },
-      parameters: {
-        rate,
-      },
+      model: config.modelId || ARK_TTS_MODEL_ID,
+      input: text,
+      voice: config.voice,
+      response_format: format,
+      speed: config.speed || 1,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => response.statusText);
-    throw new Error(`Qwen TTS API error: ${errorText}`);
+    throw new Error(`火山方舟语音合成失败（${response.status}）：${errorText}`);
   }
 
-  const data = await response.json();
-  if (!data.output?.audio?.url) {
-    throw new Error(`Qwen TTS error: No audio URL in response. Response: ${JSON.stringify(data)}`);
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const data = await response.json();
+    const audioUrl = data.url || data.audio?.url || data.data?.[0]?.url;
+    if (!audioUrl) {
+      throw new Error(`火山方舟语音合成没有返回音频：${JSON.stringify(data)}`);
+    }
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      throw new Error(`下载火山方舟语音失败：${audioResponse.statusText}`);
+    }
+    return {
+      audio: new Uint8Array(await audioResponse.arrayBuffer()),
+      format,
+    };
   }
 
-  const audioResponse = await fetch(data.output.audio.url);
-  if (!audioResponse.ok) {
-    throw new Error(`Failed to download audio from Qwen TTS: ${audioResponse.statusText}`);
-  }
-
-  const arrayBuffer = await audioResponse.arrayBuffer();
   return {
-    audio: new Uint8Array(arrayBuffer),
-    format: 'wav',
+    audio: new Uint8Array(await response.arrayBuffer()),
+    format,
   };
 }
 
@@ -77,8 +75,8 @@ export async function getCurrentTTSConfig(): Promise<TTSModelConfig> {
   const { ttsVoice, ttsSpeed } = useSettingsStore.getState();
 
   return {
-    providerId: 'qwen-tts',
-    modelId: QWEN_TTS_MODEL_ID,
+    providerId: 'ark-tts',
+    modelId: ARK_TTS_MODEL_ID,
     voice: ttsVoice,
     speed: ttsSpeed,
   };

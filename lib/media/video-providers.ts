@@ -1,7 +1,3 @@
-/**
- * Video Generation Service -- Qwen Video only.
- */
-
 import type {
   VideoProviderId,
   VideoGenerationConfig,
@@ -9,28 +5,23 @@ import type {
   VideoGenerationResult,
   VideoProviderConfig,
 } from './types';
-import { generateWithQwenVideo } from './adapters/qwen-video-adapter';
+import { ARK_BASE_URL, ARK_VIDEO_MODEL_ID, ARK_VIDEO_MODEL_NAME } from '@/lib/ai/ark-models';
+import { generateWithArkVideo } from './adapters/ark-video-adapter';
 
 export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
-  'qwen-video': {
-    id: 'qwen-video',
-    name: 'Qwen Video',
+  'ark-video': {
+    id: 'ark-video',
+    name: '火山方舟视频生成',
     requiresApiKey: true,
-    defaultBaseUrl: 'https://dashscope-intl.aliyuncs.com',
-    icon: '/logos/bailian.svg',
-    models: [{ id: 'happyhorse-1.0-t2v', name: 'HappyHorse Text to Video' }],
+    defaultBaseUrl: ARK_BASE_URL,
+    models: [{ id: ARK_VIDEO_MODEL_ID, name: ARK_VIDEO_MODEL_NAME }],
     supportedAspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'],
-    supportedDurations: [5, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    supportedDurations: [5, 6, 7, 8, 9, 10, 11, 12],
     supportedResolutions: ['720P', '1080P'],
-    maxVideoDuration: 15,
+    maxVideoDuration: 12,
   },
 };
 
-/**
- * Normalize video generation options against provider capabilities.
- * Ensures duration, aspectRatio, and resolution are valid for the given provider.
- * Falls back to the first supported value when the requested value is unsupported.
- */
 export function normalizeVideoOptions(
   providerId: VideoProviderId,
   options: VideoGenerationOptions,
@@ -40,28 +31,28 @@ export function normalizeVideoOptions(
 
   const normalized = { ...options };
 
-  // Duration: use first supported value if unset or unsupported
   if (provider.supportedDurations && provider.supportedDurations.length > 0) {
-    if (!normalized.duration || !provider.supportedDurations.includes(normalized.duration)) {
+    if (!normalized.duration) {
       normalized.duration = provider.supportedDurations[0];
+    } else if (!provider.supportedDurations.includes(normalized.duration)) {
+      throw new Error(`Unsupported Ark video duration: ${normalized.duration}`);
     }
   }
 
-  // Aspect ratio: use first supported value if unset or unsupported
   if (provider.supportedAspectRatios && provider.supportedAspectRatios.length > 0) {
-    if (
-      !normalized.aspectRatio ||
-      !provider.supportedAspectRatios.includes(normalized.aspectRatio)
-    ) {
+    if (!normalized.aspectRatio) {
       normalized.aspectRatio = provider
         .supportedAspectRatios[0] as VideoGenerationOptions['aspectRatio'];
+    } else if (!provider.supportedAspectRatios.includes(normalized.aspectRatio)) {
+      throw new Error(`Unsupported Ark video aspect ratio: ${normalized.aspectRatio}`);
     }
   }
 
-  // Resolution: use first supported value if unset or unsupported
   if (provider.supportedResolutions && provider.supportedResolutions.length > 0) {
-    if (!normalized.resolution || !provider.supportedResolutions.includes(normalized.resolution)) {
+    if (!normalized.resolution) {
       normalized.resolution = provider.supportedResolutions[0];
+    } else if (!provider.supportedResolutions.includes(normalized.resolution)) {
+      throw new Error(`Unsupported Ark video resolution: ${normalized.resolution}`);
     }
   }
 
@@ -72,5 +63,5 @@ export async function generateVideo(
   config: VideoGenerationConfig,
   options: VideoGenerationOptions,
 ): Promise<VideoGenerationResult> {
-  return generateWithQwenVideo(config, options);
+  return generateWithArkVideo(config, options);
 }

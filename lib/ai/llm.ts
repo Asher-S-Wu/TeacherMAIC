@@ -57,7 +57,7 @@ export async function callLLM<T extends GenerateTextParams>(
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       // Wrap in thinkingContext so the custom fetch wrapper in providers.ts
-      // can read the config and inject Qwen enable_thinking into the body.
+      // can read the config and inject provider-specific request options.
       const result = await thinkingContext.run(thinking, () => generateText(params));
 
       // Validate result (only when retries are configured)

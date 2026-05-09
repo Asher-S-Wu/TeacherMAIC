@@ -1,8 +1,7 @@
 /**
  * Unified AI Provider Configuration
  *
- * Text generation is intentionally limited to Qwen through Alibaba Cloud
- * DashScope's OpenAI-compatible endpoint.
+ * Text generation is intentionally limited to Volcengine Ark.
  */
 
 import { createOpenAI } from '@ai-sdk/openai';
@@ -16,10 +15,10 @@ import type {
   ThinkingConfig,
 } from '@/lib/types/provider';
 import { applyModelMetadata, getCatalogThinkingCapability } from './model-metadata';
-import { getThinkingMode } from './thinking-config';
+import { ARK_BASE_URL, ARK_LLM_MODEL_ID, ARK_LLM_MODEL_NAME } from './ark-models';
 
-export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'qwen';
-export const DEFAULT_MODEL_ID = 'qwen3.6-flash';
+export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'ark';
+export const DEFAULT_MODEL_ID = ARK_LLM_MODEL_ID;
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
 
 // Re-export types for backward compatibility
@@ -32,31 +31,22 @@ export const MONO_LOGO_PROVIDERS: ReadonlySet<string> = new Set();
  * Provider registry
  */
 export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
-  qwen: {
-    id: 'qwen',
-    name: 'Qwen',
+  ark: {
+    id: 'ark',
+    name: '火山方舟',
     type: 'openai',
-    defaultBaseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    defaultBaseUrl: ARK_BASE_URL,
     requiresApiKey: true,
-    icon: '/logos/bailian.svg',
     models: [
       {
         id: DEFAULT_MODEL_ID,
-        name: 'Qwen3.6 Flash',
+        name: ARK_LLM_MODEL_NAME,
         contextWindow: 1000000,
         outputWindow: 64000,
         capabilities: {
           streaming: true,
           tools: true,
           vision: true,
-          thinking: {
-            control: 'toggle',
-            requestAdapter: 'qwen',
-            defaultMode: 'enabled',
-            toggleable: true,
-            budgetAdjustable: false,
-            defaultEnabled: true,
-          },
         },
       },
     ],
@@ -88,14 +78,7 @@ function getCompatThinkingBodyParams(
   const capability = getCatalogThinkingCapability(providerId, modelId);
   if (!capability || capability.control === 'none') return undefined;
 
-  const mode = getThinkingMode(config);
-
-  if (capability.requestAdapter === 'qwen') {
-    if (mode === 'disabled') return { enable_thinking: false };
-    if (mode === 'enabled') return { enable_thinking: true };
-    return undefined;
-  }
-
+  void config;
   return undefined;
 }
 
@@ -120,7 +103,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
 
   const requiresApiKey = config.requiresApiKey ?? provider.requiresApiKey;
   if (requiresApiKey && !config.apiKey) {
-    throw new Error('API key required for Qwen. Set QWEN_API_KEY in Vercel.');
+    throw new Error('API key required for 火山方舟. Set ARK_API_KEY in Vercel.');
   }
 
   const effectiveApiKey = config.apiKey || '';
@@ -159,7 +142,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
 
 /**
  * Parse model string in format "providerId:modelId".
- * Bare model IDs are treated as Qwen model IDs.
+ * Bare model IDs are treated as Ark model IDs.
  */
 export function parseModelString(modelString: string): {
   providerId: BuiltInProviderId;
@@ -174,7 +157,7 @@ export function parseModelString(modelString: string): {
     }
 
     return {
-      providerId,
+      providerId: providerId as BuiltInProviderId,
       modelId: modelString.slice(colonIndex + 1) || DEFAULT_MODEL_ID,
     };
   }

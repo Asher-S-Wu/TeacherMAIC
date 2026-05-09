@@ -104,33 +104,25 @@ function ProviderListColumn<T extends string>({
 // ─── Helper: get TTS/ASR provider display name ───
 function getTTSProviderName(providerId: TTSProviderId, t: (key: string) => string): string {
   const names: Record<TTSProviderId, string> = {
-    'qwen-tts': t('settings.providerQwenTTS'),
+    'ark-tts': t('settings.providerArkTTS'),
   };
   return names[providerId];
 }
 
 function getASRProviderName(providerId: ASRProviderId, t: (key: string) => string): string {
   const names: Record<ASRProviderId, string> = {
-    'qwen-asr': t('settings.providerQwenASR'),
+    'ark-asr': t('settings.providerArkASR'),
   };
   return names[providerId];
 }
 
 // ─── Image/Video provider name helpers ───
 const IMAGE_PROVIDER_NAMES: Record<ImageProviderId, string> = {
-  'qwen-image': 'providerQwenImage',
-};
-
-const IMAGE_PROVIDER_ICONS: Record<ImageProviderId, string> = {
-  'qwen-image': '/logos/bailian.svg',
+  'ark-image': 'providerArkImage',
 };
 
 const VIDEO_PROVIDER_NAMES: Record<VideoProviderId, string> = {
-  'qwen-video': 'providerQwenVideo',
-};
-
-const VIDEO_PROVIDER_ICONS: Record<VideoProviderId, string> = {
-  'qwen-video': '/logos/bailian.svg',
+  'ark-video': 'providerArkVideo',
 };
 
 interface SettingsDialogProps {
@@ -348,7 +340,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
       }
       case 'image': {
         const imgProvider = IMAGE_PROVIDERS[selectedImageProviderId];
-        const imgIcon = IMAGE_PROVIDER_ICONS[selectedImageProviderId];
+        const imgIcon = imgProvider?.icon;
         return (
           <>
             {imgIcon ? (
@@ -371,7 +363,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
       }
       case 'video': {
         const vidProvider = VIDEO_PROVIDERS[selectedVideoProviderId];
-        const vidIcon = VIDEO_PROVIDER_ICONS[selectedVideoProviderId];
+        const vidIcon = vidProvider?.icon;
         return (
           <>
             {vidIcon ? (
@@ -620,7 +612,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 providers={Object.values(IMAGE_PROVIDERS).map((p) => ({
                   id: p.id,
                   name: t(`settings.${IMAGE_PROVIDER_NAMES[p.id]}`) || p.name,
-                  icon: IMAGE_PROVIDER_ICONS[p.id],
+                  icon: p.icon,
                 }))}
                 configs={imageProvidersConfig}
                 selectedId={selectedImageProviderId}
@@ -643,7 +635,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 providers={Object.values(VIDEO_PROVIDERS).map((p) => ({
                   id: p.id,
                   name: t(`settings.${VIDEO_PROVIDER_NAMES[p.id]}`) || p.name,
-                  icon: VIDEO_PROVIDER_ICONS[p.id],
+                  icon: p.icon,
                 }))}
                 configs={videoProvidersConfig}
                 selectedId={selectedVideoProviderId}

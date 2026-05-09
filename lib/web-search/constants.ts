@@ -8,11 +8,10 @@ import type { WebSearchProviderId, WebSearchProviderConfig } from './types';
  * Web Search Provider Registry
  */
 export const WEB_SEARCH_PROVIDERS: Record<WebSearchProviderId, WebSearchProviderConfig> = {
-  bailian: {
-    id: 'bailian',
-    name: '阿里云百炼',
+  'ark-search': {
+    id: 'ark-search',
+    name: '火山方舟联网搜索',
     requiresApiKey: true,
-    icon: '/logos/bailian.svg',
   },
 };
 

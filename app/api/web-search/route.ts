@@ -2,12 +2,12 @@
  * Web Search API
  *
  * POST /api/web-search
- * Simple JSON request/response using Bailian web search.
+ * Simple JSON request/response using Ark web search.
  */
 
 import { NextRequest } from 'next/server';
 import { callLLM } from '@/lib/ai/llm';
-import { searchWithBailian, formatSearchResultsAsContext } from '@/lib/web-search/bailian';
+import { searchWithArk, formatSearchResultsAsContext } from '@/lib/web-search/ark';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
@@ -49,28 +49,23 @@ export async function POST(req: NextRequest) {
     // Clamp rewrite input at the route boundary; framework body limits still apply to total request size.
     const boundedPdfText = pdfText?.slice(0, SEARCH_QUERY_REWRITE_EXCERPT_LENGTH);
 
-    let aiCall: AICallFn | undefined;
-    try {
-      const { model: languageModel, thinkingConfig } = await resolveModelFromRequest(req, body);
-      aiCall = async (systemPrompt, userPrompt) => {
-        const result = await callLLM(
-          {
-            model: languageModel,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt },
-            ],
-            maxOutputTokens: 256,
-          },
-          'web-search-query-rewrite',
-          undefined,
-          thinkingConfig,
-        );
-        return result.text;
-      };
-    } catch (error) {
-      log.warn('Search query rewrite model unavailable, falling back to raw requirement:', error);
-    }
+    const { model: languageModel, thinkingConfig } = await resolveModelFromRequest(req, body);
+    const aiCall: AICallFn = async (systemPrompt, userPrompt) => {
+      const result = await callLLM(
+        {
+          model: languageModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          maxOutputTokens: 256,
+        },
+        'web-search-query-rewrite',
+        undefined,
+        thinkingConfig,
+      );
+      return result.text;
+    };
 
     const searchQuery = await buildSearchQuery(query, boundedPdfText, aiCall);
 
@@ -81,7 +76,7 @@ export async function POST(req: NextRequest) {
       finalQueryLength: searchQuery.finalQueryLength,
     });
 
-    const result = await searchWithBailian({ query: searchQuery.query, apiKey });
+    const result = await searchWithArk({ query: searchQuery.query, apiKey });
     const context = formatSearchResultsAsContext(result);
 
     return apiSuccess({

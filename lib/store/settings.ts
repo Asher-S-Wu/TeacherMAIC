@@ -11,7 +11,13 @@ import { DEFAULT_MODEL_ID, DEFAULT_PROVIDER_ID, PROVIDERS } from '@/lib/ai/provi
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { getThinkingConfigKey, supportsConfigurableThinking } from '@/lib/ai/thinking-config';
 import type { TTSProviderId, ASRProviderId, BuiltInTTSProviderId } from '@/lib/audio/types';
-import { ASR_PROVIDERS, DEFAULT_TTS_VOICES } from '@/lib/audio/constants';
+import {
+  ARK_ASR_MODEL_ID,
+  ARK_TTS_MODEL_ID,
+  ASR_PROVIDERS,
+  DEFAULT_TTS_VOICES,
+} from '@/lib/audio/constants';
+import { ARK_IMAGE_MODEL_ID, ARK_VIDEO_MODEL_ID } from '@/lib/ai/ark-models';
 import type { PDFProviderId } from '@/lib/pdf/types';
 import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
@@ -316,19 +322,19 @@ const getDefaultProvidersConfig = (): ProvidersConfig => {
 
 // Initialize default audio config
 const getDefaultAudioConfig = () => ({
-  ttsProviderId: 'qwen-tts' as TTSProviderId,
-  ttsVoice: DEFAULT_TTS_VOICES['qwen-tts'],
+  ttsProviderId: 'ark-tts' as TTSProviderId,
+  ttsVoice: DEFAULT_TTS_VOICES['ark-tts'],
   ttsSpeed: 1.0,
-  asrProviderId: 'qwen-asr' as ASRProviderId,
+  asrProviderId: 'ark-asr' as ASRProviderId,
   asrLanguage: 'zh',
   ttsProvidersConfig: {
-    'qwen-tts': { apiKey: '', baseUrl: '', modelId: 'qwen3-tts-flash', enabled: true },
+    'ark-tts': { apiKey: '', baseUrl: '', modelId: ARK_TTS_MODEL_ID, enabled: true },
   } as Record<
     TTSProviderId,
     { apiKey: string; baseUrl: string; modelId?: string; enabled: boolean }
   >,
   asrProvidersConfig: {
-    'qwen-asr': { apiKey: '', baseUrl: '', modelId: 'qwen3-asr-flash', enabled: true },
+    'ark-asr': { apiKey: '', baseUrl: '', modelId: ARK_ASR_MODEL_ID, enabled: true },
   } as Record<ASRProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -342,27 +348,27 @@ const getDefaultPDFConfig = () => ({
 
 // Initialize default Image config
 const getDefaultImageConfig = () => ({
-  imageProviderId: 'qwen-image' as ImageProviderId,
-  imageModelId: 'qwen-image-2.0-pro',
+  imageProviderId: 'ark-image' as ImageProviderId,
+  imageModelId: ARK_IMAGE_MODEL_ID,
   imageProvidersConfig: {
-    'qwen-image': { apiKey: '', baseUrl: '', enabled: false },
+    'ark-image': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<ImageProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
 // Initialize default Video config
 const getDefaultVideoConfig = () => ({
-  videoProviderId: 'qwen-video' as VideoProviderId,
-  videoModelId: 'happyhorse-1.0-t2v',
+  videoProviderId: 'ark-video' as VideoProviderId,
+  videoModelId: ARK_VIDEO_MODEL_ID,
   videoProvidersConfig: {
-    'qwen-video': { apiKey: '', baseUrl: '', enabled: false },
+    'ark-video': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<VideoProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
 // Initialize default Web Search config
 const getDefaultWebSearchConfig = () => ({
-  webSearchProviderId: 'bailian' as WebSearchProviderId,
+  webSearchProviderId: 'ark-search' as WebSearchProviderId,
   webSearchProvidersConfig: {
-    bailian: { apiKey: '', baseUrl: '', enabled: true },
+    'ark-search': { apiKey: '', baseUrl: '', enabled: true },
   } as Record<WebSearchProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -552,8 +558,8 @@ export const useSettingsStore = create<SettingsState>()(
           })),
 
         // Image Generation actions
-        setImageProvider: () => set({ imageProviderId: 'qwen-image' as ImageProviderId }),
-        setImageModelId: () => set({ imageModelId: 'qwen-image-2.0-pro' }),
+        setImageProvider: () => set({ imageProviderId: 'ark-image' as ImageProviderId }),
+        setImageModelId: () => set({ imageModelId: ARK_IMAGE_MODEL_ID }),
 
         setImageProviderConfig: (providerId, config) =>
           set((state) => {
@@ -572,8 +578,8 @@ export const useSettingsStore = create<SettingsState>()(
           }),
 
         // Video Generation actions
-        setVideoProvider: () => set({ videoProviderId: 'qwen-video' as VideoProviderId }),
-        setVideoModelId: () => set({ videoModelId: 'happyhorse-1.0-t2v' }),
+        setVideoProvider: () => set({ videoProviderId: 'ark-video' as VideoProviderId }),
+        setVideoModelId: () => set({ videoModelId: ARK_VIDEO_MODEL_ID }),
 
         setVideoProviderConfig: (providerId, config) =>
           set((state) => {
@@ -612,7 +618,7 @@ export const useSettingsStore = create<SettingsState>()(
         setASREnabled: (enabled) => set({ asrEnabled: enabled }),
 
         // Web Search actions
-        setWebSearchProvider: () => set({ webSearchProviderId: 'bailian' as WebSearchProviderId }),
+        setWebSearchProvider: () => set({ webSearchProviderId: 'ark-search' as WebSearchProviderId }),
         setWebSearchProviderConfig: (providerId, config) =>
           set((state) => {
             const { apiKey: _apiKey, baseUrl: _baseUrl, ...safeConfig } = config;
@@ -646,34 +652,34 @@ export const useSettingsStore = create<SettingsState>()(
 
             set((state) => {
               const newProvidersConfig = getDefaultProvidersConfig();
-              newProvidersConfig.qwen = {
-                ...newProvidersConfig.qwen,
+              newProvidersConfig.ark = {
+                ...newProvidersConfig.ark,
                 apiKey: '',
-                isServerConfigured: !!data.providers.qwen,
+                isServerConfigured: !!data.providers.ark,
               };
 
               const defaultAudio = getDefaultAudioConfig();
               const newTTSConfig = {
-                'qwen-tts': {
-                  ...defaultAudio.ttsProvidersConfig['qwen-tts'],
-                  enabled: state.ttsProvidersConfig['qwen-tts']?.enabled ?? true,
+                'ark-tts': {
+                  ...defaultAudio.ttsProvidersConfig['ark-tts'],
+                  enabled: state.ttsProvidersConfig['ark-tts']?.enabled ?? true,
                   apiKey: '',
                   baseUrl: '',
-                  modelId: 'qwen3-tts-flash',
-                  isServerConfigured: !!data.tts['qwen-tts'],
-                  serverBaseUrl: data.tts['qwen-tts']?.baseUrl,
+                  modelId: ARK_TTS_MODEL_ID,
+                  isServerConfigured: !!data.tts['ark-tts'],
+                  serverBaseUrl: data.tts['ark-tts']?.baseUrl,
                 },
               } as SettingsState['ttsProvidersConfig'];
 
               const newASRConfig = {
-                'qwen-asr': {
-                  ...defaultAudio.asrProvidersConfig['qwen-asr'],
-                  enabled: state.asrProvidersConfig['qwen-asr']?.enabled ?? true,
+                'ark-asr': {
+                  ...defaultAudio.asrProvidersConfig['ark-asr'],
+                  enabled: state.asrProvidersConfig['ark-asr']?.enabled ?? true,
                   apiKey: '',
                   baseUrl: '',
-                  modelId: 'qwen3-asr-flash',
-                  isServerConfigured: !!data.asr['qwen-asr'],
-                  serverBaseUrl: data.asr['qwen-asr']?.baseUrl,
+                  modelId: ARK_ASR_MODEL_ID,
+                  isServerConfigured: !!data.asr['ark-asr'],
+                  serverBaseUrl: data.asr['ark-asr']?.baseUrl,
                 },
               } as SettingsState['asrProvidersConfig'];
 
@@ -688,11 +694,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['pdfProvidersConfig'];
 
               const defaultImage = getDefaultImageConfig();
-              const imageServerConfig = data.image['qwen-image'];
+              const imageServerConfig = data.image['ark-image'];
               const newImageConfig = {
-                'qwen-image': {
-                  ...defaultImage.imageProvidersConfig['qwen-image'],
-                  enabled: state.imageProvidersConfig['qwen-image']?.enabled ?? false,
+                'ark-image': {
+                  ...defaultImage.imageProvidersConfig['ark-image'],
+                  enabled: state.imageProvidersConfig['ark-image']?.enabled ?? false,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!imageServerConfig,
@@ -701,11 +707,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['imageProvidersConfig'];
 
               const defaultVideo = getDefaultVideoConfig();
-              const videoServerConfig = data.video['qwen-video'];
+              const videoServerConfig = data.video['ark-video'];
               const newVideoConfig = {
-                'qwen-video': {
-                  ...defaultVideo.videoProvidersConfig['qwen-video'],
-                  enabled: state.videoProvidersConfig['qwen-video']?.enabled ?? false,
+                'ark-video': {
+                  ...defaultVideo.videoProvidersConfig['ark-video'],
+                  enabled: state.videoProvidersConfig['ark-video']?.enabled ?? false,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!videoServerConfig,
@@ -714,11 +720,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['videoProvidersConfig'];
 
               const defaultWebSearch = getDefaultWebSearchConfig();
-              const webSearchServerConfig = data.webSearch.bailian;
+              const webSearchServerConfig = data.webSearch['ark-search'];
               const newWebSearchConfig = {
-                bailian: {
-                  ...defaultWebSearch.webSearchProvidersConfig.bailian,
-                  enabled: state.webSearchProvidersConfig.bailian?.enabled ?? true,
+                'ark-search': {
+                  ...defaultWebSearch.webSearchProvidersConfig['ark-search'],
+                  enabled: state.webSearchProvidersConfig['ark-search']?.enabled ?? true,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!webSearchServerConfig,
@@ -727,9 +733,9 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['webSearchProvidersConfig'];
 
               const imageGenerationEnabled =
-                state.imageGenerationEnabled && !!newImageConfig['qwen-image'].isServerConfigured;
+                state.imageGenerationEnabled && !!newImageConfig['ark-image'].isServerConfigured;
               const videoGenerationEnabled =
-                state.videoGenerationEnabled && !!newVideoConfig['qwen-video'].isServerConfigured;
+                state.videoGenerationEnabled && !!newVideoConfig['ark-video'].isServerConfigured;
 
               return {
                 providersConfig: newProvidersConfig,
@@ -741,16 +747,16 @@ export const useSettingsStore = create<SettingsState>()(
                 webSearchProvidersConfig: newWebSearchConfig,
                 providerId: DEFAULT_PROVIDER_ID,
                 modelId: DEFAULT_MODEL_ID,
-                ttsProviderId: 'qwen-tts' as TTSProviderId,
-                asrProviderId: 'qwen-asr' as ASRProviderId,
+                ttsProviderId: 'ark-tts' as TTSProviderId,
+                asrProviderId: 'ark-asr' as ASRProviderId,
                 pdfProviderId: 'mineru-cloud' as PDFProviderId,
-                imageProviderId: 'qwen-image' as ImageProviderId,
-                imageModelId: 'qwen-image-2.0-pro',
+                imageProviderId: 'ark-image' as ImageProviderId,
+                imageModelId: ARK_IMAGE_MODEL_ID,
                 imageGenerationEnabled,
-                videoProviderId: 'qwen-video' as VideoProviderId,
-                videoModelId: 'happyhorse-1.0-t2v',
+                videoProviderId: 'ark-video' as VideoProviderId,
+                videoModelId: ARK_VIDEO_MODEL_ID,
                 videoGenerationEnabled,
-                webSearchProviderId: 'bailian' as WebSearchProviderId,
+                webSearchProviderId: 'ark-search' as WebSearchProviderId,
               };
             });
           } catch (e) {
@@ -782,14 +788,14 @@ export const useSettingsStore = create<SettingsState>()(
           webSearchProvidersConfig: currentState.webSearchProvidersConfig,
           providerId: DEFAULT_PROVIDER_ID,
           modelId: DEFAULT_MODEL_ID,
-          ttsProviderId: 'qwen-tts' as TTSProviderId,
-          asrProviderId: 'qwen-asr' as ASRProviderId,
+          ttsProviderId: 'ark-tts' as TTSProviderId,
+          asrProviderId: 'ark-asr' as ASRProviderId,
           pdfProviderId: currentState.pdfProviderId,
-          imageProviderId: 'qwen-image' as ImageProviderId,
-          imageModelId: 'qwen-image-2.0-pro',
-          videoProviderId: 'qwen-video' as VideoProviderId,
-          videoModelId: 'happyhorse-1.0-t2v',
-          webSearchProviderId: 'bailian' as WebSearchProviderId,
+          imageProviderId: 'ark-image' as ImageProviderId,
+          imageModelId: ARK_IMAGE_MODEL_ID,
+          videoProviderId: 'ark-video' as VideoProviderId,
+          videoModelId: ARK_VIDEO_MODEL_ID,
+          webSearchProviderId: 'ark-search' as WebSearchProviderId,
           thinkingConfigs,
         } as SettingsState;
       },

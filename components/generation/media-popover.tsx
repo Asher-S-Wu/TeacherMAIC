@@ -102,7 +102,7 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
     [],
   );
 
-  // ASR: Qwen provider
+  // ASR provider
   const asrGroups = useMemo(() => {
     const groups: SelectGroupData[] = [];
 

@@ -34,7 +34,7 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
   const ttsMuted = useSettingsStore((s) => s.ttsMuted);
   const ttsVolume = useSettingsStore((s) => s.ttsVolume);
   const playbackSpeed = useSettingsStore((s) => s.playbackSpeed);
-  // Global lecture voice — used as fallback for teacher agent
+  // Global lecture voice used for teacher agent
   const globalTtsProviderId = useSettingsStore((s) => s.ttsProviderId);
   const globalTtsVoice = useSettingsStore((s) => s.ttsVoice);
 
@@ -65,23 +65,23 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
         if (providers.length > 0) {
           return {
             providerId: providers[0].providerId,
-            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['qwen-tts'],
+            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['ark-tts'],
           };
         }
-        return { providerId: 'qwen-tts', voiceId: DEFAULT_TTS_VOICES['qwen-tts'] };
+        return { providerId: 'ark-tts', voiceId: DEFAULT_TTS_VOICES['ark-tts'] };
       }
       const agent = agents.find((a) => a.id === agentId);
       if (!agent) {
         if (providers.length > 0) {
           return {
             providerId: providers[0].providerId,
-            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['qwen-tts'],
+            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['ark-tts'],
             modelId: undefined,
           };
         }
         return {
-          providerId: 'qwen-tts',
-          voiceId: DEFAULT_TTS_VOICES['qwen-tts'],
+          providerId: 'ark-tts',
+          voiceId: DEFAULT_TTS_VOICES['ark-tts'],
           modelId: undefined,
         };
       }

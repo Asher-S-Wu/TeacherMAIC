@@ -430,9 +430,9 @@
     "close": "閉じる",
     "save": "保存",
     "providers": "LLM",
-    "addProviderDescription": "言語モデルプロバイダーはQwen固定です",
+    "addProviderDescription": "言語モデルプロバイダーは火山方舟固定です",
     "providerNames": {
-      "qwen": "Qwen"
+      "ark": "火山方舟"
     },
     "providerTypes": {
       "openai": "OpenAIプロトコル"
@@ -543,8 +543,8 @@
     "asrApiKey": "サービス状態",
     "enterApiKey": "入力不要",
     "enterCustomBaseUrl": "接続先を入力",
-    "providerQwenTTS": "Qwen TTS（Alibaba Cloud百錬）",
-    "providerQwenASR": "Qwen ASR（Alibaba Cloud百錬）",
+    "providerArkTTS": "火山方舟 TTS",
+    "providerArkASR": "火山方舟 ASR",
     "providerMinerUCloud": "MinerU（クラウド）",
     "testTTS": "TTSをテスト",
     "testASR": "ASRをテスト",
@@ -570,6 +570,11 @@
     "transcriptionResult": "文字起こし結果",
     "noTranscriptionResult": "文字起こし結果がありません",
     "defaultValue": "デフォルト",
+    "arkVoiceKailangJiejie": "明るく自然で授業に向いた声",
+    "arkVoiceJingqiangKanye": "落ち着きがあり表現豊かな男性声",
+    "arkVoiceWanquDashu": "成熟した親しみやすい語り声",
+    "arkVoiceCancan": "明るく活発な女性声",
+    "arkVoiceQingcang": "安定して聞き取りやすい男性声",
     "qwenVoiceCherry": "明るく温かみのある自然な声",
     "qwenVoiceSerena": "優しくソフトな声",
     "qwenVoiceEthan": "エネルギッシュで活発な声",
@@ -754,7 +759,7 @@
     "imageSection": "テキストから画像",
     "imageProvider": "画像生成プロバイダー",
     "imageModel": "画像生成モデル",
-    "providerQwenImage": "Qwen Image（Alibaba）",
+    "providerArkImage": "火山方舟 画像生成",
     "testImageGeneration": "画像生成をテスト",
     "imageTestSuccess": "画像生成テストに成功しました",
     "imageTestFailed": "画像生成テストに失敗しました",
@@ -768,7 +773,7 @@
     "videoSection": "テキストから動画",
     "videoProvider": "動画生成プロバイダー",
     "videoModel": "動画生成モデル",
-    "providerQwenVideo": "Qwen Video（Alibaba）",
+    "providerArkVideo": "火山方舟 動画生成",
     "testVideoGeneration": "動画生成をテスト",
     "videoTestSuccess": "動画生成テストに成功しました",
     "videoTestFailed": "動画生成テストに失敗しました",

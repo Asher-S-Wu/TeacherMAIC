@@ -16,7 +16,7 @@ import { isProviderKeyRequired } from '@/lib/ai/providers';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { resolveModel } from '@/lib/server/resolve-model';
 import { buildSearchQuery } from '@/lib/server/search-query-builder';
-import { searchWithBailian, formatSearchResultsAsContext } from '@/lib/web-search/bailian';
+import { searchWithArk, formatSearchResultsAsContext } from '@/lib/web-search/ark';
 import { persistClassroom } from '@/lib/server/classroom-storage';
 import {
   generateMediaForClassroom,
@@ -184,7 +184,7 @@ export async function generateClassroom(
   if (isProviderKeyRequired(providerId) && !apiKey) {
     throw new Error(
       `No API key configured for provider "${providerId}". ` +
-        'Set QWEN_API_KEY in Vercel Environment Variables.',
+        'Set ARK_API_KEY in Vercel Environment Variables.',
     );
   }
 
@@ -233,9 +233,9 @@ export async function generateClassroom(
   // Web search
   let researchContext: string | undefined;
   if (input.enableWebSearch ?? true) {
-    const bailianKey = resolveWebSearchApiKey();
-    if (!bailianKey) {
-      throw new Error('已开启联网搜索，但阿里云百炼 API Key 未配置，请在 Vercel 配置 QWEN_API_KEY');
+    const arkSearchKey = resolveWebSearchApiKey();
+    if (!arkSearchKey) {
+      throw new Error('已开启联网搜索，但火山方舟 API Key 未配置，请在 Vercel 配置 ARK_API_KEY');
     }
     const searchQuery = await buildSearchQuery(requirement, pdfText, searchQueryAiCall);
 
@@ -246,9 +246,9 @@ export async function generateClassroom(
       finalQueryLength: searchQuery.finalQueryLength,
     });
 
-    const searchResult = await searchWithBailian({
+    const searchResult = await searchWithArk({
       query: searchQuery.query,
-      apiKey: bailianKey,
+      apiKey: arkSearchKey,
     });
     researchContext = formatSearchResultsAsContext(searchResult);
     if (researchContext) {

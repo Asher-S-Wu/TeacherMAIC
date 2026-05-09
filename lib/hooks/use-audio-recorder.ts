@@ -3,6 +3,17 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('AudioRecorder');
 
+interface WavRecordingSession {
+  stream: MediaStream;
+  audioContext: AudioContext;
+  source: MediaStreamAudioSourceNode;
+  processor: ScriptProcessorNode;
+  monitorGain: GainNode;
+  chunks: Float32Array[];
+  sampleRate: number;
+  length: number;
+}
+
 export interface UseAudioRecorderOptions {
   onTranscription?: (text: string) => void;
   onError?: (error: string) => void;
@@ -16,6 +27,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
   const [recordingTime, setRecordingTime] = useState(0);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const wavSessionRef = useRef<WavRecordingSession | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   // Synchronous lock to prevent rapid re-entry (React state updates are async)
@@ -36,7 +48,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
         }
 
         const { uploadAccountBlob } = await import('@/lib/utils/image-storage');
-        const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
+        const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' });
         const saved = await uploadAccountBlob(audioFile, audioFile.name, 'audio');
 
         const response = await fetch('/api/transcription', {
@@ -63,6 +75,57 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
     [onTranscription, onError],
   );
 
+  const encodeWav = useCallback((session: WavRecordingSession): Blob => {
+    const samples = new Float32Array(session.length);
+    let offset = 0;
+    for (const chunk of session.chunks) {
+      samples.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    const bytesPerSample = 2;
+    const dataLength = samples.length * bytesPerSample;
+    const buffer = new ArrayBuffer(44 + dataLength);
+    const view = new DataView(buffer);
+
+    const writeString = (position: number, value: string) => {
+      for (let i = 0; i < value.length; i += 1) {
+        view.setUint8(position + i, value.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, session.sampleRate, true);
+    view.setUint32(28, session.sampleRate * bytesPerSample, true);
+    view.setUint16(32, bytesPerSample, true);
+    view.setUint16(34, 8 * bytesPerSample, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataLength, true);
+
+    let dataOffset = 44;
+    for (let i = 0; i < samples.length; i += 1) {
+      const sample = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(dataOffset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      dataOffset += bytesPerSample;
+    }
+
+    return new Blob([buffer], { type: 'audio/wav' });
+  }, []);
+
+  const cleanupWavSession = useCallback(async (session: WavRecordingSession) => {
+    session.processor.disconnect();
+    session.monitorGain.disconnect();
+    session.source.disconnect();
+    session.stream.getTracks().forEach((track) => track.stop());
+    await session.audioContext.close();
+  }, []);
+
   // Start recording
   const startRecording = useCallback(async () => {
     // Synchronous lock — React state is async so isRecording may be stale
@@ -70,38 +133,43 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
     busyRef.current = true;
     try {
       // Request microphone permission
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      // Create MediaRecorder
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm',
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
       });
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      const monitorGain = audioContext.createGain();
+      monitorGain.gain.value = 0;
+      const session: WavRecordingSession = {
+        stream,
+        audioContext,
+        source,
+        processor,
+        monitorGain,
+        chunks: [],
+        sampleRate: audioContext.sampleRate,
+        length: 0,
+      };
 
-      mediaRecorderRef.current = mediaRecorder;
+      processor.onaudioprocess = (event) => {
+        const input = event.inputBuffer.getChannelData(0);
+        const chunk = new Float32Array(input);
+        session.chunks.push(chunk);
+        session.length += chunk.length;
+      };
+
+      source.connect(processor);
+      processor.connect(monitorGain);
+      monitorGain.connect(audioContext.destination);
+      wavSessionRef.current = session;
+      mediaRecorderRef.current = null;
       audioChunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        // Stop all audio tracks
-        stream.getTracks().forEach((track) => track.stop());
-
-        // Merge audio chunks
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: 'audio/webm',
-        });
-
-        // Send to server for transcription
-        await transcribeAudio(audioBlob);
-        busyRef.current = false;
-      };
-
-      // Start recording
-      mediaRecorder.start();
       setIsRecording(true);
       setRecordingTime(0);
 
@@ -114,11 +182,30 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
       log.error('Failed to start recording:', error);
       onError?.('无法访问麦克风，请检查权限设置');
     }
-  }, [onTranscription, onError, transcribeAudio]);
+  }, [onError, transcribeAudio]);
 
   // Stop recording
   const stopRecording = useCallback(() => {
-    // Stop MediaRecorder if active
+    if (wavSessionRef.current && isRecording) {
+      const session = wavSessionRef.current;
+      wavSessionRef.current = null;
+      session.processor.onaudioprocess = null;
+      const audioBlob = encodeWav(session);
+      setIsRecording(false);
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+
+      void cleanupWavSession(session)
+        .then(() => transcribeAudio(audioBlob))
+        .finally(() => {
+          busyRef.current = false;
+        });
+      return;
+    }
+
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       busyRef.current = false;
@@ -129,11 +216,28 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
         timerRef.current = null;
       }
     }
-  }, [isRecording]);
+  }, [cleanupWavSession, encodeWav, isRecording, transcribeAudio]);
 
   // Cancel recording
   const cancelRecording = useCallback(() => {
-    // Cancel MediaRecorder if active
+    if (wavSessionRef.current && isRecording) {
+      const session = wavSessionRef.current;
+      wavSessionRef.current = null;
+      session.processor.onaudioprocess = null;
+      void cleanupWavSession(session);
+      busyRef.current = false;
+      setIsRecording(false);
+      setRecordingTime(0);
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+
+      audioChunksRef.current = [];
+      return;
+    }
+
     if (mediaRecorderRef.current && isRecording) {
       // Stop recording without transcription
       mediaRecorderRef.current.ondataavailable = null;
@@ -156,7 +260,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
 
       audioChunksRef.current = [];
     }
-  }, [isRecording]);
+  }, [cleanupWavSession, isRecording]);
 
   return {
     isRecording,

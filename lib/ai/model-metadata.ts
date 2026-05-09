@@ -4,20 +4,7 @@ export function getModelMetadataKey(providerId: string, modelId: string): string
   return `${providerId}:${modelId}`;
 }
 
-function qwenToggleCapability(): ThinkingCapability {
-  return {
-    control: 'toggle',
-    requestAdapter: 'qwen',
-    defaultMode: 'enabled',
-    toggleable: true,
-    budgetAdjustable: false,
-    defaultEnabled: true,
-  };
-}
-
-const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
-  [getModelMetadataKey('qwen', 'qwen3.6-flash')]: qwenToggleCapability(),
-};
+const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {};
 
 export function getCatalogThinkingCapability(
   providerId: string,

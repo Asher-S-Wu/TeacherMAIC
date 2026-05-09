@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { transcribeAudio } from '@/lib/audio/asr-providers';
 import { resolveASRApiKey } from '@/lib/server/provider-config';
 import type { ASRProviderId } from '@/lib/audio/types';
-import { QWEN_ASR_MODEL_ID } from '@/lib/audio/constants';
+import { ARK_ASR_MODEL_ID } from '@/lib/audio/constants';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
@@ -25,13 +25,13 @@ export async function POST(req: NextRequest) {
       return apiError('INVALID_REQUEST', 400, '音频文件不存在');
     }
 
-    const effectiveProviderId: ASRProviderId = 'qwen-asr';
+    const effectiveProviderId: ASRProviderId = 'ark-asr';
     resolvedProviderId = effectiveProviderId;
-    resolvedModelId = QWEN_ASR_MODEL_ID;
+    resolvedModelId = ARK_ASR_MODEL_ID;
 
     const config = {
       providerId: effectiveProviderId,
-      modelId: QWEN_ASR_MODEL_ID,
+      modelId: ARK_ASR_MODEL_ID,
       language: body.language || 'auto',
       apiKey: resolveASRApiKey(effectiveProviderId),
     };

@@ -5,7 +5,7 @@
 /**
  * Web Search Provider IDs
  */
-export type WebSearchProviderId = 'bailian';
+export type WebSearchProviderId = 'ark-search';
 
 /**
  * Web Search Provider Configuration

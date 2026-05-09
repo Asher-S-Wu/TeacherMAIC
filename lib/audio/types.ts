@@ -1,10 +1,10 @@
 /**
  * Audio Provider Type Definitions
  *
- * TTS and ASR are limited to Qwen models through Alibaba Cloud DashScope.
+ * TTS and ASR are limited to Volcengine Ark models.
  */
 
-export type BuiltInTTSProviderId = 'qwen-tts';
+export type BuiltInTTSProviderId = 'ark-tts';
 export type TTSProviderId = BuiltInTTSProviderId;
 
 export interface TTSVoiceInfo {
@@ -44,7 +44,7 @@ export interface TTSModelConfig {
   format?: string;
 }
 
-export type BuiltInASRProviderId = 'qwen-asr';
+export type BuiltInASRProviderId = 'ark-asr';
 export type ASRProviderId = BuiltInASRProviderId;
 
 export interface ASRProviderConfig {

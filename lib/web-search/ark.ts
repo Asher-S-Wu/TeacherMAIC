@@ -1,64 +1,55 @@
-/**
- * Alibaba Cloud Bailian Web Search Integration
- *
- * Uses Bailian's OpenAI-compatible Responses API with built-in web_search
- * and web_extractor tools.
- */
-
+import { ARK_BASE_URL } from '@/lib/ai/ark-models';
 import { DEFAULT_MODEL_ID } from '@/lib/ai/providers';
 import { proxyFetch } from '@/lib/server/proxy-fetch';
 import type { WebSearchResult, WebSearchSource } from '@/lib/types/web-search';
 
-const BAILIAN_RESPONSES_API_URL =
-  'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/responses';
-const BAILIAN_SEARCH_MODEL = DEFAULT_MODEL_ID;
+const ARK_RESPONSES_API_URL = `${ARK_BASE_URL}/responses`;
+const ARK_SEARCH_MODEL = DEFAULT_MODEL_ID;
 
-interface BailianSource {
+interface ArkSource {
   type?: string;
   url?: string;
 }
 
-interface BailianAnnotation {
+interface ArkAnnotation {
   type?: string;
   title?: string;
   url?: string;
 }
 
-interface BailianMessageContent {
+interface ArkMessageContent {
   type?: string;
   text?: string;
-  annotations?: BailianAnnotation[];
+  annotations?: ArkAnnotation[];
 }
 
-interface BailianOutputItem {
+interface ArkOutputItem {
   type?: string;
-  content?: BailianMessageContent[];
+  content?: ArkMessageContent[];
   action?: {
     type?: string;
     query?: string;
-    sources?: BailianSource[];
+    sources?: ArkSource[];
   };
-  urls?: string[];
-  output?: string;
 }
 
-interface BailianResponsesApiResponse {
+interface ArkResponsesApiResponse {
   id?: string;
   output_text?: string;
-  output?: BailianOutputItem[];
+  output?: ArkOutputItem[];
   error?: {
     code?: string;
     message?: string;
   } | null;
 }
 
-function createSource(url: string, content = '', title?: string): WebSearchSource | null {
+function createSource(url: string, title?: string): WebSearchSource | null {
   try {
     const parsed = new URL(url);
     return {
       title: title || parsed.hostname.replace(/^www\./, '') || url,
       url,
-      content,
+      content: '',
       score: 1,
     };
   } catch {
@@ -69,28 +60,18 @@ function createSource(url: string, content = '', title?: string): WebSearchSourc
 function addSource(
   sources: Map<string, WebSearchSource>,
   url: string | undefined,
-  content = '',
   title?: string,
 ): void {
   if (!url) return;
-  const source = createSource(url, content, title);
+  const source = createSource(url, title);
   if (!source) return;
-
   const existing = sources.get(source.url);
-  if (!existing) {
-    sources.set(source.url, source);
-    return;
-  }
-
-  if (!existing.content && source.content) {
-    sources.set(source.url, { ...existing, content: source.content });
-  }
-  if (existing.title === new URL(source.url).hostname.replace(/^www\./, '') && source.title) {
-    sources.set(source.url, { ...sources.get(source.url)!, title: source.title });
+  if (!existing || (source.title && existing.title !== source.title)) {
+    sources.set(source.url, existing ? { ...existing, ...source } : source);
   }
 }
 
-function extractAnswer(data: BailianResponsesApiResponse): string {
+function extractAnswer(data: ArkResponsesApiResponse): string {
   if (data.output_text?.trim()) {
     return data.output_text.trim();
   }
@@ -102,7 +83,7 @@ function extractAnswer(data: BailianResponsesApiResponse): string {
     .trim();
 }
 
-function extractSources(data: BailianResponsesApiResponse, maxResults: number): WebSearchSource[] {
+function extractSources(data: ArkResponsesApiResponse, maxResults: number): WebSearchSource[] {
   const sources = new Map<string, WebSearchSource>();
 
   for (const item of data.output || []) {
@@ -112,17 +93,10 @@ function extractSources(data: BailianResponsesApiResponse, maxResults: number): 
       }
     }
 
-    if (item.type === 'web_extractor_call') {
-      const content = (item.output || '').replace(/\s+/g, ' ').trim().slice(0, 500);
-      for (const url of item.urls || []) {
-        addSource(sources, url, content);
-      }
-    }
-
     if (item.type === 'message') {
       for (const content of item.content || []) {
         for (const annotation of content.annotations || []) {
-          addSource(sources, annotation.url, '', annotation.title);
+          addSource(sources, annotation.url, annotation.title);
         }
       }
     }
@@ -131,10 +105,7 @@ function extractSources(data: BailianResponsesApiResponse, maxResults: number): 
   return Array.from(sources.values()).slice(0, maxResults);
 }
 
-/**
- * Search the web using Bailian Responses API and return structured results.
- */
-export async function searchWithBailian(params: {
+export async function searchWithArk(params: {
   query: string;
   apiKey: string;
   maxResults?: number;
@@ -142,38 +113,38 @@ export async function searchWithBailian(params: {
   const { query, apiKey, maxResults = 5 } = params;
   const startedAt = Date.now();
 
-  const res = await proxyFetch(BAILIAN_RESPONSES_API_URL, {
+  const res = await proxyFetch(ARK_RESPONSES_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: BAILIAN_SEARCH_MODEL,
+      model: ARK_SEARCH_MODEL,
       input: [
         {
           role: 'system',
           content:
-            '你是联网搜索助手。必须先使用 web_search 搜索，再使用 web_extractor 阅读最相关网页。请用与用户查询一致的语言简洁总结，并保留可追溯来源。',
+            '你是联网搜索助手。必须先使用 web_search 搜索，再用与用户查询一致的语言简洁总结，并保留可追溯来源。',
         },
         {
           role: 'user',
           content: query,
         },
       ],
-      tools: [{ type: 'web_search' }, { type: 'web_extractor' }],
+      tools: [{ type: 'web_search' }],
       max_output_tokens: 900,
     }),
   });
 
   if (!res.ok) {
     const errorText = await res.text().catch(() => '');
-    throw new Error(`百炼联网搜索失败（${res.status}）：${errorText || res.statusText}`);
+    throw new Error(`火山方舟联网搜索失败（${res.status}）：${errorText || res.statusText}`);
   }
 
-  const data = (await res.json()) as BailianResponsesApiResponse;
+  const data = (await res.json()) as ArkResponsesApiResponse;
   if (data.error) {
-    throw new Error(`百炼联网搜索失败：${data.error.message || data.error.code || '未知错误'}`);
+    throw new Error(`火山方舟联网搜索失败：${data.error.message || data.error.code || '未知错误'}`);
   }
 
   return {
@@ -184,9 +155,6 @@ export async function searchWithBailian(params: {
   };
 }
 
-/**
- * Format search results into a markdown context block for LLM prompts.
- */
 export function formatSearchResultsAsContext(result: WebSearchResult): string {
   if (!result.answer && result.sources.length === 0) {
     return '';

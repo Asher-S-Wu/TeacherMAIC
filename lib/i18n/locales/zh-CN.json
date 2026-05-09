@@ -437,9 +437,9 @@
     "close": "关闭",
     "save": "保存",
     "providers": "语言模型",
-    "addProviderDescription": "语言模型固定使用 Qwen",
+    "addProviderDescription": "语言模型固定使用火山方舟",
     "providerNames": {
-      "qwen": "Qwen"
+      "ark": "火山方舟"
     },
     "providerTypes": {
       "openai": "OpenAI 协议"
@@ -550,8 +550,8 @@
     "asrApiKey": "服务状态",
     "enterApiKey": "无需输入",
     "enterCustomBaseUrl": "输入自定义 Base URL",
-    "providerQwenTTS": "Qwen TTS（阿里云百炼）",
-    "providerQwenASR": "Qwen ASR（阿里云百炼）",
+    "providerArkTTS": "火山方舟语音合成",
+    "providerArkASR": "火山方舟语音识别",
     "providerMinerUCloud": "MinerU（云端）",
     "testTTS": "测试 TTS",
     "testASR": "测试 ASR",
@@ -577,6 +577,11 @@
     "transcriptionResult": "识别结果",
     "noTranscriptionResult": "无识别结果",
     "defaultValue": "默认",
+    "arkVoiceKailangJiejie": "开朗、自然、适合课堂讲解",
+    "arkVoiceJingqiangKanye": "沉稳、有表现力的男声",
+    "arkVoiceWanquDashu": "成熟、亲切、叙述感强",
+    "arkVoiceCancan": "清亮、活泼的女声",
+    "arkVoiceQingcang": "稳重、清晰的男声",
     "qwenVoiceCherry": "阳光积极、亲切自然小姐姐",
     "qwenVoiceSerena": "温柔小姐姐",
     "qwenVoiceEthan": "阳光、温暖、活力、朝气",
@@ -761,7 +766,7 @@
     "imageSection": "文生图",
     "imageProvider": "图像生成提供商",
     "imageModel": "图像生成模型",
-    "providerQwenImage": "Qwen Image（阿里通义）",
+    "providerArkImage": "火山方舟图片生成",
     "testImageGeneration": "测试图像生成",
     "imageTestSuccess": "图像生成测试成功",
     "imageTestFailed": "图像生成测试失败",
@@ -775,7 +780,7 @@
     "videoSection": "文生视频",
     "videoProvider": "视频生成提供商",
     "videoModel": "视频生成模型",
-    "providerQwenVideo": "Qwen Video（阿里通义）",
+    "providerArkVideo": "火山方舟视频生成",
     "testVideoGeneration": "测试视频生成",
     "videoTestSuccess": "视频生成测试成功",
     "videoTestFailed": "视频生成测试失败",

@@ -430,9 +430,9 @@
     "close": "إغلاق",
     "save": "حفظ",
     "providers": "LLM",
-    "addProviderDescription": "مزوّد نموذج اللغة ثابت على Qwen",
+    "addProviderDescription": "مزوّد نموذج اللغة ثابت على Volcengine Ark",
     "providerNames": {
-      "qwen": "Qwen"
+      "ark": "Volcengine Ark"
     },
     "providerTypes": {
       "openai": "بروتوكول OpenAI"
@@ -543,8 +543,8 @@
     "asrApiKey": "حالة الخدمة",
     "enterApiKey": "لا حاجة للإدخال",
     "enterCustomBaseUrl": "أدخل عنوان الاتصال",
-    "providerQwenTTS": "Qwen TTS (سحابة علي بابا بايليان)",
-    "providerQwenASR": "Qwen ASR (سحابة علي بابا بايليان)",
+    "providerArkTTS": "Volcengine Ark TTS",
+    "providerArkASR": "Volcengine Ark ASR",
     "providerMinerUCloud": "MinerU (السحابي)",
     "testTTS": "اختبار TTS",
     "testASR": "اختبار ASR",
@@ -570,6 +570,11 @@
     "transcriptionResult": "نتيجة النسخ",
     "noTranscriptionResult": "لا توجد نتيجة نسخ",
     "defaultValue": "الافتراضي",
+    "arkVoiceKailangJiejie": "صوت مشرق وطبيعي مناسب للتعليم",
+    "arkVoiceJingqiangKanye": "صوت رجالي هادئ ومعبّر",
+    "arkVoiceWanquDashu": "صوت ناضج ودافئ للسرد",
+    "arkVoiceCancan": "صوت نسائي واضح وحيوي",
+    "arkVoiceQingcang": "صوت رجالي ثابت وواضح",
     "qwenVoiceCherry": "مشرق، دافئ وطبيعي",
     "qwenVoiceSerena": "لطيف وناعم",
     "qwenVoiceEthan": "نشيط وحيوي",
@@ -754,7 +759,7 @@
     "imageSection": "تحويل النص إلى صورة",
     "imageProvider": "مزوّد توليد الصور",
     "imageModel": "نموذج توليد الصور",
-    "providerQwenImage": "Qwen Image (Alibaba)",
+    "providerArkImage": "Volcengine Ark Image",
     "testImageGeneration": "اختبار توليد الصور",
     "imageTestSuccess": "نجح اختبار توليد الصور",
     "imageTestFailed": "فشل اختبار توليد الصور",
@@ -768,7 +773,7 @@
     "videoSection": "تحويل النص إلى فيديو",
     "videoProvider": "مزوّد توليد الفيديو",
     "videoModel": "نموذج توليد الفيديو",
-    "providerQwenVideo": "Qwen Video (Alibaba)",
+    "providerArkVideo": "Volcengine Ark Video",
     "testVideoGeneration": "اختبار توليد الفيديو",
     "videoTestSuccess": "نجح اختبار توليد الفيديو",
     "videoTestFailed": "فشل اختبار توليد الفيديو",

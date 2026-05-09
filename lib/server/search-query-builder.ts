@@ -48,7 +48,7 @@ export async function buildSearchQuery(
   const hasPdfContext = Boolean(pdfExcerpt);
   const rewriteAttempted = shouldRewriteSearchQuery(normalizedRequirement, pdfExcerpt);
 
-  const fallback = {
+  const baseResult = {
     query: normalizedRequirement,
     rewriteAttempted,
     rawRequirementLength: normalizedRequirement.length,
@@ -57,12 +57,11 @@ export async function buildSearchQuery(
   } satisfies SearchQueryBuildResult;
 
   if (!normalizedRequirement || !rewriteAttempted) {
-    return fallback;
+    return baseResult;
   }
 
   if (!aiCall) {
-    log.warn('Query rewrite AI call unavailable, falling back to raw requirement');
-    return fallback;
+    throw new Error('联网搜索问题改写模型不可用');
   }
 
   const prompts = buildPrompt(PROMPT_IDS.WEB_SEARCH_QUERY_REWRITE, {
@@ -71,8 +70,7 @@ export async function buildSearchQuery(
   });
 
   if (!prompts) {
-    log.warn('Query rewrite prompt not found, falling back to raw requirement');
-    return fallback;
+    throw new Error('联网搜索问题改写提示词不存在');
   }
 
   try {
@@ -83,17 +81,16 @@ export async function buildSearchQuery(
       WEB_SEARCH_QUERY_MAX_LENGTH,
     );
     if (!rewrittenQuery) {
-      log.warn('Query rewrite returned empty output, falling back to raw requirement');
-      return fallback;
+      throw new Error('联网搜索问题改写结果为空');
     }
 
     return {
-      ...fallback,
+      ...baseResult,
       query: rewrittenQuery,
       finalQueryLength: rewrittenQuery.length,
     };
   } catch (error) {
-    log.warn('Query rewrite failed, falling back to raw requirement:', error);
-    return fallback;
+    log.warn('Query rewrite failed:', error);
+    throw new Error('联网搜索问题改写失败');
   }
 }

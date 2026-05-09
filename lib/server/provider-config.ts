@@ -33,7 +33,7 @@ interface ServerConfig {
 // Env-var prefix mappings
 // ---------------------------------------------------------------------------
 
-const QWEN_API_KEY_ENV = 'QWEN_API_KEY';
+const ARK_API_KEY_ENV = 'ARK_API_KEY';
 
 const PDF_ENV_MAP: Record<string, string> = {
   PDF_MINERU_CLOUD: 'mineru-cloud',
@@ -59,12 +59,12 @@ function loadEnvSection(envMap: Record<string, string>): Record<string, ServerPr
 }
 
 function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[QWEN_API_KEY_ENV] || undefined;
-  return apiKey ? { qwen: { apiKey } } : {};
+  const apiKey = process.env[ARK_API_KEY_ENV] || undefined;
+  return apiKey ? { ark: { apiKey } } : {};
 }
 
-function loadQwenOnlySection(providerId: string): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[QWEN_API_KEY_ENV] || undefined;
+function loadArkOnlySection(providerId: string): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[ARK_API_KEY_ENV] || undefined;
   return apiKey ? { [providerId]: { apiKey } } : {};
 }
 
@@ -77,12 +77,12 @@ let _config: ServerConfig | null = null;
 function buildConfig(): ServerConfig {
   return {
     providers: loadLLMEnvSection(),
-    tts: loadQwenOnlySection('qwen-tts'),
-    asr: loadQwenOnlySection('qwen-asr'),
+    tts: loadArkOnlySection('ark-tts'),
+    asr: loadArkOnlySection('ark-asr'),
     pdf: loadEnvSection(PDF_ENV_MAP),
-    image: loadQwenOnlySection('qwen-image'),
-    video: loadQwenOnlySection('qwen-video'),
-    webSearch: loadQwenOnlySection('bailian'),
+    image: loadArkOnlySection('ark-image'),
+    video: loadArkOnlySection('ark-video'),
+    webSearch: loadArkOnlySection('ark-search'),
   };
 }
 
@@ -130,7 +130,7 @@ export function resolveApiKey(providerId: string): string {
   return getConfig().providers[providerId]?.apiKey || '';
 }
 
-/** LLM base URL is fixed by the built-in Qwen provider registry. */
+/** LLM base URL is fixed by the built-in Ark provider registry. */
 export function resolveBaseUrl(_providerId: string, _clientBaseUrl?: string): string | undefined {
   return undefined;
 }
@@ -246,7 +246,7 @@ export function resolveVideoBaseUrl(
 }
 
 // ---------------------------------------------------------------------------
-// Public API — Web Search (Bailian)
+// Public API — Web Search
 // ---------------------------------------------------------------------------
 
 /** Returns server-configured web search providers (no apiKeys exposed) */
@@ -260,7 +260,6 @@ export function getServerWebSearchProviders(): Record<string, { baseUrl?: string
   return result;
 }
 
-/** Resolve Bailian API key from server environment only. */
 export function resolveWebSearchApiKey(): string {
-  return getConfig().webSearch.bailian?.apiKey || '';
+  return getConfig().webSearch['ark-search']?.apiKey || '';
 }
