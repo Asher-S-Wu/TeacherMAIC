@@ -6,7 +6,6 @@ export function useDrop(elementRef: RefObject<HTMLElement | null>) {
 
   useEffect(() => {
     const element = elementRef.current;
-    // Handle drop of elements/pages onto canvas
     const handleDrop = (e: DragEvent) => {
       if (!e.dataTransfer || e.dataTransfer.items.length === 0) return;
       if (disableHotkeys) return;
@@ -15,7 +14,6 @@ export function useDrop(elementRef: RefObject<HTMLElement | null>) {
       if (firstItem && firstItem.kind === 'string' && firstItem.type === 'text/plain') {
         firstItem.getAsString((_text) => {
           if (disableHotkeys) return;
-          // TODO: implement createTextElement
         });
       }
     };

@@ -117,7 +117,7 @@
  */
 
 import type { PDFParserConfig } from './types';
-import type { ParsedPdfContent } from '@/lib/types/pdf';
+import type { ParsedPdfContent } from '@/lib/pdf/types';
 import { PDF_PROVIDERS } from './constants';
 import { parseWithMinerUCloud } from './mineru-cloud';
 

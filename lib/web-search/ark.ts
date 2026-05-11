@@ -1,7 +1,7 @@
 import { ARK_BASE_URL } from '@/lib/ai/ark-models';
 import { DEFAULT_MODEL_ID } from '@/lib/ai/providers';
 import { proxyFetch } from '@/lib/server/proxy-fetch';
-import type { WebSearchResult, WebSearchSource } from '@/lib/types/web-search';
+import type { WebSearchResult, WebSearchSource } from '@/lib/web-search/types';
 
 const ARK_RESPONSES_API_URL = `${ARK_BASE_URL}/responses`;
 const ARK_SEARCH_MODEL = DEFAULT_MODEL_ID;

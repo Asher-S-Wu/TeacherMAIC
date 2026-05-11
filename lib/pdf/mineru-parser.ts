@@ -4,7 +4,7 @@
  * Normalizes MinerU output (markdown + images dict + content_list) into ParsedPdfContent.
  */
 
-import type { ParsedPdfContent } from '@/lib/types/pdf';
+import type { ParsedPdfContent } from '@/lib/pdf/types';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('MinerUParser');

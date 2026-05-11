@@ -142,7 +142,6 @@ export function encodeSlideMediaRels(layout: PresSlide | SlideLayout): Array<Pro
 			(async () => {
 				if (isNode && !fs) await loadNodeDeps()
 				if (isNode && fs) {
-					// console.log('Sorry, SVG is not supported in Node (more info: https://github.com/gitbrent/PptxGenJS/issues/401)')
 					rel.data = IMG_BROKEN
 					imageProms.push(Promise.resolve('done'))
 				} else {
@@ -192,45 +191,6 @@ async function createSvgPngPreview(rel: ISlideRelMedia): Promise<string> {
 		}
 
 		// C: Load image
-		image.src = typeof rel.data === 'string' ? rel.data : IMG_BROKEN
+	image.src = typeof rel.data === 'string' ? rel.data : IMG_BROKEN
 	})
 }
-
-/**
- * FIXME: TODO: currently unused
- * TODO: Should return a Promise
- */
-/*
-function getSizeFromImage (inImgUrl: string): { width: number, height: number } {
-	const sizeOf = typeof require !== 'undefined' ? require('sizeof') : null // NodeJS
-
-	if (sizeOf) {
-		try {
-			const dimensions = sizeOf(inImgUrl)
-			return { width: dimensions.width, height: dimensions.height }
-		} catch (ex) {
-			console.error('ERROR: sizeOf: Unable to load image: ' + inImgUrl)
-			return { width: 0, height: 0 }
-		}
-	} else if (Image && typeof Image === 'function') {
-		// A: Create
-		const image = new Image()
-
-		// B: Set onload event
-		image.onload = () => {
-			// FIRST: Check for any errors: This is the best method (try/catch wont work, etc.)
-			if (image.width + image.height === 0) {
-				return { width: 0, height: 0 }
-			}
-			const obj = { width: image.width, height: image.height }
-			return obj
-		}
-		image.onerror = () => {
-			console.error(`ERROR: image.onload: Unable to load image: ${inImgUrl}`)
-		}
-
-		// C: Load image
-		image.src = inImgUrl
-	}
-}
-*/

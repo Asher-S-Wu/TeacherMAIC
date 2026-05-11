@@ -25,16 +25,6 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	let inputCells: TableCell[] = []
 	const inputLines1: TableCell[][] = []
 	const inputLines2: TableCell[][] = []
-	/*
-		if (cell.options && cell.options.autoPageCharWeight) {
-			let CHR1 = 2.3 + (cell.options && cell.options.autoPageCharWeight ? cell.options.autoPageCharWeight : 0) // Character Constant
-			let CPL1 = ((colWidth / ONEPT) * EMU) / ((cell.options && cell.options.fontSize ? cell.options.fontSize : DEF_FONT_SIZE) / CHR1) // Chars-Per-Line
-			console.log(`cell.options.autoPageCharWeight: '${cell.options.autoPageCharWeight}' => CPL: ${CPL1}`)
-			let CHR2 = 2.3 + 0
-			let CPL2 = ((colWidth / ONEPT) * EMU) / ((cell.options && cell.options.fontSize ? cell.options.fontSize : DEF_FONT_SIZE) / CHR2) // Chars-Per-Line
-			console.log(`cell.options.autoPageCharWeight: '0' => CPL: ${CPL2}`)
-		}
-	*/
 
 	/**
 	 * EX INPUTS: `cell.text`
@@ -64,7 +54,6 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	if (verbose) {
 		console.log('[1/4] inputCells')
 		inputCells.forEach((cell, idx) => console.log(`[1/4] [${idx + 1}] cell: ${JSON.stringify(cell)}`))
-		// console.log('...............................................\n\n')
 	}
 
 	// STEP 2: Group table cells into lines based on "\n" or `breakLine` prop
@@ -110,7 +99,6 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	if (verbose) {
 		console.log(`[2/4] inputLines1 (${inputLines1.length})`)
 		inputLines1.forEach((line, idx) => console.log(`[2/4] [${idx + 1}] line: ${JSON.stringify(line)}`))
-		// console.log('...............................................\n\n')
 	}
 
 	// STEP 3: Tokenize every text object into words (then it's really easy to assemble lines below without having to break text, add its `options`, etc.)
@@ -133,7 +121,6 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	if (verbose) {
 		console.log(`[3/4] inputLines2 (${inputLines2.length})`)
 		inputLines2.forEach(line => console.log(`[3/4] line: ${JSON.stringify(line)}`))
-		// console.log('...............................................\n\n')
 	}
 
 	// STEP 4: Group cells/words into lines based upon space consumed by word letters
@@ -144,7 +131,6 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 		line.forEach(word => {
 			// A: create new line when horizontal space is exhausted
 			if (strCurrLine.length + word.text.length > CPL) {
-				// if (verbose) console.log(`STEP 4: New line added: (${strCurrLine.length} + ${word.text.length} > ${CPL})`);
 				parsedLines.push(lineCells)
 				lineCells = []
 				strCurrLine = ''
@@ -196,8 +182,6 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 		if (tableRowSlides.length === 0) emuStartY = tablePropY || inch2Emu(arrInchMargins[0])
 		if (tableRowSlides.length > 0) emuStartY = inch2Emu(tableProps.autoPageSlideStartY || tableProps.newSlideStartY || arrInchMargins[0])
 		emuSlideTabH = (tablePropH || presLayout.height) - emuStartY - inch2Emu(arrInchMargins[2])
-		// console.log(`| startY .......................................... = ${(emuStartY / EMU).toFixed(1)}`)
-		// console.log(`| emuSlideTabH .................................... = ${(emuSlideTabH / EMU).toFixed(1)}`)
 		if (tableRowSlides.length > 1) {
 			// D: RULE: Use margins for starting point after the initial Slide, not `opt.y` (ISSUE #43, ISSUE #47, ISSUE #48)
 			if (typeof tableProps.autoPageSlideStartY === 'number') {

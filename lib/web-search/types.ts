@@ -1,15 +1,19 @@
-/**
- * Web Search Provider Type Definitions
- */
+export interface WebSearchSource {
+  title: string;
+  url: string;
+  content: string;
+  score: number;
+}
 
-/**
- * Web Search Provider IDs
- */
+export interface WebSearchResult {
+  answer: string;
+  sources: WebSearchSource[];
+  query: string;
+  responseTime: number;
+}
+
 export type WebSearchProviderId = 'ark-search';
 
-/**
- * Web Search Provider Configuration
- */
 export interface WebSearchProviderConfig {
   id: WebSearchProviderId;
   name: string;

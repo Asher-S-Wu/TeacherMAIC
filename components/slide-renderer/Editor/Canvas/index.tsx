@@ -26,20 +26,10 @@ import { Ruler } from './Ruler';
 import { GridLines } from './GridLines';
 import type { PPTElement } from '@/lib/types/slides';
 import type { AlignmentLineProps } from '@/lib/types/edit';
-import type { ContextmenuItem } from './EditableElement';
+import { ContextMenuItems, type ContextmenuItem } from './ContextMenuItems';
 import type { SlideContent } from '@/lib/types/stage';
 import { useCanvasOperations } from '@/lib/hooks/use-canvas-operations';
-import {
-  ContextMenu,
-  ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuSeparator,
-  ContextMenuSub,
-  ContextMenuSubTrigger,
-  ContextMenuSubContent,
-  ContextMenuShortcut,
-  ContextMenuItem,
-} from '@/components/ui/context-menu';
+import { ContextMenu, ContextMenuTrigger, ContextMenuContent } from '@/components/ui/context-menu';
 
 export interface CanvasProps {
   editable?: boolean;
@@ -86,7 +76,6 @@ export function Canvas(_props: CanvasProps) {
   const spaceKeyState = useKeyboardStore((state) => state.spaceKeyState);
 
   const [alignmentLines, setAlignmentLines] = useState<AlignmentLineProps[]>([]);
-  const [linkDialogVisible, setLinkDialogVisible] = useState(false);
 
   // Local element list for drag/scale/rotate operations
   const elementListRef = useRef<PPTElement[]>(elements || []);
@@ -158,17 +147,9 @@ export function Canvas(_props: CanvasProps) {
     }
   };
 
-  // Double-click blank area to insert text
-  const handleDblClick = (_e: React.MouseEvent) => {
+  const handleDblClick = () => {
     if (activeElementIdList.length || creatingElement || creatingCustomShape) return;
     if (!viewportRef.current) return;
-
-    const _viewportRect = viewportRef.current.getBoundingClientRect();
-    // TODO: implement createTextElement (use _viewportRect + e.pageX/Y + canvasScale)
-  };
-
-  const openLinkDialog = () => {
-    setLinkDialogVisible(true);
   };
 
   const { pasteElement, selectAllElements, deleteAllElements } = useCanvasOperations();
@@ -239,11 +220,7 @@ export function Canvas(_props: CanvasProps) {
 
           {/* Custom shape creation canvas */}
           {creatingCustomShape && (
-            <ShapeCreateCanvas
-              onCreated={(_data) => {
-                // TODO: implement insertCustomShape
-              }}
-            />
+            <ShapeCreateCanvas onCreated={() => undefined} />
           )}
 
           {/* Viewport wrapper */}
@@ -292,7 +269,6 @@ export function Canvas(_props: CanvasProps) {
                       scaleElement={scaleElement}
                       dragLineElement={dragLineElement}
                       moveShapeKeypoint={moveShapeKeypoint}
-                      openLinkDialog={openLinkDialog}
                     />
                   ),
               )}
@@ -334,7 +310,6 @@ export function Canvas(_props: CanvasProps) {
                     elementIndex={index + 1}
                     isMultiSelect={activeElementIdList.length > 1}
                     selectElement={selectElement}
-                    openLinkDialog={openLinkDialog}
                   />
                 ) : null,
               )}
@@ -347,66 +322,10 @@ export function Canvas(_props: CanvasProps) {
           {/* Drag mask when space key is pressed */}
           {spaceKeyState && <div className="drag-mask absolute inset-0 cursor-grab" />}
 
-          {/* TODO: Add LinkDialog modal */}
-          {linkDialogVisible && <div>LinkDialog placeholder</div>}
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        {contextmenus().map((item, index) => {
-          if (item.divider) {
-            return <ContextMenuSeparator key={index} />;
-          }
-
-          // If has children, use submenu component
-          if (item.children && item.children.length > 0) {
-            return (
-              <ContextMenuSub key={index}>
-                <ContextMenuSubTrigger disabled={item.disable} hidden={item.hide}>
-                  {item.text}
-                  {item.subText && <ContextMenuShortcut>{item.subText}</ContextMenuShortcut>}
-                </ContextMenuSubTrigger>
-                <ContextMenuSubContent>
-                  {item.children.map((child, childIndex) =>
-                    child.divider ? (
-                      <ContextMenuSeparator key={childIndex} />
-                    ) : (
-                      <ContextMenuItem
-                        key={childIndex}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          child.handler?.();
-                        }}
-                        disabled={child.disable}
-                        hidden={child.hide}
-                      >
-                        {child.text}
-                        {child.subText && (
-                          <ContextMenuShortcut>{child.subText}</ContextMenuShortcut>
-                        )}
-                      </ContextMenuItem>
-                    ),
-                  )}
-                </ContextMenuSubContent>
-              </ContextMenuSub>
-            );
-          }
-
-          // Regular menu item
-          return (
-            <ContextMenuItem
-              key={index}
-              onClick={(e) => {
-                e.stopPropagation();
-                item.handler?.();
-              }}
-              disabled={item.disable}
-              hidden={item.hide}
-            >
-              {item.text}
-              {item.subText && <ContextMenuShortcut>{item.subText}</ContextMenuShortcut>}
-            </ContextMenuItem>
-          );
-        })}
+        <ContextMenuItems items={contextmenus()} />
       </ContextMenuContent>
     </ContextMenu>
   );

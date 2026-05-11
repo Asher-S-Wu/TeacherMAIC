@@ -486,8 +486,6 @@ export async function createExcelWorksheet (chartObject: ISlideRelChart, zip: JS
 						// D: Done
 						strSheetXml += '</row>'
 					}
-					// console.log(strSheetXml) // WIP: CHECK:
-					// console.log(`---CHECK ABOVE---------------------`)
 				}
 			}
 			strSheetXml += '</sheetData>'

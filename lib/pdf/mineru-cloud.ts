@@ -7,7 +7,7 @@
 
 import JSZip from 'jszip';
 import type { PDFParserConfig } from './types';
-import type { ParsedPdfContent } from '@/lib/types/pdf';
+import type { ParsedPdfContent } from '@/lib/pdf/types';
 import { extractMinerUResult } from './mineru-parser';
 import { MINERU_CLOUD_DEFAULT_BASE } from './constants';
 import { createLogger } from '@/lib/logger';

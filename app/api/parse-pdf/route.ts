@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
 import { parsePDF } from '@/lib/pdf/pdf-providers';
 import { resolvePDFApiKey } from '@/lib/server/provider-config';
-import type { PDFProviderId } from '@/lib/pdf/types';
-import type { ParsedPdfContent } from '@/lib/types/pdf';
+import type { ParsedPdfContent, PDFProviderId } from '@/lib/pdf/types';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';

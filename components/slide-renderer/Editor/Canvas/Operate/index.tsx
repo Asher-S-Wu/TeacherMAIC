@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useCanvasStore, useSceneSelector } from '@/lib/store';
 import {
-  ElementTypes,
   type PPTElement,
   type PPTLineElement,
   type PPTVideoElement,
@@ -12,13 +11,8 @@ import {
   type PPTAnimation,
 } from '@/lib/types/slides';
 import type { OperateLineHandlers, OperateResizeHandlers } from '@/lib/types/edit';
-import { ImageElementOperate } from './ImageElementOperate';
-import { TextElementOperate } from './TextElementOperate';
-import { ShapeElementOperate } from './ShapeElementOperate';
-import { LineElementOperate } from './LineElementOperate';
-import { TableElementOperate } from './TableElementOperate';
-import { CommonElementOperate } from './CommonElementOperate';
 import type { SlideContent } from '@/lib/types/stage';
+import { OPERATE_ELEMENT_COMPONENTS } from '../../../element-registry';
 
 interface OperateProps {
   readonly elementInfo: PPTElement;
@@ -48,7 +42,6 @@ interface OperateProps {
     element: PPTShapeElement,
     index: number,
   ) => void;
-  readonly openLinkDialog: () => void;
 }
 
 export function Operate({
@@ -61,7 +54,6 @@ export function Operate({
   scaleElement,
   dragLineElement,
   moveShapeKeypoint,
-  openLinkDialog: _openLinkDialog,
 }: OperateProps) {
   const canvasScale = useCanvasStore.use.canvasScale();
   const toolbarState = useCanvasStore.use.toolbarState();
@@ -100,21 +92,7 @@ export function Operate({
     return formatedAnimations;
   }, [currentSlide]);
 
-  const CurrentOperateComponent = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- element operate components have varying prop signatures
-    const elementTypeMap: Record<string, any> = {
-      [ElementTypes.IMAGE]: ImageElementOperate,
-      [ElementTypes.TEXT]: TextElementOperate,
-      [ElementTypes.SHAPE]: ShapeElementOperate,
-      [ElementTypes.LINE]: LineElementOperate,
-      [ElementTypes.TABLE]: TableElementOperate,
-      [ElementTypes.CHART]: CommonElementOperate,
-      [ElementTypes.LATEX]: CommonElementOperate,
-      [ElementTypes.VIDEO]: CommonElementOperate,
-      [ElementTypes.AUDIO]: CommonElementOperate,
-    };
-    return elementTypeMap[elementInfo.type] || null;
-  }, [elementInfo.type]);
+  const CurrentOperateComponent = OPERATE_ELEMENT_COMPONENTS[elementInfo.type];
 
   const elementIndexListInAnimation = useMemo(() => {
     if (!formatedAnimations) return [];

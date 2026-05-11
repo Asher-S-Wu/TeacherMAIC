@@ -780,14 +780,6 @@ export function addTableDefinition(
 				'addTable: \'rows\' should be an array of cells! EX: \'slide.addTable( [ [\'A\'], [\'B\'], {text:\'C\',options:{align:\'center\'}} ] );\' (https://gitbrent.github.io/PptxGenJS/docs/api-tables.html)'
 			)
 		}
-
-		// TODO: FUTURE: This is wacky and wont function right (shows .w value when there is none from demo.js?!) 20191219
-		/*
-		if (opt.w && opt.colW) {
-			console.warn('addTable: please use either `colW` or `w` - not both (table will use `colW` and ignore `w`)')
-			console.log(`${opt.w} ${opt.colW}`)
-		}
-		*/
 	}
 
 	// STEP 2: Transform `tableRows` into well-formatted TableCell's
