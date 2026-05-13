@@ -459,8 +459,9 @@ async function* streamArkText(
 async function* streamDeepSeekText(
   params: LLMStreamParams,
   source: string,
+  thinking?: ThinkingConfig,
 ): AsyncIterable<string> {
-  const response = await requestDeepSeekChatCompletions(params, source, true);
+  const response = await requestDeepSeekChatCompletions(params, source, thinking, true);
   if (!response.body) {
     throw new Error(`DeepSeek Chat Completions API returned an empty stream [${source}]`);
   }
@@ -562,7 +563,7 @@ export function streamLLM<T extends LLMStreamParams>(
 ): LLMStreamResult {
   return {
     textStream: isDeepSeekProvider(params.model)
-      ? streamDeepSeekText(params, source)
+      ? streamDeepSeekText(params, source, thinking)
       : streamArkText(params, source, thinking),
   };
 }
