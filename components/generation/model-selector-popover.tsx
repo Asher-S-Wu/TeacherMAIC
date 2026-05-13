@@ -87,7 +87,7 @@ export function ModelSelectorPopover({ children }: ModelSelectorPopoverProps) {
         avoidCollisions={false}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
-        className="w-64 p-1.5"
+        className="w-44 p-1"
       >
         {PRESET_OPTIONS.map((option) => {
           const isSelected = option.id === currentPresetId;
@@ -101,16 +101,16 @@ export function ModelSelectorPopover({ children }: ModelSelectorPopoverProps) {
                 handleSelect(option);
               }}
               className={cn(
-                'w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-left',
+                'w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-left',
                 isSelected
                   ? 'bg-primary/10 text-primary border border-primary/20'
                   : 'hover:bg-muted/50 text-foreground border border-transparent',
               )}
             >
-              <Icon className="size-5 shrink-0" />
+              <Icon className="size-4 shrink-0" />
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-semibold block">{option.label}</span>
-                <span className="text-xs text-muted-foreground block">{option.description}</span>
+                <span className="text-xs font-semibold block leading-tight">{option.label}</span>
+                <span className="text-[10px] text-muted-foreground block leading-tight">{option.description}</span>
               </div>
             </button>
           );
