@@ -441,10 +441,10 @@
     "close": "关闭",
     "save": "保存",
     "providers": "语言模型",
-    "addProviderDescription": "语言模型固定使用火山方舟",
+    "addProviderDescription": "可在模型列表中切换火山方舟或 DeepSeek V4 Pro",
     "providerNames": {
       "ark": "火山方舟",
-      "dragoncode": "DragonCode"
+      "deepseek": "DeepSeek"
     },
     "providerTypes": {
       "openai": "OpenAI 协议",
@@ -461,8 +461,6 @@
     "keyboardShortcuts": "键盘快捷键",
     "generalSettings": "常规设置",
     "systemSettings": "系统设置",
-    "developerMode": "开发者模式",
-    "developerModeDescription": "开启后，课程生成和对话会使用更强的 GPT-5.5 模型。",
     "addProvider": "添加",
     "importFromClipboard": "从剪贴板导入",
     "apiSecret": "连接授权",

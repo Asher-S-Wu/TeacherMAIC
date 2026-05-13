@@ -140,7 +140,6 @@ export async function POST(req: NextRequest) {
       pdfImages?: PdfImage[];
       researchContext?: string;
       agents?: AgentInfo[];
-      developerMode?: boolean;
     };
     requirementSnippet = requirements?.requirement?.substring(0, 60);
 

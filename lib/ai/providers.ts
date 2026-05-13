@@ -1,7 +1,7 @@
 /**
  * Unified AI Provider Configuration
  *
- * Text generation normally uses Volcengine Ark; developer mode uses DragonCode GPT-5.5.
+ * Text generation can use any server-configured built-in provider.
  */
 
 import type {
@@ -18,12 +18,11 @@ import { ARK_BASE_URL, ARK_LLM_MODEL_ID, ARK_LLM_MODEL_NAME } from './ark-models
 export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'ark';
 export const DEFAULT_MODEL_ID = ARK_LLM_MODEL_ID;
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
-export const DEVELOPER_PROVIDER_ID: BuiltInProviderId = 'dragoncode';
-export const DEVELOPER_MODEL_ID = 'gpt-5.5';
-export const DEVELOPER_MODEL_NAME = 'GPT-5.5';
-export const DEVELOPER_MODEL_STRING = `${DEVELOPER_PROVIDER_ID}:${DEVELOPER_MODEL_ID}`;
-export const DRAGONCODE_BASE_URL = 'https://dragoncode.codes';
-export const DRAGONCODE_RESPONSES_PATH = '/responses';
+export const DEEPSEEK_PROVIDER_ID: BuiltInProviderId = 'deepseek';
+export const DEEPSEEK_MODEL_ID = 'deepseek-v4-pro';
+export const DEEPSEEK_MODEL_NAME = 'DeepSeek V4 Pro';
+export const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
+export const DEEPSEEK_CHAT_COMPLETIONS_PATH = '/chat/completions';
 
 // Re-export shared provider types.
 export type { ProviderId, ProviderConfig, ModelInfo, ModelConfig };
@@ -41,6 +40,7 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
     type: 'ark-responses',
     defaultBaseUrl: ARK_BASE_URL,
     requiresApiKey: true,
+    icon: '/logos/doubao-color.svg',
     models: [
       {
         id: DEFAULT_MODEL_ID,
@@ -55,22 +55,23 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
       },
     ],
   },
-  dragoncode: {
-    id: 'dragoncode',
-    name: 'DragonCode',
+  deepseek: {
+    id: 'deepseek',
+    name: 'DeepSeek',
     type: 'openai',
-    defaultBaseUrl: DRAGONCODE_BASE_URL,
+    defaultBaseUrl: DEEPSEEK_BASE_URL,
     requiresApiKey: true,
+    icon: '/logos/deepseek-color.svg',
     models: [
       {
-        id: DEVELOPER_MODEL_ID,
-        name: DEVELOPER_MODEL_NAME,
-        contextWindow: 1050000,
-        outputWindow: 128000,
+        id: DEEPSEEK_MODEL_ID,
+        name: DEEPSEEK_MODEL_NAME,
+        contextWindow: 1000000,
+        outputWindow: 384000,
         capabilities: {
           streaming: true,
           tools: true,
-          vision: true,
+          json: true,
         },
       },
     ],
@@ -161,9 +162,7 @@ export function parseModelString(modelString: string): {
 
     return {
       providerId: provider.id,
-      modelId:
-        modelString.slice(colonIndex + 1) ||
-        (provider.id === DEVELOPER_PROVIDER_ID ? DEVELOPER_MODEL_ID : DEFAULT_MODEL_ID),
+      modelId: modelString.slice(colonIndex + 1) || provider.models[0]?.id || DEFAULT_MODEL_ID,
     };
   }
 

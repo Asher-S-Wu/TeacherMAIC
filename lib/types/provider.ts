@@ -5,7 +5,7 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId = 'ark' | 'dragoncode';
+export type BuiltInProviderId = 'ark' | 'deepseek';
 
 /**
  * Provider ID
@@ -30,7 +30,7 @@ export type ThinkingMode = 'default' | 'disabled' | 'enabled' | 'auto';
 export type ThinkingEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
 
-export type ThinkingRequestAdapter = 'none' | 'ark-responses' | 'openai-responses';
+export type ThinkingRequestAdapter = 'none' | 'ark-responses' | 'deepseek-chat';
 
 /**
  * Describes a model's thinking/reasoning API control capability.
@@ -108,6 +108,7 @@ export interface ModelInfo {
     streaming?: boolean;
     tools?: boolean;
     vision?: boolean;
+    json?: boolean;
     thinking?: ThinkingCapability;
   };
 }

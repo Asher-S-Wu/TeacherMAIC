@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
     } = body as {
       query?: string;
       pdfText?: string;
-      developerMode?: boolean;
     };
     query = requestQuery;
 

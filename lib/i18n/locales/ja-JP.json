@@ -434,10 +434,10 @@
     "close": "閉じる",
     "save": "保存",
     "providers": "LLM",
-    "addProviderDescription": "言語モデルプロバイダーは火山方舟固定です",
+    "addProviderDescription": "モデル一覧で火山方舟と DeepSeek V4 Pro を切り替えられます",
     "providerNames": {
       "ark": "火山方舟",
-      "dragoncode": "DragonCode"
+      "deepseek": "DeepSeek"
     },
     "providerTypes": {
       "openai": "OpenAIプロトコル",
@@ -454,8 +454,6 @@
     "keyboardShortcuts": "ショートカット",
     "generalSettings": "一般",
     "systemSettings": "システム",
-    "developerMode": "開発者モード",
-    "developerModeDescription": "オンにすると、コース生成と会話でより強力な GPT-5.5 モデルを使用します。",
     "addProvider": "追加",
     "importFromClipboard": "クリップボードからインポート",
     "apiSecret": "接続アクセス",

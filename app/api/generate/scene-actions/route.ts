@@ -56,7 +56,6 @@ export async function POST(req: NextRequest) {
       previousSpeeches?: string[];
       userProfile?: string;
       languageDirective?: string;
-      developerMode?: boolean;
     };
 
     // Validate required fields

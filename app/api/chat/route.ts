@@ -18,7 +18,7 @@ import { isProviderKeyRequired } from '@/lib/ai/providers';
 import type { StatelessChatRequest, StatelessEvent } from '@/lib/types/chat';
 import { apiError } from '@/lib/server/api-response';
 import { createLogger } from '@/lib/logger';
-import { resolveModel } from '@/lib/server/resolve-model';
+import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import type { ThinkingConfig } from '@/lib/types/provider';
 const log = createLogger('Chat API');
 
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       apiKey: resolvedApiKey,
       providerId,
       modelString,
-    } = await resolveModel({ developerMode: body.developerMode === true });
+    } = await resolveModelFromRequest(req, body);
     chatModel = modelString;
 
     if (isProviderKeyRequired(providerId) && !resolvedApiKey) {

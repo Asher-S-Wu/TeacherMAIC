@@ -6,7 +6,6 @@
 
 import type { NextRequest } from 'next/server';
 import {
-  DEVELOPER_MODEL_STRING,
   DEFAULT_MODEL_STRING,
   getModel,
   parseModelString,
@@ -32,9 +31,9 @@ export interface ResolvedModel extends ModelWithInfo {
  */
 export async function resolveModel(params: {
   thinkingConfig?: ThinkingConfig;
-  developerMode?: boolean;
+  modelString?: string;
 }): Promise<ResolvedModel> {
-  const modelString = params.developerMode ? DEVELOPER_MODEL_STRING : DEFAULT_MODEL_STRING;
+  const modelString = params.modelString || DEFAULT_MODEL_STRING;
   const { providerId, modelId } = parseModelString(modelString);
 
   const apiKey = resolveApiKey(providerId);
@@ -61,9 +60,25 @@ function getThinkingConfigFromBody(body: unknown): ThinkingConfig | undefined {
   return config && typeof config === 'object' ? (config as ThinkingConfig) : undefined;
 }
 
-function getDeveloperModeFromBody(body: unknown): boolean {
-  if (!body || typeof body !== 'object') return false;
-  return (body as { developerMode?: unknown }).developerMode === true;
+function getModelStringFromBody(body: unknown): string | undefined {
+  if (!body || typeof body !== 'object') return undefined;
+  const record = body as {
+    modelString?: unknown;
+    providerId?: unknown;
+    modelId?: unknown;
+  };
+  if (typeof record.modelString === 'string' && record.modelString.trim()) {
+    return record.modelString;
+  }
+  if (
+    typeof record.providerId === 'string' &&
+    record.providerId.trim() &&
+    typeof record.modelId === 'string' &&
+    record.modelId.trim()
+  ) {
+    return `${record.providerId}:${record.modelId}`;
+  }
+  return undefined;
 }
 
 /**
@@ -83,7 +98,7 @@ export async function resolveModelFromRequest(
 ): Promise<ResolvedModel> {
   void req;
   const resolved = await resolveModel({
-    developerMode: getDeveloperModeFromBody(body),
+    modelString: getModelStringFromBody(body),
   });
   return {
     ...resolved,

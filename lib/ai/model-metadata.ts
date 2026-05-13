@@ -12,12 +12,12 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
     defaultEnabled: true,
     toggleable: true,
   },
-  'dragoncode:gpt-5.5': {
+  'deepseek:deepseek-v4-pro': {
     control: 'effort',
-    requestAdapter: 'openai-responses',
+    requestAdapter: 'deepseek-chat',
     defaultMode: 'enabled',
-    effortValues: ['minimal', 'low', 'medium', 'high', 'xhigh'],
-    defaultEffort: 'medium',
+    effortValues: ['high', 'max'],
+    defaultEffort: 'max',
     defaultEnabled: true,
     budgetAdjustable: true,
   },

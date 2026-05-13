@@ -40,11 +40,11 @@ function getApiHeaders(): HeadersInit {
 }
 
 function withThinkingConfig<T extends Record<string, unknown>>(body: T): T {
-  const { thinkingConfig, developerMode } = getCurrentModelConfig();
+  const { modelString, thinkingConfig } = getCurrentModelConfig();
   return {
     ...body,
+    modelString,
     ...(thinkingConfig ? { thinkingConfig } : {}),
-    ...(developerMode ? { developerMode } : {}),
   } as T;
 }
 

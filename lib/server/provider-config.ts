@@ -35,7 +35,7 @@ interface ServerConfig {
 // ---------------------------------------------------------------------------
 
 const ARK_API_KEY_ENV = 'ARK_API_KEY';
-const DRAGONCODE_API_KEY_ENV = 'DRAGONCODE_API_KEY';
+const DEEPSEEK_API_KEY_ENV = 'DEEPSEEK_API_KEY';
 const VOLCENGINE_TTS_API_KEY_ENV = 'VOLCENGINE_TTS_API_KEY';
 const VOLCENGINE_TTS_RESOURCE_ID_ENV = 'VOLCENGINE_TTS_RESOURCE_ID';
 
@@ -65,10 +65,10 @@ function loadEnvSection(envMap: Record<string, string>): Record<string, ServerPr
 function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
   const result: Record<string, ServerProviderEntry> = {};
   const arkApiKey = process.env[ARK_API_KEY_ENV] || undefined;
-  const dragoncodeApiKey = process.env[DRAGONCODE_API_KEY_ENV] || undefined;
+  const deepseekApiKey = process.env[DEEPSEEK_API_KEY_ENV] || undefined;
 
   if (arkApiKey) result.ark = { apiKey: arkApiKey };
-  if (dragoncodeApiKey) result.dragoncode = { apiKey: dragoncodeApiKey };
+  if (deepseekApiKey) result.deepseek = { apiKey: deepseekApiKey };
 
   return result;
 }

@@ -434,10 +434,10 @@
     "close": "إغلاق",
     "save": "حفظ",
     "providers": "LLM",
-    "addProviderDescription": "مزوّد نموذج اللغة ثابت على Volcengine Ark",
+    "addProviderDescription": "يمكن التبديل بين Volcengine Ark و DeepSeek V4 Pro من قائمة النماذج",
     "providerNames": {
       "ark": "Volcengine Ark",
-      "dragoncode": "DragonCode"
+      "deepseek": "DeepSeek"
     },
     "providerTypes": {
       "openai": "بروتوكول OpenAI",
@@ -454,8 +454,6 @@
     "keyboardShortcuts": "اختصارات لوحة المفاتيح",
     "generalSettings": "عام",
     "systemSettings": "النظام",
-    "developerMode": "وضع المطور",
-    "developerModeDescription": "عند التفعيل، سيستخدم إنشاء الدروس والمحادثات نموذج GPT-5.5 الأقوى.",
     "addProvider": "إضافة",
     "importFromClipboard": "استيراد من الحافظة",
     "apiSecret": "وصول الاتصال",

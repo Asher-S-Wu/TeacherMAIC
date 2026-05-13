@@ -47,7 +47,6 @@ export async function POST(req: NextRequest) {
       stageId: string;
       agents?: AgentInfo[];
       languageDirective?: string;
-      developerMode?: boolean;
     };
 
     // Validate required fields

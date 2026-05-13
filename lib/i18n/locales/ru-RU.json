@@ -434,10 +434,10 @@
     "close": "Закрыть",
     "save": "Сохранить",
     "providers": "LLM",
-    "addProviderDescription": "Провайдер языковой модели зафиксирован на Volcengine Ark",
+    "addProviderDescription": "Выберите Volcengine Ark или DeepSeek V4 Pro в списке моделей",
     "providerNames": {
       "ark": "Volcengine Ark",
-      "dragoncode": "DragonCode"
+      "deepseek": "DeepSeek"
     },
     "providerTypes": {
       "openai": "Протокол OpenAI",
@@ -454,8 +454,6 @@
     "keyboardShortcuts": "Горячие клавиши",
     "generalSettings": "Общие",
     "systemSettings": "Система",
-    "developerMode": "Режим разработчика",
-    "developerModeDescription": "Если включено, создание курсов и диалоги используют более мощную модель GPT-5.5.",
     "addProvider": "Добавить",
     "importFromClipboard": "Импорт из буфера",
     "apiSecret": "Доступ к подключению",

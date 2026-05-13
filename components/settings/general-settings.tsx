@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -14,9 +13,8 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import { Loader2, Trash2, AlertTriangle, Code2 } from 'lucide-react';
+import { Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
-import { useSettingsStore } from '@/lib/store/settings';
 import { toast } from 'sonner';
 import { createLogger } from '@/lib/logger';
 
@@ -24,8 +22,6 @@ const log = createLogger('GeneralSettings');
 
 export function GeneralSettings() {
   const { t } = useI18n();
-  const developerMode = useSettingsStore((state) => state.developerMode);
-  const setDeveloperMode = useSettingsStore((state) => state.setDeveloperMode);
 
   // Clear cache state
   const [showClearDialog, setShowClearDialog] = useState(false);
@@ -61,28 +57,6 @@ export function GeneralSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="rounded-xl border bg-card p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="rounded-md bg-primary/10 p-1.5 text-primary">
-              <Code2 className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <Label className="text-sm font-semibold">{t('settings.developerMode')}</Label>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {t('settings.developerModeDescription')}
-              </p>
-            </div>
-          </div>
-          <Switch
-            checked={developerMode}
-            onCheckedChange={setDeveloperMode}
-            aria-label={t('settings.developerMode')}
-            className="shrink-0"
-          />
-        </div>
-      </div>
-
       {/* Danger Zone - Clear Cache */}
       <div className="relative rounded-xl border border-destructive/30 bg-destructive/[0.03] dark:bg-destructive/[0.06] overflow-hidden">
         {/* Subtle diagonal stripe pattern for danger emphasis */}

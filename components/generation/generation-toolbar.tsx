@@ -9,7 +9,6 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import type { SettingsSection } from '@/lib/types/settings';
 import { MediaPopover } from '@/components/generation/media-popover';
-import { DEVELOPER_MODEL_ID, DEVELOPER_PROVIDER_ID } from '@/lib/ai/providers';
 
 // ─── Constants ───────────────────────────────────────────────
 const MAX_PDF_SIZE_MB = 50;
@@ -47,15 +46,12 @@ export function GenerationToolbar({
   const { t } = useI18n();
   const currentProviderId = useSettingsStore((s) => s.providerId);
   const currentModelId = useSettingsStore((s) => s.modelId);
-  const developerMode = useSettingsStore((s) => s.developerMode);
   const providersConfig = useSettingsStore((s) => s.providersConfig);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const effectiveProviderId = developerMode ? DEVELOPER_PROVIDER_ID : currentProviderId;
-  const effectiveModelId = developerMode ? DEVELOPER_MODEL_ID : currentModelId;
-  const currentProviderConfig = providersConfig?.[effectiveProviderId];
-  const currentModel = currentProviderConfig?.models.find((model) => model.id === effectiveModelId);
+  const currentProviderConfig = providersConfig?.[currentProviderId];
+  const currentModel = currentProviderConfig?.models.find((model) => model.id === currentModelId);
   const attachmentCount = (pdfFile ? 1 : 0) + imageFiles.length;
 
   const removeImageFile = (index: number) => {
@@ -111,9 +107,10 @@ export function GenerationToolbar({
         <TooltipTrigger asChild>
           <button
             type="button"
+            onClick={() => onSettingsOpen('providers')}
             className={cn(
               pillCls,
-              'order-3 ml-auto border-violet-200/70 bg-violet-50 text-violet-700 dark:border-violet-800/70 dark:bg-violet-950/30 dark:text-violet-300 cursor-default',
+              'order-3 ml-auto border-violet-200/70 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800/70 dark:bg-violet-950/30 dark:text-violet-300 dark:hover:bg-violet-950/50',
             )}
           >
             {currentProviderConfig?.icon ? (

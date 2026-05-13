@@ -25,6 +25,7 @@ import {
 } from '@/lib/server/classroom-media-generation';
 import type { UserRequirements } from '@/lib/types/generation';
 import type { Scene, Stage } from '@/lib/types/stage';
+import type { ThinkingConfig } from '@/lib/types/provider';
 import type { ObjectId } from 'mongodb';
 import { AGENT_COLOR_PALETTE, AGENT_DEFAULT_AVATARS } from '@/lib/constants/agent-defaults';
 
@@ -38,7 +39,8 @@ export interface GenerateClassroomInput {
   enableVideoGeneration?: boolean;
   enableTTS?: boolean;
   agentMode?: 'default' | 'generate';
-  developerMode?: boolean;
+  modelString?: string;
+  thinkingConfig?: ThinkingConfig;
 }
 
 export type ClassroomGenerationStep =
@@ -178,14 +180,18 @@ export async function generateClassroom(
     modelString,
     providerId,
     apiKey,
-  } = await resolveModel({ developerMode: input.developerMode === true });
+    thinkingConfig,
+  } = await resolveModel({
+    modelString: input.modelString,
+    thinkingConfig: input.thinkingConfig,
+  });
   log.info(`Using server-configured model: ${modelString}`);
 
   // Fail fast if the resolved provider has no API key configured
   if (isProviderKeyRequired(providerId) && !apiKey) {
     throw new Error(
       `No API key configured for provider "${providerId}". ` +
-        'Set ARK_API_KEY in Vercel Environment Variables.',
+        'Please configure the matching API key in Vercel Environment Variables.',
     );
   }
 
@@ -200,6 +206,8 @@ export async function generateClassroom(
         maxOutputTokens: modelInfo?.outputWindow,
       },
       'generate-classroom',
+      undefined,
+      thinkingConfig,
     );
     return result.text;
   };
@@ -219,6 +227,8 @@ export async function generateClassroom(
         maxOutputTokens: 256,
       },
       operation,
+      undefined,
+      thinkingConfig,
     );
     return result.text;
   };

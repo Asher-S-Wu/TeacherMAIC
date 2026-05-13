@@ -55,7 +55,7 @@ async function gradeShortAnswerQuestion(
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    const { developerMode } = getCurrentModelConfig();
+    const { modelString } = getCurrentModelConfig();
 
     const res = await fetch('/api/quiz-grade', {
       method: 'POST',
@@ -66,7 +66,7 @@ async function gradeShortAnswerQuestion(
         points: pts,
         commentPrompt: q.commentPrompt,
         language,
-        ...(developerMode ? { developerMode } : {}),
+        modelString,
       }),
     });
 

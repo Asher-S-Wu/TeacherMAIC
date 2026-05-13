@@ -95,7 +95,6 @@ export interface SettingsState {
   providerId: ProviderId;
   modelId: string;
   thinkingConfigs: Record<string, ThinkingConfig>;
-  developerMode: boolean;
 
   // Provider configurations (unified JSON storage)
   providersConfig: ProvidersConfig;
@@ -215,7 +214,6 @@ export interface SettingsState {
 
   // Actions
   setModel: (providerId: ProviderId, modelId: string) => void;
-  setDeveloperMode: (enabled: boolean) => void;
   setThinkingConfig: (
     providerId: ProviderId,
     modelId: string,
@@ -394,7 +392,6 @@ export const useSettingsStore = create<SettingsState>()(
         providerId: DEFAULT_PROVIDER_ID,
         modelId: DEFAULT_MODEL_ID,
         thinkingConfigs: {},
-        developerMode: false,
         providersConfig: initialProvidersConfig,
         selectedAgentIds: ['default-1', 'default-2', 'default-3'],
         maxTurns: '10',
@@ -436,9 +433,7 @@ export const useSettingsStore = create<SettingsState>()(
         ...defaultWebSearchConfig,
 
         // Actions
-        setModel: () => set({ providerId: DEFAULT_PROVIDER_ID, modelId: DEFAULT_MODEL_ID }),
-
-        setDeveloperMode: (enabled) => set({ developerMode: enabled }),
+        setModel: (providerId, modelId) => set({ providerId, modelId }),
 
         setThinkingConfig: (providerId, modelId, config) =>
           set((state) => {
@@ -675,10 +670,10 @@ export const useSettingsStore = create<SettingsState>()(
                 apiKey: '',
                 isServerConfigured: !!data.providers.ark,
               };
-              newProvidersConfig.dragoncode = {
-                ...newProvidersConfig.dragoncode,
+              newProvidersConfig.deepseek = {
+                ...newProvidersConfig.deepseek,
                 apiKey: '',
-                isServerConfigured: !!data.providers.dragoncode,
+                isServerConfigured: !!data.providers.deepseek,
               };
 
               const defaultAudio = getDefaultAudioConfig();
@@ -765,6 +760,11 @@ export const useSettingsStore = create<SettingsState>()(
               const ttsEnabled =
                 state.ttsEnabled && !!newTTSConfig['ark-tts'].isServerConfigured;
 
+              const selectedProvider = newProvidersConfig[state.providerId];
+              const selectedModelIsAvailable = selectedProvider?.models.some(
+                (model) => model.id === state.modelId,
+              );
+
               return {
                 providersConfig: newProvidersConfig,
                 ttsProvidersConfig: newTTSConfig,
@@ -773,8 +773,12 @@ export const useSettingsStore = create<SettingsState>()(
                 imageProvidersConfig: newImageConfig,
                 videoProvidersConfig: newVideoConfig,
                 webSearchProvidersConfig: newWebSearchConfig,
-                providerId: DEFAULT_PROVIDER_ID,
-                modelId: DEFAULT_MODEL_ID,
+                providerId:
+                  selectedProvider && selectedModelIsAvailable
+                    ? state.providerId
+                    : DEFAULT_PROVIDER_ID,
+                modelId:
+                  selectedProvider && selectedModelIsAvailable ? state.modelId : DEFAULT_MODEL_ID,
                 ttsProviderId: 'ark-tts' as TTSProviderId,
                 ttsVoice,
                 ttsEnabled,
@@ -810,6 +814,15 @@ export const useSettingsStore = create<SettingsState>()(
         const ttsVoice = isValidTTSVoice('ark-tts', persisted.ttsVoice)
           ? persisted.ttsVoice
           : DEFAULT_TTS_VOICES['ark-tts'];
+        const persistedProviderId = persisted.providerId;
+        const persistedModelId = persisted.modelId;
+        const selectedProvider =
+          persistedProviderId && currentState.providersConfig[persistedProviderId];
+        const selectedModelIsAvailable =
+          !!selectedProvider &&
+          !!persistedModelId &&
+          selectedProvider.models.some((model) => model.id === persistedModelId);
+
         return {
           ...merged,
           providersConfig: currentState.providersConfig,
@@ -819,8 +832,8 @@ export const useSettingsStore = create<SettingsState>()(
           imageProvidersConfig: currentState.imageProvidersConfig,
           videoProvidersConfig: currentState.videoProvidersConfig,
           webSearchProvidersConfig: currentState.webSearchProvidersConfig,
-          providerId: DEFAULT_PROVIDER_ID,
-          modelId: DEFAULT_MODEL_ID,
+          providerId: selectedModelIsAvailable ? persistedProviderId : DEFAULT_PROVIDER_ID,
+          modelId: selectedModelIsAvailable ? persistedModelId : DEFAULT_MODEL_ID,
           ttsProviderId: 'ark-tts' as TTSProviderId,
           ttsVoice,
           asrProviderId: 'ark-asr' as ASRProviderId,

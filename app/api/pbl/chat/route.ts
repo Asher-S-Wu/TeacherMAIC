@@ -20,7 +20,6 @@ interface PBLChatRequest {
   recentMessages: { agent_name: string; message: string }[];
   userRole: string;
   agentType?: 'question' | 'judge';
-  developerMode?: boolean;
 }
 
 export async function POST(req: NextRequest) {

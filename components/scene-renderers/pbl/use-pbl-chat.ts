@@ -12,11 +12,11 @@ import { getCurrentModelConfig } from '@/lib/utils/model-config';
 
 const log = createLogger('PBLChat');
 
-function withDeveloperMode<T extends Record<string, unknown>>(body: T): T {
-  const { developerMode } = getCurrentModelConfig();
+function withModelConfig<T extends Record<string, unknown>>(body: T): T {
+  const { modelString } = getCurrentModelConfig();
   return {
     ...body,
-    ...(developerMode ? { developerMode } : {}),
+    modelString,
   } as T;
 }
 
@@ -77,7 +77,7 @@ export function usePBLChat({ projectConfig, userRole, onConfigUpdate }: UsePBLCh
           method: 'POST',
           headers,
           body: JSON.stringify(
-            withDeveloperMode({
+            withModelConfig({
               message: cleanMessage,
               agent: targetAgent,
               currentIssue,
@@ -214,7 +214,7 @@ async function handleIssueComplete(
           method: 'POST',
           headers,
           body: JSON.stringify(
-            withDeveloperMode({
+            withModelConfig({
               message: questionPrompt,
               agent: questionAgent,
               currentIssue: nextIssue,

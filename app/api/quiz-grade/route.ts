@@ -18,7 +18,6 @@ interface GradeRequest {
   points: number;
   commentPrompt?: string;
   language?: string;
-  developerMode?: boolean;
 }
 
 interface GradeResponse {

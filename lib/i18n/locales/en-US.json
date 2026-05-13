@@ -441,10 +441,10 @@
     "close": "Close",
     "save": "Save",
     "providers": "LLM",
-    "addProviderDescription": "The language model provider is fixed to Volcengine Ark",
+    "addProviderDescription": "Switch between Volcengine Ark and DeepSeek V4 Pro in the model list",
     "providerNames": {
       "ark": "Volcengine Ark",
-      "dragoncode": "DragonCode"
+      "deepseek": "DeepSeek"
     },
     "providerTypes": {
       "openai": "OpenAI Protocol",
@@ -461,8 +461,6 @@
     "keyboardShortcuts": "Shortcuts",
     "generalSettings": "General",
     "systemSettings": "System",
-    "developerMode": "Developer Mode",
-    "developerModeDescription": "When enabled, course generation and conversations use the stronger GPT-5.5 model.",
     "addProvider": "Add",
     "importFromClipboard": "Import from Clipboard",
     "apiSecret": "Connection access",

@@ -1,12 +1,12 @@
 /**
  * Unified LLM Call Layer
  *
- * Text generation goes through provider-specific Responses APIs.
+ * Text generation goes through provider-specific APIs.
  */
 
 import { createLogger } from '@/lib/logger';
 import { ARK_RESPONSES_PATH } from './ark-models';
-import { DEVELOPER_PROVIDER_ID, DRAGONCODE_RESPONSES_PATH } from './providers';
+import { DEEPSEEK_CHAT_COMPLETIONS_PATH, DEEPSEEK_PROVIDER_ID } from './providers';
 import type { ArkResponsesModel } from './providers';
 import type { ThinkingConfig } from '@/lib/types/provider';
 
@@ -66,21 +66,39 @@ interface ResponsesBody {
   instructions?: string;
   max_output_tokens: number;
   thinking?: { type: 'enabled' | 'disabled' };
-  reasoning?: { effort: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' };
-  text?: { verbosity: 'high' };
+}
+
+type ChatCompletionMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+};
+
+interface ChatCompletionsBody {
+  model: string;
+  messages: ChatCompletionMessage[];
+  stream: boolean;
+  max_tokens: number;
+  thinking: { type: 'enabled' };
+  reasoning_effort: 'max';
 }
 
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
 
-function getResponsesUrl(model: ArkResponsesModel): string {
-  const path =
-    model.providerId === DEVELOPER_PROVIDER_ID ? DRAGONCODE_RESPONSES_PATH : ARK_RESPONSES_PATH;
-  return `${model.baseUrl.replace(/\/$/, '')}${path}`;
+function isDeepSeekProvider(model: ArkResponsesModel): boolean {
+  return model.providerId === DEEPSEEK_PROVIDER_ID;
+}
+
+function getArkResponsesUrl(model: ArkResponsesModel): string {
+  return `${model.baseUrl.replace(/\/$/, '')}${ARK_RESPONSES_PATH}`;
+}
+
+function getDeepSeekChatCompletionsUrl(model: ArkResponsesModel): string {
+  return `${model.baseUrl.replace(/\/$/, '')}${DEEPSEEK_CHAT_COMPLETIONS_PATH}`;
 }
 
 function getMaxOutputTokens(params: LLMGenerateParams): number {
-  if (params.model.providerId === DEVELOPER_PROVIDER_ID) {
-    return params.model.modelInfo?.outputWindow ?? 128000;
+  if (isDeepSeekProvider(params.model)) {
+    return params.model.modelInfo?.outputWindow ?? 384000;
   }
   return params.maxOutputTokens ?? params.model.modelInfo?.outputWindow ?? 128000;
 }
@@ -173,16 +191,48 @@ function buildResponsesBody(
     stream,
     ...(instructions.length > 0 ? { instructions: instructions.join('\n\n') } : {}),
     max_output_tokens: getMaxOutputTokens(params),
+    thinking: { type: getArkThinkingType(thinking) },
   };
 
-  if (params.model.providerId === DEVELOPER_PROVIDER_ID) {
-    body.reasoning = { effort: 'medium' };
-    body.text = { verbosity: 'high' };
-  } else {
-    body.thinking = { type: getArkThinkingType(thinking) };
+  return body;
+}
+
+function buildChatCompletionMessages(params: LLMGenerateParams): ChatCompletionMessage[] {
+  const messages: ChatCompletionMessage[] = [];
+
+  if (params.system?.trim()) {
+    messages.push({ role: 'system', content: params.system });
   }
 
-  return body;
+  for (const message of params.messages ?? []) {
+    const content = contentToPlainText(message.content);
+    if (!content.trim()) continue;
+    messages.push({ role: message.role, content });
+  }
+
+  if (params.prompt !== undefined) {
+    messages.push({ role: 'user', content: params.prompt });
+  }
+
+  if (messages.length === 0) {
+    throw new Error('LLM request missing input');
+  }
+
+  return messages;
+}
+
+function buildDeepSeekChatCompletionsBody(
+  params: LLMGenerateParams,
+  stream = false,
+): ChatCompletionsBody {
+  return {
+    model: params.model.modelId,
+    messages: buildChatCompletionMessages(params),
+    stream,
+    max_tokens: getMaxOutputTokens(params),
+    thinking: { type: 'enabled' },
+    reasoning_effort: 'max',
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -212,7 +262,7 @@ async function requestArkResponses(
   stream: boolean,
 ): Promise<Response> {
   const body = buildResponsesBody(params, thinking, stream);
-  const response = await fetch(getResponsesUrl(params.model), {
+  const response = await fetch(getArkResponsesUrl(params.model), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${params.model.apiKey}`,
@@ -224,16 +274,50 @@ async function requestArkResponses(
 
   if (!response.ok) {
     const message = await readProviderError(response);
-    const providerName =
-      params.model.providerId === DEVELOPER_PROVIDER_ID
-        ? 'DragonCode Responses API'
-        : 'Ark Responses API';
     throw new Error(
-      `${providerName} failed [${source}, model=${params.model.modelId}, status=${response.status}]: ${message}`,
+      `Ark Responses API failed [${source}, model=${params.model.modelId}, status=${response.status}]: ${message}`,
     );
   }
 
   return response;
+}
+
+async function requestDeepSeekChatCompletions(
+  params: LLMGenerateParams,
+  source: string,
+  stream: boolean,
+): Promise<Response> {
+  const body = buildDeepSeekChatCompletionsBody(params, stream);
+  const response = await fetch(getDeepSeekChatCompletionsUrl(params.model), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${params.model.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    signal: params.abortSignal,
+  });
+
+  if (!response.ok) {
+    const message = await readProviderError(response);
+    throw new Error(
+      `DeepSeek Chat Completions API failed [${source}, model=${params.model.modelId}, status=${response.status}]: ${message}`,
+    );
+  }
+
+  return response;
+}
+
+async function requestLLMResponse(
+  params: LLMGenerateParams,
+  source: string,
+  thinking: ThinkingConfig | undefined,
+  stream: boolean,
+): Promise<Response> {
+  if (isDeepSeekProvider(params.model)) {
+    return requestDeepSeekChatCompletions(params, source, stream);
+  }
+  return requestArkResponses(params, source, thinking, stream);
 }
 
 function extractTextFromContent(content: unknown): string {
@@ -271,6 +355,13 @@ function extractTextFromResponse(payload: unknown): string {
     .join('');
 }
 
+function extractTextFromChatCompletionResponse(payload: unknown): string {
+  if (!isRecord(payload) || !Array.isArray(payload.choices)) return '';
+  const firstChoice = payload.choices[0];
+  if (!isRecord(firstChoice) || !isRecord(firstChoice.message)) return '';
+  return typeof firstChoice.message.content === 'string' ? firstChoice.message.content : '';
+}
+
 function getSseData(block: string): string {
   return block
     .split(/\r?\n/)
@@ -290,6 +381,13 @@ function extractTextDelta(eventPayload: unknown): string {
   const delta = eventPayload.delta;
   if (isRecord(delta) && typeof delta.text === 'string') return delta.text;
   return '';
+}
+
+function extractChatCompletionDelta(eventPayload: unknown): string {
+  if (!isRecord(eventPayload) || !Array.isArray(eventPayload.choices)) return '';
+  const firstChoice = eventPayload.choices[0];
+  if (!isRecord(firstChoice) || !isRecord(firstChoice.delta)) return '';
+  return typeof firstChoice.delta.content === 'string' ? firstChoice.delta.content : '';
 }
 
 async function* streamArkText(
@@ -347,6 +445,60 @@ async function* streamArkText(
   }
 }
 
+async function* streamDeepSeekText(
+  params: LLMStreamParams,
+  source: string,
+): AsyncIterable<string> {
+  const response = await requestDeepSeekChatCompletions(params, source, true);
+  if (!response.body) {
+    throw new Error(`DeepSeek Chat Completions API returned an empty stream [${source}]`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (value) {
+        buffer += decoder.decode(value, { stream: !done });
+        buffer = buffer.replace(/\r\n/g, '\n');
+      }
+      if (done) {
+        buffer += decoder.decode();
+        buffer = buffer.replace(/\r\n/g, '\n');
+      }
+
+      let separatorIndex = buffer.indexOf('\n\n');
+      while (separatorIndex >= 0) {
+        const block = buffer.slice(0, separatorIndex);
+        buffer = buffer.slice(separatorIndex + 2);
+
+        const data = getSseData(block);
+        if (data && data !== '[DONE]') {
+          const parsed = JSON.parse(data) as unknown;
+          const delta = extractChatCompletionDelta(parsed);
+          if (delta) yield delta;
+        }
+
+        separatorIndex = buffer.indexOf('\n\n');
+      }
+
+      if (done) break;
+    }
+
+    const tail = getSseData(buffer);
+    if (tail && tail !== '[DONE]') {
+      const parsed = JSON.parse(tail) as unknown;
+      const delta = extractChatCompletionDelta(parsed);
+      if (delta) yield delta;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export async function callLLM<T extends LLMGenerateParams>(
   params: T,
   source: string,
@@ -361,10 +513,12 @@ export async function callLLM<T extends LLMGenerateParams>(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const response = await requestArkResponses(params, source, thinking, false);
+      const response = await requestLLMResponse(params, source, thinking, false);
       const payload = (await response.json()) as unknown;
       const result: LLMTextResult = {
-        text: extractTextFromResponse(payload),
+        text: isDeepSeekProvider(params.model)
+          ? extractTextFromChatCompletionResponse(payload)
+          : extractTextFromResponse(payload),
         rawResponse: payload,
       };
 
@@ -396,6 +550,8 @@ export function streamLLM<T extends LLMStreamParams>(
   thinking?: ThinkingConfig,
 ): LLMStreamResult {
   return {
-    textStream: streamArkText(params, source, thinking),
+    textStream: isDeepSeekProvider(params.model)
+      ? streamDeepSeekText(params, source)
+      : streamArkText(params, source, thinking),
   };
 }

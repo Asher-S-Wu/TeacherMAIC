@@ -17,8 +17,6 @@ import {
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import {
-  DEFAULT_PROVIDER_ID,
-  DEVELOPER_PROVIDER_ID,
   MONO_LOGO_PROVIDERS,
   type ProviderId,
 } from '@/lib/ai/providers';
@@ -140,7 +138,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
 
   // Get settings from store
   const providerId = useSettingsStore((state) => state.providerId);
-  const developerMode = useSettingsStore((state) => state.developerMode);
+  const modelId = useSettingsStore((state) => state.modelId);
   const providersConfig = useSettingsStore((state) => state.providersConfig);
   const pdfProviderId = useSettingsStore((state) => state.pdfProviderId);
   const pdfProvidersConfig = useSettingsStore((state) => state.pdfProvidersConfig);
@@ -158,6 +156,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   // Store actions
   const setTTSProvider = useSettingsStore((state) => state.setTTSProvider);
   const setASRProvider = useSettingsStore((state) => state.setASRProvider);
+  const setModel = useSettingsStore((state) => state.setModel);
 
   // Navigation
   const [activeSection, setActiveSection] = useState<SettingsSection>('providers');
@@ -238,12 +237,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
     setSelectedProviderId(pid);
   };
 
-  useEffect(() => {
-    if (!developerMode && selectedProviderId === DEVELOPER_PROVIDER_ID) {
-      setSelectedProviderId(DEFAULT_PROVIDER_ID);
-    }
-  }, [developerMode, selectedProviderId]);
-
   const selectedProvider = providersConfig[selectedProviderId]
     ? {
         id: selectedProviderId,
@@ -258,7 +251,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
 
   // Get all providers from providersConfig
   const allProviders = Object.entries(providersConfig)
-    .filter(([id]) => developerMode || id !== DEVELOPER_PROVIDER_ID)
     .map(([id, config]) => ({
       id: id as ProviderId,
       name: config.name,
@@ -731,6 +723,9 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 <ProviderConfigPanel
                   provider={selectedProvider}
                   providersConfig={providersConfig}
+                  selectedProviderId={providerId}
+                  selectedModelId={modelId}
+                  onModelSelect={setModel}
                 />
               )}
 
