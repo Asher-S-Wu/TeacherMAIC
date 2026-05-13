@@ -8,7 +8,7 @@ import { createLogger } from '@/lib/logger';
 import { ARK_RESPONSES_PATH } from './ark-models';
 import { DEEPSEEK_CHAT_COMPLETIONS_PATH, DEEPSEEK_PROVIDER_ID } from './providers';
 import type { ArkResponsesModel } from './providers';
-import type { ThinkingConfig } from '@/lib/types/provider';
+import type { ThinkingConfig, ThinkingEffort } from '@/lib/types/provider';
 
 const log = createLogger('LLM');
 
@@ -78,8 +78,8 @@ interface ChatCompletionsBody {
   messages: ChatCompletionMessage[];
   stream: boolean;
   max_tokens: number;
-  thinking: { type: 'enabled' };
-  reasoning_effort: 'high';
+  thinking: { type: 'enabled' | 'disabled' };
+  reasoning_effort?: ThinkingEffort;
 }
 
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
@@ -105,6 +105,13 @@ function getMaxOutputTokens(params: LLMGenerateParams): number {
 
 function getArkThinkingType(config?: ThinkingConfig): 'enabled' | 'disabled' {
   if (config?.mode === 'disabled' || config?.enabled === false) return 'disabled';
+  return 'enabled';
+}
+
+function getDeepSeekThinkingType(config?: ThinkingConfig): 'enabled' | 'disabled' {
+  if (config?.mode === 'disabled' || config?.enabled === false || config?.effort === 'none') {
+    return 'disabled';
+  }
   return 'enabled';
 }
 
@@ -223,15 +230,18 @@ function buildChatCompletionMessages(params: LLMGenerateParams): ChatCompletionM
 
 function buildDeepSeekChatCompletionsBody(
   params: LLMGenerateParams,
+  thinking?: ThinkingConfig,
   stream = false,
 ): ChatCompletionsBody {
+  const thinkingType = getDeepSeekThinkingType(thinking);
+
   return {
     model: params.model.modelId,
     messages: buildChatCompletionMessages(params),
     stream,
     max_tokens: getMaxOutputTokens(params),
-    thinking: { type: 'enabled' },
-    reasoning_effort: 'high',
+    thinking: { type: thinkingType },
+    ...(thinkingType === 'enabled' && thinking?.effort ? { reasoning_effort: thinking.effort } : {}),
   };
 }
 
@@ -285,9 +295,10 @@ async function requestArkResponses(
 async function requestDeepSeekChatCompletions(
   params: LLMGenerateParams,
   source: string,
+  thinking: ThinkingConfig | undefined,
   stream: boolean,
 ): Promise<Response> {
-  const body = buildDeepSeekChatCompletionsBody(params, stream);
+  const body = buildDeepSeekChatCompletionsBody(params, thinking, stream);
   const response = await fetch(getDeepSeekChatCompletionsUrl(params.model), {
     method: 'POST',
     headers: {
@@ -315,7 +326,7 @@ async function requestLLMResponse(
   stream: boolean,
 ): Promise<Response> {
   if (isDeepSeekProvider(params.model)) {
-    return requestDeepSeekChatCompletions(params, source, stream);
+    return requestDeepSeekChatCompletions(params, source, thinking, stream);
   }
   return requestArkResponses(params, source, thinking, stream);
 }

@@ -36,7 +36,7 @@ const PRESET_OPTIONS: PresetOption[] = [
     icon: Atom,
     providerId: 'deepseek',
     modelId: 'deepseek-v4-flash',
-    thinkingConfig: { mode: 'enabled', effort: 'high' },
+    thinkingConfig: { mode: 'enabled', effort: 'max' },
   },
   {
     id: 'expert',
@@ -45,7 +45,7 @@ const PRESET_OPTIONS: PresetOption[] = [
     icon: Network,
     providerId: EXPERT_PROVIDER_ID,
     modelId: EXPERT_MODEL_ID,
-    thinkingConfig: { mode: 'enabled', effort: 'high' },
+    thinkingConfig: { mode: 'disabled' },
   },
 ];
 

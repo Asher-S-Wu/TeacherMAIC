@@ -57,7 +57,7 @@ export function GenerationToolbar({
     if (currentProviderId === 'deepseek' && currentModelId === 'deepseek-v4-flash') {
       const thinkingConfig =
         thinkingConfigs[getThinkingConfigKey(currentProviderId, currentModelId)];
-      return thinkingConfig?.mode === 'enabled' && thinkingConfig?.effort === 'high'
+      return thinkingConfig?.mode === 'enabled' && thinkingConfig?.effort === 'max'
         ? PRESET_LABELS.think
         : PRESET_LABELS.fast;
     }

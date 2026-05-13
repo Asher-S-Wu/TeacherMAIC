@@ -1379,20 +1379,34 @@ function convertTeacherActionsToActions(teacherActions: TeacherAction[]): Action
  */
 function processActions(actions: Action[], elements: PPTElement[], agents?: AgentInfo[]): Action[] {
   const elementIds = new Set(elements.map((el) => el.id));
+  const videoElementIds = new Set(elements.filter((el) => el.type === 'video').map((el) => el.id));
   const agentIds = new Set(agents?.map((a) => a.id) || []);
+  const processedActions: Action[] = [];
 
-  return actions.map((action) => {
+  for (const action of actions) {
     // Ensure each action has an ID
     const processedAction: Action = {
       ...action,
       id: action.id || `action_${nanoid(8)}`,
     };
 
-    // Validate spotlight elementId
-    if (processedAction.type === 'spotlight') {
-      const spotlightAction = processedAction;
-      if (!spotlightAction.elementId || !elementIds.has(spotlightAction.elementId)) {
-        throw new Error(`Invalid spotlight elementId: ${spotlightAction.elementId || ''}`);
+    // Delete invalid slide-targeting actions so one hallucinated element ID does not
+    // abort the whole scene generation.
+    if (processedAction.type === 'spotlight' || processedAction.type === 'laser') {
+      if (!processedAction.elementId || !elementIds.has(processedAction.elementId)) {
+        log.warn(
+          `Skipped invalid ${processedAction.type} action elementId: ${processedAction.elementId || ''}`,
+        );
+        continue;
+      }
+    }
+
+    if (processedAction.type === 'play_video') {
+      if (!processedAction.elementId || !videoElementIds.has(processedAction.elementId)) {
+        log.warn(
+          `Skipped invalid play_video action elementId: ${processedAction.elementId || ''}`,
+        );
+        continue;
       }
     }
 
@@ -1403,8 +1417,10 @@ function processActions(actions: Action[], elements: PPTElement[], agents?: Agen
       }
     }
 
-    return processedAction;
-  });
+    processedActions.push(processedAction);
+  }
+
+  return processedActions;
 }
 
 /**

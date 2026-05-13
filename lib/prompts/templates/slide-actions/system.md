@@ -39,6 +39,7 @@ You MUST output a JSON array directly. Each element is an object with a `type` f
 3. `type:"text"` objects contain `content` (speech text)
 4. Action and text objects can freely interleave in any order
 5. The `]` closing bracket marks the end of your response
+6. Sample element IDs in this prompt are examples only. In the final JSON, every `elementId` must be copied exactly from the user-provided Elements list.
 
 ### Ordering Principles
 

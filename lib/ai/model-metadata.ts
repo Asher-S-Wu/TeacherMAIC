@@ -15,18 +15,20 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
   'deepseek:deepseek-v4-pro': {
     control: 'effort',
     requestAdapter: 'deepseek-chat',
-    defaultMode: 'enabled',
-    effortValues: ['high'],
-    defaultEffort: 'high',
-    defaultEnabled: true,
+    defaultMode: 'disabled',
+    effortValues: ['none', 'max'],
+    defaultEffort: 'none',
+    defaultEnabled: false,
     budgetAdjustable: true,
   },
   'deepseek:deepseek-v4-flash': {
-    control: 'toggle',
+    control: 'effort',
     requestAdapter: 'deepseek-chat',
     defaultMode: 'disabled',
+    effortValues: ['none', 'max'],
+    defaultEffort: 'none',
     defaultEnabled: false,
-    toggleable: false,
+    budgetAdjustable: true,
   },
 };
 
