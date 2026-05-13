@@ -23,8 +23,7 @@ export interface ManifestStage {
   style?: string;
   createdAt: number;
   updatedAt: number;
-  // Note: Stage.interactiveMode is intentionally NOT exported because deep
-  // interaction is the default generation behavior.
+  // Note: Stage.interactiveMode is intentionally NOT exported.
 }
 
 export interface ManifestAgent {

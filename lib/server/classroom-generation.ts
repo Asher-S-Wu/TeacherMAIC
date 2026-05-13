@@ -12,7 +12,7 @@ import type { AICallFn } from '@/lib/generation/pipeline-types';
 import type { AgentInfo } from '@/lib/generation/pipeline-types';
 import { getDefaultAgents } from '@/lib/orchestration/registry/store';
 import { createLogger } from '@/lib/logger';
-import { isProviderKeyRequired } from '@/lib/ai/providers';
+import { isExpertModelString, isProviderKeyRequired } from '@/lib/ai/providers';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { resolveModel } from '@/lib/server/resolve-model';
 import { buildSearchQuery, decideWebSearch } from '@/lib/server/search-query-builder';
@@ -185,6 +185,7 @@ export async function generateClassroom(
     modelString: input.modelString,
     thinkingConfig: input.thinkingConfig,
   });
+  const interactiveMode = isExpertModelString(modelString);
   log.info(`Using server-configured model: ${modelString}`);
 
   // Fail fast if the resolved provider has no API key configured
@@ -237,6 +238,7 @@ export async function generateClassroom(
 
   const requirements: UserRequirements = {
     requirement,
+    interactiveMode,
   };
   const pdfText = pdfContent?.text || undefined;
 
@@ -337,8 +339,8 @@ export async function generateClassroom(
     name: outlines[0]?.title || requirement.slice(0, 50),
     description: undefined,
     languageDirective,
-    style: 'interactive',
-    interactiveMode: true,
+    style: interactiveMode ? 'interactive' : 'professional',
+    interactiveMode,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     // For LLM-generated agents, embed full configs so the client can

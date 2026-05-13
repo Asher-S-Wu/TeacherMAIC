@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { useSettingsStore } from '@/lib/store/settings';
 import type { ThinkingConfig } from '@/lib/types/provider';
+import { EXPERT_MODEL_ID, EXPERT_PROVIDER_ID } from '@/lib/ai/providers';
 
 interface PresetOption {
   id: string;
@@ -41,8 +42,8 @@ const PRESET_OPTIONS: PresetOption[] = [
     label: '专家',
     description: '研究级智能模型',
     icon: Network,
-    providerId: 'deepseek',
-    modelId: 'deepseek-v4-pro',
+    providerId: EXPERT_PROVIDER_ID,
+    modelId: EXPERT_MODEL_ID,
     thinkingConfig: { mode: 'enabled', effort: 'max' },
   },
 ];

@@ -4,6 +4,7 @@ import {
   normalizeThinkingConfig,
   supportsConfigurableThinking,
 } from '@/lib/ai/thinking-config';
+import { isExpertModel } from '@/lib/ai/providers';
 
 /**
  * Get current model configuration from settings store
@@ -27,6 +28,7 @@ export function getCurrentModelConfig() {
     providerId,
     modelId,
     modelString,
+    isExpert: isExpertModel(providerId, modelId),
     thinkingConfig,
   };
 }

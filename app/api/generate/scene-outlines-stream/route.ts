@@ -35,6 +35,7 @@ import { loadImageMappingForUser } from '@/lib/server/file-storage';
 import { createLogger } from '@/lib/logger';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { validateSceneOutline } from '@/lib/generation/outline-validation';
+import { isExpertModelString } from '@/lib/ai/providers';
 const log = createLogger('Outlines Stream');
 
 /**
@@ -194,7 +195,9 @@ export async function POST(req: NextRequest) {
 
     // Build teacher context from agents (if available)
     const teacherContext = formatTeacherPersonaForPrompt(agents);
-    const promptId = PROMPT_IDS.INTERACTIVE_OUTLINES;
+    const promptId = isExpertModelString(modelString)
+      ? PROMPT_IDS.INTERACTIVE_OUTLINES
+      : PROMPT_IDS.REQUIREMENTS_TO_OUTLINES;
 
     const prompts = buildPrompt(promptId, {
       requirement: requirements.requirement,

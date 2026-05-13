@@ -52,6 +52,7 @@ import { SpeechButton } from '@/components/audio/speech-button';
 import { useImportClassroom } from '@/lib/import/use-import-classroom';
 import { AccountMenu } from '@/components/auth/account-menu';
 import { ClassroomCard } from '@/components/home/classroom-card';
+import { isExpertModel } from '@/lib/ai/providers';
 
 const log = createLogger('Home');
 
@@ -249,12 +250,14 @@ function HomePage() {
 
     try {
       const userProfile = useUserProfileStore.getState();
+      const settings = useSettingsStore.getState();
+      const interactiveMode = isExpertModel(settings.providerId, settings.modelId);
       const requirements: UserRequirements = {
         requirement: form.requirement,
         userNickname: userProfile.nickname || undefined,
         userBio: userProfile.bio || undefined,
         webSearch: form.webSearch || undefined,
-        interactiveMode: true,
+        interactiveMode,
       };
 
       let pdfStorageKey: string | undefined;
@@ -266,7 +269,6 @@ function HomePage() {
         pdfStorageKey = await storePdfBlob(form.pdfFile);
         pdfFileName = form.pdfFile.name;
 
-        const settings = useSettingsStore.getState();
         pdfProviderId = settings.pdfProviderId;
       }
 

@@ -23,6 +23,9 @@ export const DEEPSEEK_MODEL_ID = 'deepseek-v4-pro';
 export const DEEPSEEK_MODEL_NAME = 'DeepSeek V4 Pro';
 export const DEEPSEEK_FLASH_MODEL_ID = 'deepseek-v4-flash';
 export const DEEPSEEK_FLASH_MODEL_NAME = 'DeepSeek V4 Flash';
+export const EXPERT_PROVIDER_ID = DEEPSEEK_PROVIDER_ID;
+export const EXPERT_MODEL_ID = DEEPSEEK_MODEL_ID;
+export const EXPERT_MODEL_STRING = `${EXPERT_PROVIDER_ID}:${EXPERT_MODEL_ID}`;
 export const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
 export const DEEPSEEK_CHAT_COMPLETIONS_PATH = '/chat/completions';
 
@@ -183,6 +186,15 @@ export function parseModelString(modelString: string): {
     providerId: DEFAULT_PROVIDER_ID,
     modelId: modelString || DEFAULT_MODEL_ID,
   };
+}
+
+export function isExpertModel(providerId: string, modelId: string): boolean {
+  return providerId === EXPERT_PROVIDER_ID && modelId === EXPERT_MODEL_ID;
+}
+
+export function isExpertModelString(modelString: string): boolean {
+  const { providerId, modelId } = parseModelString(modelString);
+  return isExpertModel(providerId, modelId);
 }
 
 /**

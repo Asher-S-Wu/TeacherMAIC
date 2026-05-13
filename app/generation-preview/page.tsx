@@ -223,6 +223,14 @@ function GenerationPreviewContent() {
     // Use a local mutable copy so we can update it after PDF parsing
     let currentSession = session;
     let generatedStageId: string | null = null;
+    const interactiveMode = getCurrentModelConfig().isExpert;
+    currentSession = {
+      ...currentSession,
+      requirements: {
+        ...currentSession.requirements,
+        interactiveMode,
+      },
+    };
 
     setError(null);
     setIsComplete(false);
@@ -375,10 +383,10 @@ function GenerationPreviewContent() {
         id: stageId,
         name: extractTopicFromRequirement(currentSession.requirements.requirement),
         description: '',
-        style: 'professional',
+        style: interactiveMode ? 'interactive' : 'professional',
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        interactiveMode: true,
+        interactiveMode,
       };
       generatedStageId = stage.id;
 

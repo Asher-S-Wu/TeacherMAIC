@@ -43,7 +43,7 @@ export interface Stage {
   }>;
   /**
    * True when this classroom was generated with the interactive-first prompt branch.
-   * Deep interaction is now the default for new classrooms.
+   * Deep interaction is enabled only when the expert model is selected.
    */
   interactiveMode?: boolean;
 }

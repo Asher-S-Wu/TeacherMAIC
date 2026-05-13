@@ -10,6 +10,7 @@ import { useSettingsStore } from '@/lib/store/settings';
 import type { SettingsSection } from '@/lib/types/settings';
 import { MediaPopover } from '@/components/generation/media-popover';
 import { ModelSelectorPopover } from '@/components/generation/model-selector-popover';
+import { isExpertModel } from '@/lib/ai/providers';
 
 const PRESET_LABELS: Record<string, { label: string; icon: typeof Zap }> = {
   fast: { label: '快速', icon: Zap },
@@ -62,7 +63,7 @@ export function GenerationToolbar({
     if (currentProviderId === 'deepseek' && currentModelId === 'deepseek-v4-flash') {
       return PRESET_LABELS.fast;
     }
-    if (currentProviderId === 'deepseek' && currentModelId === 'deepseek-v4-pro') {
+    if (isExpertModel(currentProviderId, currentModelId)) {
       return PRESET_LABELS.expert;
     }
     return PRESET_LABELS.think;
