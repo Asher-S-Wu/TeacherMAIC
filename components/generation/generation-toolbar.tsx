@@ -9,6 +9,7 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import type { SettingsSection } from '@/lib/types/settings';
 import { MediaPopover } from '@/components/generation/media-popover';
+import { DEVELOPER_MODEL_ID, DEVELOPER_PROVIDER_ID } from '@/lib/ai/providers';
 
 // ─── Constants ───────────────────────────────────────────────
 const MAX_PDF_SIZE_MB = 50;
@@ -46,12 +47,15 @@ export function GenerationToolbar({
   const { t } = useI18n();
   const currentProviderId = useSettingsStore((s) => s.providerId);
   const currentModelId = useSettingsStore((s) => s.modelId);
+  const developerMode = useSettingsStore((s) => s.developerMode);
   const providersConfig = useSettingsStore((s) => s.providersConfig);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const currentProviderConfig = providersConfig?.[currentProviderId];
-  const currentModel = currentProviderConfig?.models.find((model) => model.id === currentModelId);
+  const effectiveProviderId = developerMode ? DEVELOPER_PROVIDER_ID : currentProviderId;
+  const effectiveModelId = developerMode ? DEVELOPER_MODEL_ID : currentModelId;
+  const currentProviderConfig = providersConfig?.[effectiveProviderId];
+  const currentModel = currentProviderConfig?.models.find((model) => model.id === effectiveModelId);
   const attachmentCount = (pdfFile ? 1 : 0) + imageFiles.length;
 
   const removeImageFile = (index: number) => {

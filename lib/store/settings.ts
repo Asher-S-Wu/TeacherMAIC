@@ -95,6 +95,7 @@ export interface SettingsState {
   providerId: ProviderId;
   modelId: string;
   thinkingConfigs: Record<string, ThinkingConfig>;
+  developerMode: boolean;
 
   // Provider configurations (unified JSON storage)
   providersConfig: ProvidersConfig;
@@ -214,6 +215,7 @@ export interface SettingsState {
 
   // Actions
   setModel: (providerId: ProviderId, modelId: string) => void;
+  setDeveloperMode: (enabled: boolean) => void;
   setThinkingConfig: (
     providerId: ProviderId,
     modelId: string,
@@ -392,6 +394,7 @@ export const useSettingsStore = create<SettingsState>()(
         providerId: DEFAULT_PROVIDER_ID,
         modelId: DEFAULT_MODEL_ID,
         thinkingConfigs: {},
+        developerMode: false,
         providersConfig: initialProvidersConfig,
         selectedAgentIds: ['default-1', 'default-2', 'default-3'],
         maxTurns: '10',
@@ -434,6 +437,8 @@ export const useSettingsStore = create<SettingsState>()(
 
         // Actions
         setModel: () => set({ providerId: DEFAULT_PROVIDER_ID, modelId: DEFAULT_MODEL_ID }),
+
+        setDeveloperMode: (enabled) => set({ developerMode: enabled }),
 
         setThinkingConfig: (providerId, modelId, config) =>
           set((state) => {
@@ -669,6 +674,11 @@ export const useSettingsStore = create<SettingsState>()(
                 ...newProvidersConfig.ark,
                 apiKey: '',
                 isServerConfigured: !!data.providers.ark,
+              };
+              newProvidersConfig.dragoncode = {
+                ...newProvidersConfig.dragoncode,
+                apiKey: '',
+                isServerConfigured: !!data.providers.dragoncode,
               };
 
               const defaultAudio = getDefaultAudioConfig();

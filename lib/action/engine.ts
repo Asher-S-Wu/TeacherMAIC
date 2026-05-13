@@ -1,7 +1,7 @@
 /**
  * ActionEngine — Unified execution layer for all agent actions.
  *
- * Replaces the 28 Vercel AI SDK tools in ai-tools.ts with a single engine
+ * Replaces the older action-tool layer with a single engine
  * that both online (streaming) and offline (playback) paths share.
  *
  * Two execution modes:

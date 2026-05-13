@@ -140,6 +140,7 @@ export async function POST(req: NextRequest) {
       pdfImages?: PdfImage[];
       researchContext?: string;
       agents?: AgentInfo[];
+      developerMode?: boolean;
     };
     requirementSnippet = requirements?.requirement?.substring(0, 60);
 
@@ -194,12 +195,7 @@ export async function POST(req: NextRequest) {
 
     // Build teacher context from agents (if available)
     const teacherContext = formatTeacherPersonaForPrompt(agents);
-
-    // Check if Interactive Mode is enabled
-    const interactiveMode = requirements.interactiveMode ?? false;
-    const promptId = interactiveMode
-      ? PROMPT_IDS.INTERACTIVE_OUTLINES
-      : PROMPT_IDS.REQUIREMENTS_TO_OUTLINES;
+    const promptId = PROMPT_IDS.INTERACTIVE_OUTLINES;
 
     const prompts = buildPrompt(promptId, {
       requirement: requirements.requirement,

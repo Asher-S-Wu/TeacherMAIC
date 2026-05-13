@@ -33,9 +33,7 @@
     "ttsTitle": "音声合成",
     "ttsHint": "AI教師の声を選択",
     "ttsPreview": "プレビュー",
-    "ttsPreviewing": "再生中...",
-    "interactiveModeHint": "インタラクティブ優先モードを有効にして、より実践的なコンテンツを生成",
-    "interactiveModeLabel": "インタラクティブモード"
+    "ttsPreviewing": "再生中..."
   },
   "export": {
     "pptx": "PPTXエクスポート",
@@ -432,10 +430,12 @@
     "providers": "LLM",
     "addProviderDescription": "言語モデルプロバイダーは火山方舟固定です",
     "providerNames": {
-      "ark": "火山方舟"
+      "ark": "火山方舟",
+      "dragoncode": "DragonCode"
     },
     "providerTypes": {
-      "openai": "OpenAIプロトコル"
+      "openai": "OpenAIプロトコル",
+      "ark-responses": "Responses API"
     },
     "modelCount": "モデル",
     "modelSingular": "モデル",
@@ -448,6 +448,8 @@
     "keyboardShortcuts": "ショートカット",
     "generalSettings": "一般",
     "systemSettings": "システム",
+    "developerMode": "開発者モード",
+    "developerModeDescription": "オンにすると、コース生成と会話でより強力な GPT-5.5 モデルを使用します。",
     "addProvider": "追加",
     "importFromClipboard": "クリップボードからインポート",
     "apiSecret": "接続アクセス",

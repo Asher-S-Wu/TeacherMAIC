@@ -20,9 +20,9 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { SystemMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
-import type { LanguageModel } from 'ai';
+import type { ArkResponsesModel } from '@/lib/ai/providers';
 
-import { AISdkLangGraphAdapter } from './ai-sdk-adapter';
+import { ArkResponsesLangGraphAdapter } from './ark-responses-adapter';
 import type { StatelessEvent } from '@/lib/types/chat';
 import type { StatelessChatRequest } from '@/lib/types/chat';
 import type { ThinkingConfig } from '@/lib/types/provider';
@@ -50,7 +50,7 @@ const OrchestratorState = Annotation.Root({
   storeState: Annotation<StatelessChatRequest['storeState']>,
   availableAgentIds: Annotation<string[]>,
   maxTurns: Annotation<number>,
-  languageModel: Annotation<LanguageModel>,
+  languageModel: Annotation<ArkResponsesModel>,
   thinkingConfig: Annotation<ThinkingConfig | null>,
   discussionContext: Annotation<{ topic: string; prompt?: string } | null>,
   triggerAgentId: Annotation<string | null>,
@@ -176,7 +176,10 @@ async function directorNode(
     state.storeState.whiteboardOpen,
   );
 
-  const adapter = new AISdkLangGraphAdapter(state.languageModel, state.thinkingConfig ?? undefined);
+  const adapter = new ArkResponsesLangGraphAdapter(
+    state.languageModel,
+    state.thinkingConfig ?? undefined,
+  );
 
   try {
     const result = await adapter._generate(
@@ -288,7 +291,10 @@ async function runAgentGeneration(
     state.agentResponses,
   );
   const openaiMessages = convertMessagesToOpenAI(state.messages, agentId);
-  const adapter = new AISdkLangGraphAdapter(state.languageModel, state.thinkingConfig ?? undefined);
+  const adapter = new ArkResponsesLangGraphAdapter(
+    state.languageModel,
+    state.thinkingConfig ?? undefined,
+  );
 
   const lcMessages = [
     new SystemMessage(systemPrompt),
@@ -495,11 +501,11 @@ export function createOrchestrationGraph() {
 
 /**
  * Build initial state for the orchestration graph from a StatelessChatRequest
- * and a pre-created LanguageModel instance.
+ * and a pre-created Ark Responses model instance.
  */
 export function buildInitialState(
   request: StatelessChatRequest,
-  languageModel: LanguageModel,
+  languageModel: ArkResponsesModel,
   thinkingConfig?: ThinkingConfig,
 ): typeof OrchestratorState.State {
   // Build request-scoped agent config overrides for generated agents.

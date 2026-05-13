@@ -13,7 +13,7 @@ import type {
   PdfImage,
   ImageMapping,
 } from '@/lib/types/generation';
-import type { LanguageModel } from 'ai';
+import type { ArkResponsesModel } from '@/lib/ai/providers';
 import type { Slide, SlideTheme } from '@/lib/types/slides';
 import type { Scene } from '@/lib/types/stage';
 import type { Action } from '@/lib/types/action';
@@ -70,7 +70,7 @@ export async function buildSceneFromOutline(
   stageId: string,
   assignedImages?: PdfImage[],
   imageMapping?: ImageMapping,
-  languageModel?: LanguageModel,
+  languageModel?: ArkResponsesModel,
   visionEnabled?: boolean,
   ctx?: SceneGenerationContext,
   agents?: AgentInfo[],

@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       apiKey: resolvedApiKey,
       providerId,
       modelString,
-    } = await resolveModel({});
+    } = await resolveModel({ developerMode: body.developerMode === true });
     chatModel = modelString;
 
     if (isProviderKeyRequired(providerId) && !resolvedApiKey) {
@@ -107,10 +107,7 @@ export async function POST(req: NextRequest) {
       try {
         startHeartbeat();
 
-        const thinkingConfig: ThinkingConfig = body.thinkingConfig ?? {
-          mode: 'disabled',
-          enabled: false,
-        };
+        const thinkingConfig: ThinkingConfig | undefined = body.thinkingConfig;
 
         const generator = statelessGenerate(
           body,

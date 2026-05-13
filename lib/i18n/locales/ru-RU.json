@@ -33,9 +33,7 @@
     "ttsTitle": "Синтез речи",
     "ttsHint": "Выберите голос для AI-учителя",
     "ttsPreview": "Прослушать",
-    "ttsPreviewing": "Воспроизведение...",
-    "interactiveModeHint": "Включить интерактивный режим для более практического контента",
-    "interactiveModeLabel": "Интерактивный режим"
+    "ttsPreviewing": "Воспроизведение..."
   },
   "export": {
     "pptx": "Экспорт PPTX",
@@ -432,10 +430,12 @@
     "providers": "LLM",
     "addProviderDescription": "Провайдер языковой модели зафиксирован на Volcengine Ark",
     "providerNames": {
-      "ark": "Volcengine Ark"
+      "ark": "Volcengine Ark",
+      "dragoncode": "DragonCode"
     },
     "providerTypes": {
-      "openai": "Протокол OpenAI"
+      "openai": "Протокол OpenAI",
+      "ark-responses": "Responses API"
     },
     "modelCount": "моделей",
     "modelSingular": "модель",
@@ -448,6 +448,8 @@
     "keyboardShortcuts": "Горячие клавиши",
     "generalSettings": "Общие",
     "systemSettings": "Система",
+    "developerMode": "Режим разработчика",
+    "developerModeDescription": "Если включено, создание курсов и диалоги используют более мощную модель GPT-5.5.",
     "addProvider": "Добавить",
     "importFromClipboard": "Импорт из буфера",
     "apiSecret": "Доступ к подключению",

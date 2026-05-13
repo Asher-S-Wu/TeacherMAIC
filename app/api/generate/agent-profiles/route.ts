@@ -22,6 +22,7 @@ interface RequestBody {
   availableAvatars: string[];
   avatarDescriptions?: Array<{ path: string; desc: string }>;
   availableVoices?: Array<{ providerId: string; voiceId: string; voiceName: string }>;
+  developerMode?: boolean;
 }
 
 function stripCodeFences(text: string): string {

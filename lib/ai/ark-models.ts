@@ -1,4 +1,5 @@
 export const ARK_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3';
+export const ARK_RESPONSES_PATH = '/responses';
 
 export const ARK_LLM_MODEL_ID = 'doubao-seed-2-0-lite-260428';
 export const ARK_LLM_MODEL_NAME = 'Doubao-Seed-2.0-lite';

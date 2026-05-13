@@ -35,6 +35,7 @@ interface ServerConfig {
 // ---------------------------------------------------------------------------
 
 const ARK_API_KEY_ENV = 'ARK_API_KEY';
+const DRAGONCODE_API_KEY_ENV = 'DRAGONCODE_API_KEY';
 const VOLCENGINE_TTS_API_KEY_ENV = 'VOLCENGINE_TTS_API_KEY';
 const VOLCENGINE_TTS_RESOURCE_ID_ENV = 'VOLCENGINE_TTS_RESOURCE_ID';
 
@@ -62,8 +63,14 @@ function loadEnvSection(envMap: Record<string, string>): Record<string, ServerPr
 }
 
 function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[ARK_API_KEY_ENV] || undefined;
-  return apiKey ? { ark: { apiKey } } : {};
+  const result: Record<string, ServerProviderEntry> = {};
+  const arkApiKey = process.env[ARK_API_KEY_ENV] || undefined;
+  const dragoncodeApiKey = process.env[DRAGONCODE_API_KEY_ENV] || undefined;
+
+  if (arkApiKey) result.ark = { apiKey: arkApiKey };
+  if (dragoncodeApiKey) result.dragoncode = { apiKey: dragoncodeApiKey };
+
+  return result;
 }
 
 function loadArkOnlySection(providerId: string): Record<string, ServerProviderEntry> {
@@ -139,7 +146,7 @@ export function resolveApiKey(providerId: string): string {
   return getConfig().providers[providerId]?.apiKey || '';
 }
 
-/** LLM base URL is fixed by the built-in Ark provider registry. */
+/** LLM base URL is fixed by the built-in provider registry. */
 export function resolveBaseUrl(_providerId: string, _clientBaseUrl?: string): string | undefined {
   return undefined;
 }

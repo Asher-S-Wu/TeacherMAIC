@@ -40,8 +40,12 @@ function getApiHeaders(): HeadersInit {
 }
 
 function withThinkingConfig<T extends Record<string, unknown>>(body: T): T {
-  const { thinkingConfig } = getCurrentModelConfig();
-  return thinkingConfig ? ({ ...body, thinkingConfig } as T) : body;
+  const { thinkingConfig, developerMode } = getCurrentModelConfig();
+  return {
+    ...body,
+    ...(thinkingConfig ? { thinkingConfig } : {}),
+    ...(developerMode ? { developerMode } : {}),
+  } as T;
 }
 
 /** Call POST /api/generate/scene-content (step 1) */

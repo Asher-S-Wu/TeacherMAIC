@@ -448,6 +448,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         };
         userProfile?: { nickname?: string; bio?: string };
         thinkingConfig?: ThinkingConfig;
+        developerMode?: boolean;
       },
       controller: AbortController,
       sessionType: SessionType,
@@ -481,6 +482,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
           config: requestTemplate.config,
           userProfile: requestTemplate.userProfile,
           thinkingConfig: requestTemplate.thinkingConfig,
+          developerMode: requestTemplate.developerMode,
         },
         {
           getStoreState: (): AgentLoopStoreState => {
@@ -866,7 +868,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         log.info(`[ChatArea] Resuming session: ${sessionId}`);
 
         const userProfileState = useUserProfileStore.getState();
-        const { thinkingConfig } = getCurrentModelConfig();
+        const { thinkingConfig, developerMode } = getCurrentModelConfig();
 
         const agentIds =
           useSettingsStore.getState().selectedAgentIds?.length > 0
@@ -893,6 +895,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
               bio: userProfileState.bio || undefined,
             },
             thinkingConfig,
+            developerMode,
           },
           controller,
           session.type,
@@ -1066,7 +1069,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         );
 
         const userProfileState = useUserProfileStore.getState();
-        const { thinkingConfig } = getCurrentModelConfig();
+        const { thinkingConfig, developerMode } = getCurrentModelConfig();
 
         await runAgentLoopFn(
           sessionId!,
@@ -1088,6 +1091,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
               bio: userProfileState.bio || undefined,
             },
             thinkingConfig,
+            developerMode,
           },
           controller,
           sessionType,
@@ -1189,7 +1193,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
 
       try {
         const userProfileState = useUserProfileStore.getState();
-        const { thinkingConfig } = getCurrentModelConfig();
+        const { thinkingConfig, developerMode } = getCurrentModelConfig();
 
         await runAgentLoopFn(
           sessionId,
@@ -1214,6 +1218,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
               bio: userProfileState.bio || undefined,
             },
             thinkingConfig,
+            developerMode,
           },
           controller,
           'discussion',

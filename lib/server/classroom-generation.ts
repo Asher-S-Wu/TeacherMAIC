@@ -38,6 +38,7 @@ export interface GenerateClassroomInput {
   enableVideoGeneration?: boolean;
   enableTTS?: boolean;
   agentMode?: 'default' | 'generate';
+  developerMode?: boolean;
 }
 
 export type ClassroomGenerationStep =
@@ -177,7 +178,7 @@ export async function generateClassroom(
     modelString,
     providerId,
     apiKey,
-  } = await resolveModel({});
+  } = await resolveModel({ developerMode: input.developerMode === true });
   log.info(`Using server-configured model: ${modelString}`);
 
   // Fail fast if the resolved provider has no API key configured
@@ -327,6 +328,7 @@ export async function generateClassroom(
     description: undefined,
     languageDirective,
     style: 'interactive',
+    interactiveMode: true,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     // For LLM-generated agents, embed full configs so the client can

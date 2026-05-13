@@ -16,8 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { createLogger } from '@/lib/logger';
-
-const log = createLogger('QuizView');
+import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import type { QuizQuestion } from '@/lib/types/stage';
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { SpeechButton } from '@/components/audio/speech-button';
@@ -32,6 +31,8 @@ import {
   writeSubmittedResults,
   type SubmittedState,
 } from '@/lib/quiz/persistence';
+
+const log = createLogger('QuizView');
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ async function gradeShortAnswerQuestion(
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
+    const { developerMode } = getCurrentModelConfig();
 
     const res = await fetch('/api/quiz-grade', {
       method: 'POST',
@@ -64,6 +66,7 @@ async function gradeShortAnswerQuestion(
         points: pts,
         commentPrompt: q.commentPrompt,
         language,
+        ...(developerMode ? { developerMode } : {}),
       }),
     });
 

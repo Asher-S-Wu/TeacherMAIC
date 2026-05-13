@@ -10,7 +10,7 @@
  * so we use undici's ProxyAgent when a proxy is configured.
  *
  * Usage: import { proxyFetch } from '@/lib/server/proxy-fetch';
- *        const res = await proxyFetch('https://api.openai.com/v1/...', { ... });
+ *        const res = await proxyFetch('https://dragoncode.codes/...', { ... });
  */
 
 import { ProxyAgent, fetch as undiciFetch, type RequestInit as UndiciRequestInit } from 'undici';

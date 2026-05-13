@@ -275,6 +275,8 @@ export interface StatelessChatRequest {
   };
   /** UI-selected per-model thinking config. */
   thinkingConfig?: ThinkingConfig;
+  /** Use GPT-5.5 developer mode for text generation. */
+  developerMode?: boolean;
 }
 
 /**

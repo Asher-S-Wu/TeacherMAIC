@@ -37,6 +37,7 @@ export interface AgentLoopRequest {
   };
   userProfile?: { nickname?: string; bio?: string };
   thinkingConfig?: ThinkingConfig;
+  developerMode?: boolean;
 }
 
 /** Per-iteration outcome extracted from the done event */
@@ -126,6 +127,7 @@ export async function runAgentLoop(
       directorState,
       userProfile: request.userProfile,
       thinkingConfig: request.thinkingConfig,
+      developerMode: request.developerMode,
     };
 
     // Fetch

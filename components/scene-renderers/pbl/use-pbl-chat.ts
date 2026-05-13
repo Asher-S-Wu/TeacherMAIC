@@ -8,8 +8,17 @@ import { useState, useCallback } from 'react';
 import type { PBLProjectConfig, PBLChatMessage, PBLAgent, PBLIssue } from '@/lib/pbl/types';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { createLogger } from '@/lib/logger';
+import { getCurrentModelConfig } from '@/lib/utils/model-config';
 
 const log = createLogger('PBLChat');
+
+function withDeveloperMode<T extends Record<string, unknown>>(body: T): T {
+  const { developerMode } = getCurrentModelConfig();
+  return {
+    ...body,
+    ...(developerMode ? { developerMode } : {}),
+  } as T;
+}
 
 interface UsePBLChatOptions {
   projectConfig: PBLProjectConfig;
@@ -67,17 +76,19 @@ export function usePBLChat({ projectConfig, userRole, onConfigUpdate }: UsePBLCh
         const response = await fetch('/api/pbl/chat', {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            message: cleanMessage,
-            agent: targetAgent,
-            currentIssue,
-            recentMessages: updatedConfig.chat.messages.slice(-10).map((m) => ({
-              agent_name: m.agent_name,
-              message: m.message,
-            })),
-            userRole,
-            agentType: isJudgeAgent ? 'judge' : 'question',
-          }),
+          body: JSON.stringify(
+            withDeveloperMode({
+              message: cleanMessage,
+              agent: targetAgent,
+              currentIssue,
+              recentMessages: updatedConfig.chat.messages.slice(-10).map((m) => ({
+                agent_name: m.agent_name,
+                message: m.message,
+              })),
+              userRole,
+              agentType: isJudgeAgent ? 'judge' : 'question',
+            }),
+          ),
         });
 
         const data = await response.json();
@@ -202,13 +213,15 @@ async function handleIssueComplete(
         const resp = await fetch('/api/pbl/chat', {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            message: questionPrompt,
-            agent: questionAgent,
-            currentIssue: nextIssue,
-            recentMessages: [],
-            userRole: '',
-          }),
+          body: JSON.stringify(
+            withDeveloperMode({
+              message: questionPrompt,
+              agent: questionAgent,
+              currentIssue: nextIssue,
+              recentMessages: [],
+              userRole: '',
+            }),
+          ),
         });
 
         const data = await resp.json();

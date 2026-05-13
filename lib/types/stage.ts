@@ -42,9 +42,8 @@ export interface Stage {
     priority: number;
   }>;
   /**
-   * True when this classroom was generated with Interactive Mode enabled
-   * (the INTERACTIVE_OUTLINES prompt branch).
-   * Only set when generation explicitly requested Interactive Mode.
+   * True when this classroom was generated with the interactive-first prompt branch.
+   * Deep interaction is now the default for new classrooms.
    */
   interactiveMode?: boolean;
 }

@@ -21,8 +21,6 @@
     "selectProvider": "اختر المزوّد",
     "configureProvider": "إعداد المزوّد",
     "configureProviderHint": "خدمة الذكاء الاصطناعي غير متاحة مؤقتًا. يرجى المحاولة لاحقًا",
-    "interactiveModeHint": "تفعيل وضع التفاعل_first للمحتوى العملي",
-    "interactiveModeLabel": "وضع التفاعل",
     "enterClassroom": "دخول الفصل",
     "advancedSettings": "إعدادات متقدمة",
     "thinking": "التفكير",
@@ -432,10 +430,12 @@
     "providers": "LLM",
     "addProviderDescription": "مزوّد نموذج اللغة ثابت على Volcengine Ark",
     "providerNames": {
-      "ark": "Volcengine Ark"
+      "ark": "Volcengine Ark",
+      "dragoncode": "DragonCode"
     },
     "providerTypes": {
-      "openai": "بروتوكول OpenAI"
+      "openai": "بروتوكول OpenAI",
+      "ark-responses": "Responses API"
     },
     "modelCount": "نماذج",
     "modelSingular": "نموذج",
@@ -448,6 +448,8 @@
     "keyboardShortcuts": "اختصارات لوحة المفاتيح",
     "generalSettings": "عام",
     "systemSettings": "النظام",
+    "developerMode": "وضع المطور",
+    "developerModeDescription": "عند التفعيل، سيستخدم إنشاء الدروس والمحادثات نموذج GPT-5.5 الأقوى.",
     "addProvider": "إضافة",
     "importFromClipboard": "استيراد من الحافظة",
     "apiSecret": "وصول الاتصال",

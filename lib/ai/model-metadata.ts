@@ -4,7 +4,24 @@ export function getModelMetadataKey(providerId: string, modelId: string): string
   return `${providerId}:${modelId}`;
 }
 
-const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {};
+const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
+  'ark:doubao-seed-2-0-lite-260428': {
+    control: 'toggle',
+    requestAdapter: 'ark-responses',
+    defaultMode: 'enabled',
+    defaultEnabled: true,
+    toggleable: true,
+  },
+  'dragoncode:gpt-5.5': {
+    control: 'effort',
+    requestAdapter: 'openai-responses',
+    defaultMode: 'enabled',
+    effortValues: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+    defaultEffort: 'xhigh',
+    defaultEnabled: true,
+    budgetAdjustable: true,
+  },
+};
 
 export function getCatalogThinkingCapability(
   providerId: string,

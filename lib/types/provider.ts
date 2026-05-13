@@ -5,7 +5,7 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId = 'ark';
+export type BuiltInProviderId = 'ark' | 'dragoncode';
 
 /**
  * Provider ID
@@ -15,7 +15,7 @@ export type ProviderId = BuiltInProviderId;
 /**
  * Provider API types
  */
-export type ProviderType = 'openai';
+export type ProviderType = 'openai' | 'ark-responses';
 
 export type ThinkingControlType =
   | 'none'
@@ -30,7 +30,7 @@ export type ThinkingMode = 'default' | 'disabled' | 'enabled' | 'auto';
 export type ThinkingEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
 
-export type ThinkingRequestAdapter = 'none';
+export type ThinkingRequestAdapter = 'none' | 'ark-responses' | 'openai-responses';
 
 /**
  * Describes a model's thinking/reasoning API control capability.
@@ -71,7 +71,7 @@ export interface ThinkingCapability {
 
 /**
  * Unified thinking configuration for LLM calls.
- * The adapter maps this to provider-specific providerOptions.
+ * The adapter maps this to provider-specific request fields.
  */
 export interface ThinkingConfig {
   /** Mode control for provider APIs with auto/default thinking behavior. */

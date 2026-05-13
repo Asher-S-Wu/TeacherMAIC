@@ -1,24 +1,13 @@
 /**
- * PBL Generation - Agentic Loop using Vercel AI SDK
+ * PBL Generation using Ark Responses API
  *
- * Core generation engine that designs a complete PBL project through
- * multi-step tool calling with generateText + stopWhen.
- *
- * Replaces PBL-Nano's Anthropic SDK direct calls with Vercel AI SDK
- * for multi-model compatibility.
+ * Core generation engine that designs a complete PBL project as JSON.
  */
 
-import { tool, stepCountIs } from 'ai';
 import { callLLM } from '@/lib/ai/llm';
-import { z } from 'zod';
-import type { LanguageModel } from 'ai';
+import type { ArkResponsesModel } from '@/lib/ai/providers';
 import type { PBLProjectConfig } from './types';
-import { ModeMCP } from './mcp/mode-mcp';
-import { ProjectMCP } from './mcp/project-mcp';
-import { AgentMCP } from './mcp/agent-mcp';
-import { IssueboardMCP } from './mcp/issueboard-mcp';
 import { buildPBLSystemPrompt } from './pbl-system-prompt';
-import type { PBLMode } from './types';
 import type { ThinkingConfig } from '@/lib/types/provider';
 
 export interface GeneratePBLConfig {
@@ -33,287 +22,201 @@ export interface GeneratePBLCallbacks {
   onProgress?: (message: string) => void;
 }
 
+function parseProjectConfig(text: string, expectedIssueCount: number): PBLProjectConfig {
+  const parsed = JSON.parse(text.trim()) as PBLProjectConfig;
+  validateProjectConfig(parsed, expectedIssueCount);
+  return parsed;
+}
+
+function validateProjectConfig(config: PBLProjectConfig, expectedIssueCount: number): void {
+  if (!config.projectInfo?.title || !config.projectInfo.description) {
+    throw new Error('PBL projectInfo is incomplete');
+  }
+  if (!Array.isArray(config.agents) || config.agents.length === 0) {
+    throw new Error('PBL agents are missing');
+  }
+  if (
+    !config.issueboard ||
+    !Array.isArray(config.issueboard.agent_ids) ||
+    !Array.isArray(config.issueboard.issues)
+  ) {
+    throw new Error('PBL issueboard is missing');
+  }
+  if (!config.chat || !Array.isArray(config.chat.messages)) {
+    throw new Error('PBL chat is missing');
+  }
+  if (config.issueboard.issues.length !== expectedIssueCount) {
+    throw new Error(
+      `PBL expected ${expectedIssueCount} issues, got ${config.issueboard.issues.length}`,
+    );
+  }
+
+  const agentByName = new Map(config.agents.map((agent) => [agent.name, agent]));
+  const agentNames = new Set(agentByName.keys());
+  if (agentNames.size !== config.agents.length) {
+    throw new Error('PBL agent names must be unique');
+  }
+  if (
+    !config.agents.some((agent) => !agent.is_system_agent && agent.role_division === 'development')
+  ) {
+    throw new Error('PBL must include at least one selectable development agent');
+  }
+
+  for (const agent of config.agents) {
+    if (
+      !agent.name ||
+      !agent.actor_role ||
+      !agent.system_prompt ||
+      !agent.default_mode ||
+      !agent.env ||
+      typeof agent.env !== 'object' ||
+      Array.isArray(agent.env) ||
+      typeof agent.is_user_role !== 'boolean' ||
+      typeof agent.is_active !== 'boolean' ||
+      typeof agent.is_system_agent !== 'boolean' ||
+      (agent.role_division !== 'management' && agent.role_division !== 'development')
+    ) {
+      throw new Error(`PBL agent "${agent.name || 'unknown'}" is incomplete`);
+    }
+  }
+
+  for (const agentId of config.issueboard.agent_ids) {
+    if (!agentNames.has(agentId)) {
+      throw new Error(`PBL issueboard references unknown agent "${agentId}"`);
+    }
+  }
+
+  for (const issue of config.issueboard.issues) {
+    if (
+      !issue.id ||
+      !issue.title ||
+      !issue.description ||
+      !issue.person_in_charge ||
+      !Array.isArray(issue.participants) ||
+      typeof issue.index !== 'number' ||
+      typeof issue.is_done !== 'boolean' ||
+      typeof issue.is_active !== 'boolean' ||
+      typeof issue.generated_questions !== 'string' ||
+      (issue.parent_issue !== null && typeof issue.parent_issue !== 'string')
+    ) {
+      throw new Error(`PBL issue "${issue.id || 'unknown'}" is incomplete`);
+    }
+    const owner = agentByName.get(issue.person_in_charge);
+    if (!owner || owner.is_system_agent) {
+      throw new Error(`PBL issue "${issue.id}" person_in_charge must be a student role agent`);
+    }
+    const questionAgent = agentByName.get(issue.question_agent_name);
+    if (!questionAgent?.is_system_agent) {
+      throw new Error(`PBL issue "${issue.id}" question agent is missing or not a system agent`);
+    }
+    const judgeAgent = agentByName.get(issue.judge_agent_name);
+    if (!judgeAgent?.is_system_agent) {
+      throw new Error(`PBL issue "${issue.id}" judge agent is missing or not a system agent`);
+    }
+    const references = [
+      issue.person_in_charge,
+      issue.question_agent_name,
+      issue.judge_agent_name,
+      ...(issue.participants || []),
+    ];
+    for (const name of references) {
+      if (!agentNames.has(name)) {
+        throw new Error(`PBL issue "${issue.id}" references unknown agent "${name}"`);
+      }
+    }
+    for (const participant of issue.participants || []) {
+      if (agentByName.get(participant)?.is_system_agent) {
+        throw new Error(`PBL issue "${issue.id}" participant must be a student role agent`);
+      }
+    }
+  }
+}
+
 /**
- * Generate a complete PBL project configuration using an agentic loop.
- *
- * Uses Vercel AI SDK's generateText with tools and stopWhen to drive
- * a multi-step conversation where the LLM designs the project by
- * calling MCP tools.
+ * Generate a complete PBL project configuration.
  */
 export async function generatePBLContent(
   config: GeneratePBLConfig,
-  model: LanguageModel,
+  model: ArkResponsesModel,
   callbacks?: GeneratePBLCallbacks,
   thinkingConfig?: ThinkingConfig,
 ): Promise<PBLProjectConfig> {
   const { languageDirective } = config;
 
-  // Initialize shared state
-  const projectConfig: PBLProjectConfig = {
-    projectInfo: { title: '', description: '' },
-    agents: [],
-    issueboard: { agent_ids: [], issues: [], current_issue_id: null },
-    chat: { messages: [] },
-  };
-
-  // Create MCP instances operating on shared state
-  const modeMCP = new ModeMCP(
-    ['project_info', 'agent', 'issueboard', 'idle'] as PBLMode[],
-    'project_info' as PBLMode,
-  );
-  const projectMCP = new ProjectMCP(projectConfig);
-  const agentMCP = new AgentMCP(projectConfig);
-  const issueboardMCP = new IssueboardMCP(projectConfig, agentMCP, languageDirective);
-
   callbacks?.onProgress?.('Starting PBL project generation...');
 
-  // Define tools with Zod schemas, delegating to MCP instances
-  const pblTools = {
-    set_mode: tool({
-      description:
-        'Switch the current working mode. Available modes: project_info, agent, issueboard, idle.',
-      inputSchema: z.object({
-        mode: z.enum(['project_info', 'agent', 'issueboard', 'idle']),
-      }),
-      execute: async ({ mode }) => modeMCP.setMode(mode as PBLMode),
-    }),
-
-    // Project info tools
-    get_project_info: tool({
-      description:
-        'Get the current project information (title and description). Requires project_info mode.',
-      inputSchema: z.object({}),
-      execute: async () => {
-        if (modeMCP.getCurrentMode() !== 'project_info') {
-          return { success: false, error: 'Must be in project_info mode.' };
-        }
-        return projectMCP.getProjectInfo();
-      },
-    }),
-    update_title: tool({
-      description: 'Update the project title. Requires project_info mode.',
-      inputSchema: z.object({
-        title: z.string().describe('The new project title'),
-      }),
-      execute: async ({ title }) => {
-        if (modeMCP.getCurrentMode() !== 'project_info') {
-          return { success: false, error: 'Must be in project_info mode.' };
-        }
-        return projectMCP.updateTitle(title);
-      },
-    }),
-    update_description: tool({
-      description: 'Update the project description. Requires project_info mode.',
-      inputSchema: z.object({
-        description: z.string().describe('The new project description'),
-      }),
-      execute: async ({ description }) => {
-        if (modeMCP.getCurrentMode() !== 'project_info') {
-          return { success: false, error: 'Must be in project_info mode.' };
-        }
-        return projectMCP.updateDescription(description);
-      },
-    }),
-
-    // Agent tools
-    list_project_agents: tool({
-      description: 'List all agent roles defined for the project. Requires agent mode.',
-      inputSchema: z.object({}),
-      execute: async () => {
-        if (modeMCP.getCurrentMode() !== 'agent') {
-          return { success: false, error: 'Must be in agent mode.' };
-        }
-        return agentMCP.listAgents();
-      },
-    }),
-    create_agent: tool({
-      description: 'Create a new agent role for the project. Requires agent mode.',
-      inputSchema: z.object({
-        name: z.string().describe('Agent name (e.g., "Data Analyst", "Project Manager")'),
-        system_prompt: z.string().describe("System prompt describing the agent's responsibilities"),
-        default_mode: z.string().describe('Default environment mode (e.g., "chat")'),
-        actor_role: z.string().optional().describe('Role description'),
-        role_division: z
-          .enum(['management', 'development'])
-          .optional()
-          .describe('Role division (default: development)'),
-      }),
-      execute: async (params) => {
-        if (modeMCP.getCurrentMode() !== 'agent') {
-          return { success: false, error: 'Must be in agent mode.' };
-        }
-        return agentMCP.createAgent(params);
-      },
-    }),
-    update_agent: tool({
-      description: "Update an agent role's properties. Requires agent mode.",
-      inputSchema: z.object({
-        name: z.string().describe('The agent name to update'),
-        new_name: z.string().optional().describe('New agent name'),
-        system_prompt: z.string().optional().describe('New system prompt'),
-        default_mode: z.string().optional().describe('New default mode'),
-        actor_role: z.string().optional().describe('New role description'),
-        role_division: z.enum(['management', 'development']).optional(),
-      }),
-      execute: async (params) => {
-        if (modeMCP.getCurrentMode() !== 'agent') {
-          return { success: false, error: 'Must be in agent mode.' };
-        }
-        return agentMCP.updateAgent(params);
-      },
-    }),
-    delete_agent: tool({
-      description: 'Delete an agent role. Requires agent mode.',
-      inputSchema: z.object({
-        name: z.string().describe('The agent name to delete'),
-      }),
-      execute: async ({ name }) => {
-        if (modeMCP.getCurrentMode() !== 'agent') {
-          return { success: false, error: 'Must be in agent mode.' };
-        }
-        return agentMCP.deleteAgent(name);
-      },
-    }),
-
-    // Issueboard tools
-    create_issueboard: tool({
-      description: 'Create/reset the issueboard. Requires issueboard mode.',
-      inputSchema: z.object({}),
-      execute: async () => {
-        if (modeMCP.getCurrentMode() !== 'issueboard') {
-          return { success: false, error: 'Must be in issueboard mode.' };
-        }
-        return issueboardMCP.createIssueboard();
-      },
-    }),
-    get_issueboard: tool({
-      description: 'Get the current issueboard configuration. Requires issueboard mode.',
-      inputSchema: z.object({}),
-      execute: async () => {
-        if (modeMCP.getCurrentMode() !== 'issueboard') {
-          return { success: false, error: 'Must be in issueboard mode.' };
-        }
-        return issueboardMCP.getIssueboard();
-      },
-    }),
-    update_issueboard_agents: tool({
-      description: 'Update the agent list for the issueboard. Requires issueboard mode.',
-      inputSchema: z.object({
-        agent_ids: z.array(z.string()).describe('List of agent names to assign'),
-      }),
-      execute: async ({ agent_ids }) => {
-        if (modeMCP.getCurrentMode() !== 'issueboard') {
-          return { success: false, error: 'Must be in issueboard mode.' };
-        }
-        return issueboardMCP.updateIssueboardAgents(agent_ids);
-      },
-    }),
-    create_issue: tool({
-      description:
-        'Create a new issue in the issueboard. Automatically creates Question and Judge agents. Requires issueboard mode.',
-      inputSchema: z.object({
-        title: z.string().describe('Issue title'),
-        description: z.string().describe('Issue description'),
-        person_in_charge: z.string().describe('Person responsible (use an agent role name)'),
-        participants: z.array(z.string()).optional().describe('Participant names'),
-        notes: z.string().optional().describe('Additional notes'),
-        parent_issue: z.string().nullable().optional().describe('Parent issue ID for sub-issues'),
-        index: z.number().optional().describe('Order index'),
-      }),
-      execute: async (params) => {
-        if (modeMCP.getCurrentMode() !== 'issueboard') {
-          return { success: false, error: 'Must be in issueboard mode.' };
-        }
-        return issueboardMCP.createIssue(params);
-      },
-    }),
-    list_issues: tool({
-      description: 'List all issues in the issueboard. Requires issueboard mode.',
-      inputSchema: z.object({}),
-      execute: async () => {
-        if (modeMCP.getCurrentMode() !== 'issueboard') {
-          return { success: false, error: 'Must be in issueboard mode.' };
-        }
-        return issueboardMCP.listIssues();
-      },
-    }),
-    update_issue: tool({
-      description: 'Update an existing issue. Requires issueboard mode.',
-      inputSchema: z.object({
-        issue_id: z.string().describe('The issue ID to update'),
-        title: z.string().optional(),
-        description: z.string().optional(),
-        person_in_charge: z.string().optional(),
-        participants: z.array(z.string()).optional(),
-        notes: z.string().optional(),
-        parent_issue: z.string().nullable().optional(),
-        index: z.number().optional(),
-      }),
-      execute: async (params) => {
-        if (modeMCP.getCurrentMode() !== 'issueboard') {
-          return { success: false, error: 'Must be in issueboard mode.' };
-        }
-        return issueboardMCP.updateIssue(params);
-      },
-    }),
-    delete_issue: tool({
-      description: 'Delete an issue and its sub-issues. Requires issueboard mode.',
-      inputSchema: z.object({
-        issue_id: z.string().describe('The issue ID to delete'),
-      }),
-      execute: async ({ issue_id }) => {
-        if (modeMCP.getCurrentMode() !== 'issueboard') {
-          return { success: false, error: 'Must be in issueboard mode.' };
-        }
-        return issueboardMCP.deleteIssue(issue_id);
-      },
-    }),
-    reorder_issues: tool({
-      description: 'Reorder issues. Requires issueboard mode.',
-      inputSchema: z.object({
-        issue_ids: z.array(z.string()).describe('Issue IDs in desired order'),
-      }),
-      execute: async ({ issue_ids }) => {
-        if (modeMCP.getCurrentMode() !== 'issueboard') {
-          return { success: false, error: 'Must be in issueboard mode.' };
-        }
-        return issueboardMCP.reorderIssues(issue_ids);
-      },
-    }),
-  };
-
-  // Run the agentic loop
   const systemPrompt = buildPBLSystemPrompt(config);
+  const issueCount = config.issueCount ?? 3;
 
-  const _result = await callLLM(
+  const result = await callLLM(
     {
       model,
-      system: systemPrompt,
-      prompt: `Design a PBL project. Start in project_info mode by setting the project title and description.`,
-      tools: pblTools,
-      stopWhen: stepCountIs(30),
-      onStepFinish: ({ toolCalls, text }) => {
-        if (text) {
-          callbacks?.onProgress?.(`Thinking: ${text.slice(0, 100)}...`);
-        }
-        if (toolCalls) {
-          for (const tc of toolCalls) {
-            callbacks?.onProgress?.(`Tool: ${tc.toolName}`);
-          }
-        }
-      },
+      system: `${systemPrompt}
+
+Return ONLY valid JSON. Do not use markdown fences or explanatory text.`,
+      prompt: `Design a complete PBL project configuration for this course.
+
+Project topic: ${config.projectTopic}
+Project description: ${config.projectDescription}
+Target skills: ${config.targetSkills.join(', ')}
+Issue count: ${issueCount}
+Language directive: ${languageDirective}
+
+Return a JSON object with this exact top-level shape:
+{
+  "projectInfo": { "title": "string", "description": "string" },
+  "agents": [
+    {
+      "name": "string",
+      "actor_role": "string",
+      "role_division": "development",
+      "system_prompt": "string",
+      "default_mode": "chat",
+      "delay_time": 0,
+      "env": { "chat": { "max_tokens": 4096, "system_prompt": "same as system_prompt" } },
+      "is_user_role": false,
+      "is_active": false,
+      "is_system_agent": false
+    }
+  ],
+  "issueboard": {
+    "agent_ids": ["agent name"],
+    "issues": [
+      {
+        "id": "issue_1",
+        "title": "string",
+        "description": "string",
+        "person_in_charge": "agent name",
+        "participants": ["agent name"],
+        "notes": "string",
+        "parent_issue": null,
+        "index": 0,
+        "is_done": false,
+        "is_active": false,
+        "generated_questions": "",
+        "question_agent_name": "agent name",
+        "judge_agent_name": "agent name"
+      }
+    ],
+    "current_issue_id": null
+  },
+  "chat": { "messages": [] },
+  "selectedRole": null
+}
+
+The role_division value must be either "management" or "development".
+Create 2-4 selectable student role agents with is_system_agent false and role_division "development".
+For each issue, also create one Question Agent and one Judge Agent in the agents array, both with is_system_agent true.
+The issueboard.issues array must contain exactly ${issueCount} issues.
+Every person_in_charge, participant, question_agent_name, judge_agent_name, and issueboard.agent_ids entry must match an agent name exactly.
+person_in_charge, participants, and issueboard.agent_ids must reference student role agents, not system agents.`,
     },
     'pbl-generate',
     undefined,
     thinkingConfig,
   );
 
-  // Check if mode reached idle; if not, the LLM may have stopped early
-  if (modeMCP.getCurrentMode() !== 'idle') {
-    callbacks?.onProgress?.(
-      'Warning: Generation did not reach idle mode. Project may be incomplete.',
-    );
-  }
+  const projectConfig = parseProjectConfig(result.text, issueCount);
 
   callbacks?.onProgress?.('PBL structure generated. Running post-processing...');
 
@@ -326,14 +229,11 @@ export async function generatePBLContent(
 }
 
 /**
- * Post-processing after the agentic loop:
- * 1. Activate the first issue
- * 2. Generate initial questions for it using the Question Agent
- * 3. Add welcome message to chat
+ * Post-processing after the JSON project is generated.
  */
 async function postProcessPBL(
   config: PBLProjectConfig,
-  model: LanguageModel,
+  model: ArkResponsesModel,
   languageDirective: string,
   callbacks?: GeneratePBLCallbacks,
   thinkingConfig?: ThinkingConfig,
@@ -355,14 +255,12 @@ async function postProcessPBL(
   // Generate initial questions for the first issue
   const questionAgent = agents.find((a) => a.name === firstIssue.question_agent_name);
   if (!questionAgent) {
-    callbacks?.onProgress?.('Warning: Question agent not found for first issue.');
-    return;
+    throw new Error(`Question agent "${firstIssue.question_agent_name}" not found`);
   }
 
-  try {
-    callbacks?.onProgress?.('Generating initial questions for first issue...');
+  callbacks?.onProgress?.('Generating initial questions for first issue...');
 
-    const context = `## Issue Information
+  const context = `## Issue Information
 
 **Title**: ${firstIssue.title}
 **Description**: ${firstIssue.description}
@@ -383,32 +281,27 @@ Generate a welcome message for the student working on this issue. The message sh
 
 Format the questions as a numbered list.`;
 
-    const questionResult = await callLLM(
-      {
-        model,
-        system: questionAgent.system_prompt,
-        prompt: context,
-      },
-      'pbl-post-process',
-      undefined,
-      thinkingConfig,
-    );
+  const questionResult = await callLLM(
+    {
+      model,
+      system: questionAgent.system_prompt,
+      prompt: context,
+    },
+    'pbl-post-process',
+    undefined,
+    thinkingConfig,
+  );
 
-    const generatedQuestions = questionResult.text;
-    firstIssue.generated_questions = generatedQuestions;
+  const generatedQuestions = questionResult.text;
+  firstIssue.generated_questions = generatedQuestions;
 
-    config.chat.messages.push({
-      id: `msg_welcome_${Date.now()}`,
-      agent_name: firstIssue.question_agent_name,
-      message: generatedQuestions,
-      timestamp: Date.now(),
-      read_by: [],
-    });
+  config.chat.messages.push({
+    id: `msg_welcome_${Date.now()}`,
+    agent_name: firstIssue.question_agent_name,
+    message: generatedQuestions,
+    timestamp: Date.now(),
+    read_by: [],
+  });
 
-    callbacks?.onProgress?.('Initial questions generated and welcome message added.');
-  } catch (error) {
-    callbacks?.onProgress?.(
-      `Warning: Failed to generate initial questions: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+  callbacks?.onProgress?.('Initial questions generated and welcome message added.');
 }

@@ -1,27 +1,31 @@
 /**
  * Unified AI Provider Configuration
  *
- * Text generation is intentionally limited to Volcengine Ark.
+ * Text generation normally uses Volcengine Ark; developer mode uses DragonCode GPT-5.5.
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
-import type { LanguageModel } from 'ai';
 import type {
   ProviderId,
   BuiltInProviderId,
   ProviderConfig,
+  ProviderType,
   ModelInfo,
   ModelConfig,
-  ThinkingConfig,
 } from '@/lib/types/provider';
-import { applyModelMetadata, getCatalogThinkingCapability } from './model-metadata';
+import { applyModelMetadata } from './model-metadata';
 import { ARK_BASE_URL, ARK_LLM_MODEL_ID, ARK_LLM_MODEL_NAME } from './ark-models';
 
 export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'ark';
 export const DEFAULT_MODEL_ID = ARK_LLM_MODEL_ID;
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
+export const DEVELOPER_PROVIDER_ID: BuiltInProviderId = 'dragoncode';
+export const DEVELOPER_MODEL_ID = 'gpt-5.5';
+export const DEVELOPER_MODEL_NAME = 'GPT-5.5';
+export const DEVELOPER_MODEL_STRING = `${DEVELOPER_PROVIDER_ID}:${DEVELOPER_MODEL_ID}`;
+export const DRAGONCODE_BASE_URL = 'https://dragoncode.codes';
+export const DRAGONCODE_RESPONSES_PATH = '/responses';
 
-// Re-export types for backward compatibility
+// Re-export shared provider types.
 export type { ProviderId, ProviderConfig, ModelInfo, ModelConfig };
 
 /** Provider IDs whose logos are monochrome-dark and need `dark:invert` in dark mode */
@@ -34,15 +38,35 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
   ark: {
     id: 'ark',
     name: '火山方舟',
-    type: 'openai',
+    type: 'ark-responses',
     defaultBaseUrl: ARK_BASE_URL,
     requiresApiKey: true,
     models: [
       {
         id: DEFAULT_MODEL_ID,
         name: ARK_LLM_MODEL_NAME,
-        contextWindow: 1000000,
-        outputWindow: 64000,
+        contextWindow: 256000,
+        outputWindow: 128000,
+        capabilities: {
+          streaming: true,
+          tools: true,
+          vision: true,
+        },
+      },
+    ],
+  },
+  dragoncode: {
+    id: 'dragoncode',
+    name: 'DragonCode',
+    type: 'openai',
+    defaultBaseUrl: DRAGONCODE_BASE_URL,
+    requiresApiKey: true,
+    models: [
+      {
+        id: DEVELOPER_MODEL_ID,
+        name: DEVELOPER_MODEL_NAME,
+        contextWindow: 1050000,
+        outputWindow: 128000,
         capabilities: {
           streaming: true,
           tools: true,
@@ -66,20 +90,17 @@ function getProviderConfig(providerId: string): ProviderConfig | null {
  * Model instance with its configuration info
  */
 export interface ModelWithInfo {
-  model: LanguageModel;
+  model: ArkResponsesModel;
   modelInfo: ModelInfo | null;
 }
 
-function getCompatThinkingBodyParams(
-  providerId: string,
-  modelId: string,
-  config: ThinkingConfig,
-): Record<string, unknown> | undefined {
-  const capability = getCatalogThinkingCapability(providerId, modelId);
-  if (!capability || capability.control === 'none') return undefined;
-
-  void config;
-  return undefined;
+export interface ArkResponsesModel {
+  providerId: ProviderId;
+  providerType: ProviderType;
+  modelId: string;
+  apiKey: string;
+  baseUrl: string;
+  modelInfo: ModelInfo | null;
 }
 
 /** Returns true if the provider requires an API key. */
@@ -103,39 +124,20 @@ export function getModel(config: ModelConfig): ModelWithInfo {
 
   const requiresApiKey = config.requiresApiKey ?? provider.requiresApiKey;
   if (requiresApiKey && !config.apiKey) {
-    throw new Error('API key required for 火山方舟. Set ARK_API_KEY in Vercel.');
+    throw new Error('智能服务暂时不可用，请稍后再试');
   }
 
   const effectiveApiKey = config.apiKey || '';
-  const effectiveBaseUrl = provider.defaultBaseUrl;
+  const effectiveBaseUrl = provider.defaultBaseUrl || ARK_BASE_URL;
 
-  const openai = createOpenAI({
+  const model: ArkResponsesModel = {
+    providerId: config.providerId,
+    providerType: provider.type,
+    modelId: config.modelId,
     apiKey: effectiveApiKey,
-    baseURL: effectiveBaseUrl,
-    fetch: async (url: RequestInfo | URL, init?: RequestInit) => {
-      const thinkingCtx = (globalThis as Record<string, unknown>).__thinkingContext as
-        | { getStore?: () => unknown }
-        | undefined;
-      const thinking = thinkingCtx?.getStore?.() as ThinkingConfig | undefined;
-
-      if (thinking && init?.body && typeof init.body === 'string') {
-        const extra = getCompatThinkingBodyParams(config.providerId, config.modelId, thinking);
-        if (extra) {
-          try {
-            const body = JSON.parse(init.body);
-            Object.assign(body, extra);
-            init = { ...init, body: JSON.stringify(body) };
-          } catch {
-            // Leave body as-is when it is not JSON.
-          }
-        }
-      }
-
-      return globalThis.fetch(url, init);
-    },
-  });
-
-  const model = openai.chat(config.modelId);
+    baseUrl: effectiveBaseUrl,
+    modelInfo,
+  };
 
   return { model, modelInfo };
 }
@@ -145,20 +147,23 @@ export function getModel(config: ModelConfig): ModelWithInfo {
  * Bare model IDs are treated as Ark model IDs.
  */
 export function parseModelString(modelString: string): {
-  providerId: BuiltInProviderId;
+  providerId: ProviderId;
   modelId: string;
 } {
   const colonIndex = modelString.indexOf(':');
 
   if (colonIndex > 0) {
     const providerId = modelString.slice(0, colonIndex);
-    if (providerId !== DEFAULT_PROVIDER_ID) {
+    const provider = getProviderConfig(providerId);
+    if (!provider) {
       throw new Error(`Unsupported text model provider: ${providerId}`);
     }
 
     return {
-      providerId: providerId as BuiltInProviderId,
-      modelId: modelString.slice(colonIndex + 1) || DEFAULT_MODEL_ID,
+      providerId: provider.id,
+      modelId:
+        modelString.slice(colonIndex + 1) ||
+        (provider.id === DEVELOPER_PROVIDER_ID ? DEVELOPER_MODEL_ID : DEFAULT_MODEL_ID),
     };
   }
 

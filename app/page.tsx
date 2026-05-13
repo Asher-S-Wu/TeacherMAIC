@@ -19,7 +19,6 @@ import {
   ChevronUp,
   Upload,
   Sparkles,
-  Atom,
   X,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
@@ -62,7 +61,6 @@ interface FormState {
   imageFiles: File[];
   requirement: string;
   webSearch: boolean;
-  interactiveMode: boolean;
 }
 
 const initialFormState: FormState = {
@@ -70,7 +68,6 @@ const initialFormState: FormState = {
   imageFiles: [],
   requirement: '',
   webSearch: true,
-  interactiveMode: false,
 };
 
 function HomePage() {
@@ -258,7 +255,7 @@ function HomePage() {
         userNickname: userProfile.nickname || undefined,
         userBio: userProfile.bio || undefined,
         webSearch: form.webSearch || undefined,
-        interactiveMode: form.interactiveMode,
+        interactiveMode: true,
       };
 
       let pdfStorageKey: string | undefined;
@@ -549,37 +546,6 @@ function HomePage() {
 
               {/* Right-side buttons as a single shrink-wrapped group */}
               <div className="ml-auto flex h-[32px] shrink-0 items-center gap-[8px]">
-                {/* Interactive mode toggle */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-                      onClick={() => updateForm('interactiveMode', !form.interactiveMode)}
-                      className={cn(
-                        'relative inline-flex h-[32px] items-center justify-center gap-[6px] rounded-full border px-[12px] text-[12px] font-medium leading-none transition-all cursor-pointer select-none whitespace-nowrap',
-                        form.interactiveMode
-                          ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.35)] dark:shadow-[0_0_12px_rgba(6,182,212,0.25)]'
-                          : 'border-cyan-300/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20',
-                      )}
-                    >
-                      {form.interactiveMode && (
-                        <span
-                          className="absolute inset-[-4px] rounded-full border border-cyan-400/40 dark:border-cyan-400/25"
-                          style={{
-                            animation: 'interactive-mode-breathe 2s ease-in-out infinite',
-                          }}
-                        />
-                      )}
-                      <Atom className="relative z-10 size-[14px] animate-[spin_3s_linear_infinite]" />
-                      <span className="relative z-10">{t('toolbar.interactiveModeLabel')}</span>
-                    </motion.button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    {t('toolbar.interactiveModeHint')}
-                  </TooltipContent>
-                </Tooltip>
-
                 {/* Send button */}
                 <button
                   onClick={handleGenerate}

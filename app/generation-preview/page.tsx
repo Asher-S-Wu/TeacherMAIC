@@ -95,8 +95,12 @@ function GenerationPreviewContent() {
   };
 
   const withThinkingConfig = <T extends Record<string, unknown>>(body: T) => {
-    const { thinkingConfig } = getCurrentModelConfig();
-    return thinkingConfig ? { ...body, thinkingConfig } : body;
+    const { thinkingConfig, developerMode } = getCurrentModelConfig();
+    return {
+      ...body,
+      ...(thinkingConfig ? { thinkingConfig } : {}),
+      ...(developerMode ? { developerMode } : {}),
+    };
   };
 
   // Auto-start generation when session is loaded
@@ -272,7 +276,7 @@ function GenerationPreviewContent() {
         style: 'professional',
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        interactiveMode: !!currentSession.requirements.interactiveMode,
+        interactiveMode: true,
       };
 
       // ── Generate outlines first (infers languageDirective) ──

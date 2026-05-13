@@ -18,7 +18,7 @@
  * - Events are streamed via LangGraph's custom stream mode
  */
 
-import type { LanguageModel } from 'ai';
+import type { ArkResponsesModel } from '@/lib/ai/providers';
 import type { StatelessChatRequest, StatelessEvent, ParsedAction } from '@/lib/types/chat';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import type { WhiteboardActionRecord } from './types';
@@ -319,7 +319,7 @@ export function finalizeParser(state: ParserState): ParseResult {
 export async function* statelessGenerate(
   request: StatelessChatRequest,
   abortSignal: AbortSignal,
-  languageModel: LanguageModel,
+  languageModel: ArkResponsesModel,
   thinkingConfig?: ThinkingConfig,
 ): AsyncGenerator<StatelessEvent> {
   log.info(

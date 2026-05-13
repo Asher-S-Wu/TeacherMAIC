@@ -36,9 +36,7 @@
     "ttsTitle": "语音合成",
     "ttsHint": "选择 AI 教师的朗读音色",
     "ttsPreview": "试听",
-    "ttsPreviewing": "播放中...",
-    "interactiveModeHint": "开启深度交互模式，生成更多互动内容",
-    "interactiveModeLabel": "深度交互"
+    "ttsPreviewing": "播放中..."
   },
   "export": {
     "pptx": "导出 PPTX",
@@ -439,10 +437,12 @@
     "providers": "语言模型",
     "addProviderDescription": "语言模型固定使用火山方舟",
     "providerNames": {
-      "ark": "火山方舟"
+      "ark": "火山方舟",
+      "dragoncode": "DragonCode"
     },
     "providerTypes": {
-      "openai": "OpenAI 协议"
+      "openai": "OpenAI 协议",
+      "ark-responses": "Responses API"
     },
     "modelCount": "个模型",
     "modelSingular": "个模型",
@@ -455,6 +455,8 @@
     "keyboardShortcuts": "键盘快捷键",
     "generalSettings": "常规设置",
     "systemSettings": "系统设置",
+    "developerMode": "开发者模式",
+    "developerModeDescription": "开启后，课程生成和对话会使用更强的 GPT-5.5 模型。",
     "addProvider": "添加",
     "importFromClipboard": "从剪贴板导入",
     "apiSecret": "连接授权",

@@ -101,7 +101,7 @@ export function formatImagePlaceholder(img: PdfImage): string {
 }
 
 /**
- * Build a multimodal user content array for the AI SDK.
+ * Build a multimodal user content array for the LLM layer.
  * Interleaves text and images so the model can associate img_id with actual image.
  * Each image label includes dimensions when available so the model knows the size
  * before seeing the image (important for layout decisions).
@@ -122,7 +122,7 @@ export function buildVisionUserContent(
         dimInfo = ` (${img.width}×${img.height}, aspect ratio ${ratio})`;
       }
       parts.push({ type: 'text', text: `\n**${img.id}**${dimInfo}:` });
-      // Strip data URI prefix — AI SDK only accepts http(s) URLs or raw base64
+      // Preserve the MIME type when the browser provides a data URI.
       const dataUriMatch = img.src.match(/^data:([^;]+);base64,(.+)$/);
       if (dataUriMatch) {
         parts.push({

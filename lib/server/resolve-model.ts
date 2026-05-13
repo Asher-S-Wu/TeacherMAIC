@@ -6,6 +6,7 @@
 
 import type { NextRequest } from 'next/server';
 import {
+  DEVELOPER_MODEL_STRING,
   DEFAULT_MODEL_STRING,
   getModel,
   parseModelString,
@@ -31,8 +32,9 @@ export interface ResolvedModel extends ModelWithInfo {
  */
 export async function resolveModel(params: {
   thinkingConfig?: ThinkingConfig;
+  developerMode?: boolean;
 }): Promise<ResolvedModel> {
-  const modelString = DEFAULT_MODEL_STRING;
+  const modelString = params.developerMode ? DEVELOPER_MODEL_STRING : DEFAULT_MODEL_STRING;
   const { providerId, modelId } = parseModelString(modelString);
 
   const apiKey = resolveApiKey(providerId);
@@ -59,13 +61,17 @@ function getThinkingConfigFromBody(body: unknown): ThinkingConfig | undefined {
   return config && typeof config === 'object' ? (config as ThinkingConfig) : undefined;
 }
 
+function getDeveloperModeFromBody(body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false;
+  return (body as { developerMode?: unknown }).developerMode === true;
+}
+
 /**
  * Resolve the server-configured language model.
  */
 export async function resolveModelFromHeaders(req: NextRequest): Promise<ResolvedModel> {
   void req;
-  return resolveModel({
-  });
+  return resolveModel({});
 }
 
 /**
@@ -75,7 +81,10 @@ export async function resolveModelFromRequest(
   req: NextRequest,
   body: unknown,
 ): Promise<ResolvedModel> {
-  const resolved = await resolveModelFromHeaders(req);
+  void req;
+  const resolved = await resolveModel({
+    developerMode: getDeveloperModeFromBody(body),
+  });
   return {
     ...resolved,
     thinkingConfig: getThinkingConfigFromBody(body) ?? resolved.thinkingConfig,

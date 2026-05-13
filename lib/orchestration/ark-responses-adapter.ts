@@ -1,57 +1,43 @@
 /**
- * AI SDK Adapter for LangGraph
+ * LLM Adapter for LangGraph
  *
- * Provides LangChain-compatible interface for LLM calls.
- * Uses the unified callLLM / streamLLM layer which goes through
- * Vercel AI SDK, supporting all providers (OpenAI, Anthropic, Google, etc.).
+ * Provides the LangChain interface for LLM calls.
+ * Uses the unified callLLM / streamLLM layer.
  */
 
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { BaseMessage, HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages';
-import { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager';
-import { ChatResult } from '@langchain/core/outputs';
-import type { LanguageModel } from 'ai';
+import { HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages';
+import type { BaseMessage } from '@langchain/core/messages';
+import type { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager';
+import type { ChatResult } from '@langchain/core/outputs';
 
 import { callLLM, streamLLM } from '@/lib/ai/llm';
+import type { ArkResponsesModel } from '@/lib/ai/providers';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
 
-const log = createLogger('AISdkAdapter');
+const log = createLogger('ArkResponsesAdapter');
 
 /**
  * Stream chunk types for streaming generation
  */
-export type StreamChunk =
-  | { type: 'delta'; content: string }
-  | {
-      type: 'tool_calls';
-      toolCalls: {
-        id: string;
-        index: number;
-        type: 'function';
-        function: { name: string; arguments: string };
-      }[];
-    }
-  | { type: 'done'; content: string };
+export type StreamChunk = { type: 'delta'; content: string } | { type: 'done'; content: string };
 
 /**
- * Adapter to use any AI SDK LanguageModel with LangGraph
- *
- * Accepts a LanguageModel instance (from getModel()) instead of raw
- * API credentials, enabling support for all providers.
+ * Adapter to use the configured Ark Responses model with LangGraph.
  */
-export class AISdkLangGraphAdapter extends BaseChatModel {
-  private languageModel: LanguageModel;
+export class ArkResponsesLangGraphAdapter extends BaseChatModel {
+  private languageModel: ArkResponsesModel;
   private thinking?: ThinkingConfig;
 
-  constructor(languageModel: LanguageModel, thinking?: ThinkingConfig) {
+  constructor(languageModel: ArkResponsesModel, thinking?: ThinkingConfig) {
     super({});
     this.languageModel = languageModel;
     this.thinking = thinking;
   }
 
   _llmType(): string {
-    return 'ai-sdk';
+    return 'ark-responses';
   }
 
   _combineLLMOutput() {
@@ -59,7 +45,7 @@ export class AISdkLangGraphAdapter extends BaseChatModel {
   }
 
   /**
-   * Convert LangChain messages to AI SDK message format
+   * Convert LangChain messages to the internal LLM message format.
    */
   private convertMessages(
     messages: BaseMessage[],
@@ -79,16 +65,19 @@ export class AISdkLangGraphAdapter extends BaseChatModel {
 
   async _generate(
     messages: BaseMessage[],
-    _options?: this['ParsedCallOptions'],
+    options?: this['ParsedCallOptions'],
     _runManager?: CallbackManagerForLLMRun,
   ): Promise<ChatResult> {
     const aiMessages = this.convertMessages(messages);
+    const abortSignal =
+      options && 'signal' in options ? (options.signal as AbortSignal | undefined) : undefined;
 
     try {
       const result = await callLLM(
         {
           model: this.languageModel,
           messages: aiMessages,
+          abortSignal,
         },
         'chat-adapter',
         undefined,
@@ -97,7 +86,7 @@ export class AISdkLangGraphAdapter extends BaseChatModel {
 
       const content = result.text || '';
 
-      log.info('[AI SDK Adapter] Response:', {
+      log.info('[Ark Responses Adapter] Response:', {
         textLength: content.length,
       });
 
@@ -114,7 +103,7 @@ export class AISdkLangGraphAdapter extends BaseChatModel {
         llmOutput: {},
       };
     } catch (error) {
-      log.error('[AI SDK Adapter Error]', error);
+      log.error('[Ark Responses Adapter Error]', error);
       throw error;
     }
   }
@@ -123,11 +112,11 @@ export class AISdkLangGraphAdapter extends BaseChatModel {
    * Stream generate with text deltas
    *
    * Yields chunks of text as they arrive, then yields done with full content.
-   * Uses streamLLM which goes through Vercel AI SDK's streamText.
+   * Uses streamLLM for Responses API streaming.
    */
   async *streamGenerate(
     messages: BaseMessage[],
-    options?: { tools?: Record<string, unknown>; signal?: AbortSignal },
+    options?: { signal?: AbortSignal },
   ): AsyncGenerator<StreamChunk> {
     const aiMessages = this.convertMessages(messages);
 
