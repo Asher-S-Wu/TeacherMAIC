@@ -119,8 +119,8 @@ export function GenerationToolbar({
   return (
     <div className="flex h-[32px] min-w-0 flex-1 flex-nowrap items-center gap-[8px] overflow-hidden">
       {/* ── Server-managed model ── */}
-      <ModelSelectorPopover>
-        <Tooltip>
+      <Tooltip>
+        <ModelSelectorPopover>
           <TooltipTrigger asChild>
             <button
               type="button"
@@ -133,9 +133,9 @@ export function GenerationToolbar({
               <span>{currentPreset.label}</span>
             </button>
           </TooltipTrigger>
-          <TooltipContent>{t('settings.serverManagedModelDesc')}</TooltipContent>
-        </Tooltip>
-      </ModelSelectorPopover>
+        </ModelSelectorPopover>
+        <TooltipContent>{t('settings.serverManagedModelDesc')}</TooltipContent>
+      </Tooltip>
 
       {/* ── Attachments ── */}
       <Popover>
