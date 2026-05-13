@@ -81,14 +81,25 @@ export function ModelSelectorPopover({ children }: ModelSelectorPopoverProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent align="start" side="top" avoidCollisions={false} className="w-64 p-1.5">
+      <PopoverContent
+        align="start"
+        side="top"
+        avoidCollisions={false}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        className="w-64 p-1.5"
+      >
         {PRESET_OPTIONS.map((option) => {
           const isSelected = option.id === currentPresetId;
           const Icon = option.icon;
           return (
             <button
               key={option.id}
-              onClick={() => handleSelect(option)}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSelect(option);
+              }}
               className={cn(
                 'w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-left',
                 isSelected
