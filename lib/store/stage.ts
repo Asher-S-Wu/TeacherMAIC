@@ -20,10 +20,10 @@ export const PENDING_SCENE_ID = '__pending__';
 function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
   func: T,
   delay: number,
-): (...args: Parameters<T>) => void {
+): ((...args: Parameters<T>) => void) & { cancel: () => void } {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  return (...args: Parameters<T>) => {
+  const debounced = (...args: Parameters<T>) => {
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
@@ -32,6 +32,15 @@ function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
       timeoutId = null;
     }, delay);
   };
+
+  debounced.cancel = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+
+  return debounced;
 }
 
 type ToolbarState = 'design' | 'ai';
@@ -65,6 +74,9 @@ interface StageState {
   currentGeneratingOrder: number;
   failedOutlines: SceneOutline[];
 
+  // Temporarily blocks debounced persistence while a course is still being generated.
+  autoSaveSuspended: boolean;
+
   // Actions
   setStage: (stage: Stage) => void;
   setScenes: (scenes: Scene[]) => void;
@@ -79,6 +91,7 @@ interface StageState {
   setOutlines: (outlines: SceneOutline[]) => void;
   setGenerationStatus: (status: 'idle' | 'generating' | 'paused' | 'completed' | 'error') => void;
   setCurrentGeneratingOrder: (order: number) => void;
+  setAutoSaveSuspended: (suspended: boolean) => void;
   bumpGenerationEpoch: () => void;
   addFailedOutline: (outline: SceneOutline) => void;
   clearFailedOutlines: () => void;
@@ -109,6 +122,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
   generationStatus: 'idle' as const,
   currentGeneratingOrder: -1,
   failedOutlines: [],
+  autoSaveSuspended: false,
 
   // Actions
   setStage: (stage) => {
@@ -119,7 +133,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
       chats: [],
       generationEpoch: s.generationEpoch + 1,
     }));
-    debouncedSave();
+    scheduleSave();
   },
 
   setScenes: (scenes) => {
@@ -128,7 +142,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
     if (!get().currentSceneId && scenes.length > 0) {
       set({ currentSceneId: scenes[0].id });
     }
-    debouncedSave();
+    scheduleSave();
   },
 
   addScene: (scene) => {
@@ -150,7 +164,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
       generatingOutlines,
       ...(shouldSwitch ? { currentSceneId: scene.id } : {}),
     });
-    debouncedSave();
+    scheduleSave();
   },
 
   updateScene: (sceneId, updates) => {
@@ -158,7 +172,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
       scene.id === sceneId ? { ...scene, ...updates } : scene,
     );
     set({ scenes });
-    debouncedSave();
+    scheduleSave();
   },
 
   deleteScene: (sceneId) => {
@@ -176,17 +190,17 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
     } else {
       set({ scenes });
     }
-    debouncedSave();
+    scheduleSave();
   },
 
   setCurrentSceneId: (sceneId) => {
     set({ currentSceneId: sceneId });
-    debouncedSave();
+    scheduleSave();
   },
 
   setChats: (chats) => {
     set({ chats });
-    debouncedSave();
+    scheduleSave();
   },
 
   setMode: (mode) => set({ mode }),
@@ -197,12 +211,19 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
 
   setOutlines: (outlines) => {
     set({ outlines });
-    debouncedSave();
+    scheduleSave();
   },
 
   setGenerationStatus: (generationStatus) => set({ generationStatus }),
 
   setCurrentGeneratingOrder: (currentGeneratingOrder) => set({ currentGeneratingOrder }),
+
+  setAutoSaveSuspended: (autoSaveSuspended) => {
+    if (autoSaveSuspended) {
+      debouncedSave.cancel();
+    }
+    set({ autoSaveSuspended });
+  },
 
   bumpGenerationEpoch: () => set((s) => ({ generationEpoch: s.generationEpoch + 1 })),
 
@@ -303,6 +324,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
       currentGeneratingOrder: -1,
       failedOutlines: [],
       generatingOutlines: [],
+      autoSaveSuspended: false,
     }));
     log.info('Store cleared');
   },
@@ -319,3 +341,8 @@ export const useStageStore = createSelectors(useStageStoreBase);
 const debouncedSave = debounce(() => {
   useStageStore.getState().saveToStorage();
 }, 500);
+
+const scheduleSave = () => {
+  if (useStageStore.getState().autoSaveSuspended) return;
+  debouncedSave();
+};

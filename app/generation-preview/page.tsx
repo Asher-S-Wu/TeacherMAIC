@@ -9,16 +9,20 @@ import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useStageStore } from '@/lib/store/stage';
+import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { getAvailableProvidersWithVoices } from '@/lib/audio/voice-resolver';
+import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { cleanupOldImages } from '@/lib/utils/image-storage';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
+import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
 import { nanoid } from 'nanoid';
-import type { Stage } from '@/lib/types/stage';
+import type { Stage, Scene } from '@/lib/types/stage';
 import type { SceneOutline, PdfImage } from '@/lib/types/generation';
+import type { SpeechAction } from '@/lib/types/action';
 import { AgentRevealModal } from '@/components/agent/agent-reveal-modal';
 import { createLogger } from '@/lib/logger';
 import { type GenerationSessionState, ALL_STEPS, getActiveSteps } from './types';
@@ -36,7 +40,7 @@ function GenerationPreviewContent() {
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [isComplete] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [streamingOutlines, setStreamingOutlines] = useState<SceneOutline[] | null>(null);
   const [truncationWarnings, setTruncationWarnings] = useState<string[]>([]);
@@ -103,6 +107,100 @@ function GenerationPreviewContent() {
     };
   };
 
+  const throwIfAborted = (signal: AbortSignal) => {
+    if (signal.aborted) {
+      throw new DOMException('Generation aborted', 'AbortError');
+    }
+  };
+
+  const getEnabledMediaElementIds = (outlines: SceneOutline[]) => {
+    const settings = useSettingsStore.getState();
+    const ids = new Set<string>();
+
+    for (const outline of outlines) {
+      for (const media of outline.mediaGenerations || []) {
+        if (media.type === 'image' && !settings.imageGenerationEnabled) continue;
+        if (media.type === 'video' && !settings.videoGenerationEnabled) continue;
+        ids.add(media.elementId);
+      }
+    }
+
+    return [...ids];
+  };
+
+  const ensureMediaGenerationComplete = (stageId: string, outlines: SceneOutline[]) => {
+    const mediaElementIds = getEnabledMediaElementIds(outlines);
+    if (mediaElementIds.length === 0) return;
+
+    const tasks = useMediaGenerationStore.getState().tasks;
+    const failed = mediaElementIds
+      .map((id) => tasks[id])
+      .find((task) => task?.stageId === stageId && task.status === 'failed');
+
+    if (failed) {
+      log.warn('[GenerationPreview] Media generation failed:', failed.error || failed.elementId);
+      throw new Error(t('generation.mediaFailed'));
+    }
+
+    const unfinished = mediaElementIds.some((id) => {
+      const task = tasks[id];
+      return !task || task.stageId !== stageId || task.status !== 'done';
+    });
+
+    if (unfinished) {
+      throw new Error(t('generation.mediaFailed'));
+    }
+  };
+
+  const generateTTSForScene = async (scene: Scene, signal: AbortSignal) => {
+    const settings = useSettingsStore.getState();
+    const providerId = settings.ttsProviderId;
+    scene.actions = splitLongSpeechActions(scene.actions || [], providerId);
+
+    const speechActions = scene.actions.filter(
+      (action): action is SpeechAction => action.type === 'speech' && !!action.text,
+    );
+    if (speechActions.length === 0) return;
+
+    for (const action of speechActions) {
+      throwIfAborted(signal);
+
+      const audioId = `tts_s${scene.order}_${action.id}`;
+      action.audioId = audioId;
+
+      try {
+        const resp = await fetch('/api/generate/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: action.text,
+            audioId,
+            ttsVoice: settings.ttsVoice,
+            ttsSpeed: settings.ttsSpeed,
+          }),
+          signal,
+        });
+
+        if (!resp.ok) {
+          throw new Error(t('generation.speechFailed'));
+        }
+
+        const ttsData = await resp.json();
+        if (!ttsData.success || !ttsData.file?.url) {
+          throw new Error(t('generation.speechFailed'));
+        }
+
+        action.audioUrl = ttsData.file.url;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw err;
+        }
+        log.warn(`[TTS] Failed for ${audioId}:`, err);
+        throw new Error(t('generation.speechFailed'));
+      }
+    }
+  };
+
   // Auto-start generation when session is loaded
   useEffect(() => {
     if (session && !hasStartedRef.current) {
@@ -124,9 +222,13 @@ function GenerationPreviewContent() {
 
     // Use a local mutable copy so we can update it after PDF parsing
     let currentSession = session;
+    let generatedStageId: string | null = null;
 
     setError(null);
+    setIsComplete(false);
+    setStatusMessage('');
     setCurrentStepIndex(0);
+    sessionStorage.removeItem('generationParams');
 
     try {
       // Compute active steps for this session (recomputed after session mutations)
@@ -278,6 +380,7 @@ function GenerationPreviewContent() {
         updatedAt: Date.now(),
         interactiveMode: true,
       };
+      generatedStageId = stage.id;
 
       // ── Generate outlines first (infers languageDirective) ──
       let outlines = currentSession.sceneOutlines;
@@ -547,22 +650,24 @@ function GenerationPreviewContent() {
         stage.agentIds = presetAgentIds;
       }
 
-      // Move to scene generation step
+      // Move to full scene generation step
       setStatusMessage('');
       if (!outlines || outlines.length === 0) {
         throw new Error(t('generation.outlineEmptyResponse'));
       }
 
-      // Store stage and outlines
       const store = useStageStore.getState();
+      store.setAutoSaveSuspended(true);
+      useMediaGenerationStore.setState({ tasks: {} });
       store.setStage(stage);
       store.setOutlines(outlines);
+      store.setGeneratingOutlines(outlines);
+      store.setGenerationStatus('generating');
 
-      // Advance to slide-content step
       const contentStepIdx = activeSteps.findIndex((s) => s.id === 'slide-content');
-      if (contentStepIdx >= 0) setCurrentStepIndex(contentStepIdx);
+      const actionsStepIdx = activeSteps.findIndex((s) => s.id === 'actions');
+      const totalPages = outlines.length;
 
-      // Build stageInfo and userProfile for API call
       const stageInfo = {
         name: stage.name,
         description: stage.description,
@@ -574,142 +679,134 @@ function GenerationPreviewContent() {
           ? `Student: ${currentSession.requirements.userNickname || 'Unknown'}${currentSession.requirements.userBio ? ` — ${currentSession.requirements.userBio}` : ''}`
           : undefined;
 
-      // Generate ONLY the first scene
-      store.setGeneratingOutlines(outlines);
+      let previousSpeeches: string[] = [];
 
-      const firstOutline = outlines[0];
+      for (const [index, outline] of outlines.entries()) {
+        const currentPage = index + 1;
+        throwIfAborted(signal);
 
-      // Step 2: Generate content (currentStepIndex is already 2)
-      const contentResp = await fetch('/api/generate/scene-content', {
-        method: 'POST',
-        headers: getApiHeaders(),
-        body: JSON.stringify(
-          withThinkingConfig({
-            outline: firstOutline,
-            allOutlines: outlines,
-            pdfImages: currentSession.pdfImages,
-            stageInfo,
-            stageId: stage.id,
-            agents,
-            languageDirective,
-          }),
-        ),
-        signal,
-      });
-
-      if (!contentResp.ok) {
-        const errorData = await contentResp.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(errorData.error || t('generation.sceneGenerateFailed'));
-      }
-
-      const contentData = await contentResp.json();
-      if (!contentData.success || !contentData.content) {
-        throw new Error(contentData.error || t('generation.sceneGenerateFailed'));
-      }
-
-      // Generate actions (activate actions step indicator)
-      const actionsStepIdx = activeSteps.findIndex((s) => s.id === 'actions');
-      setCurrentStepIndex(actionsStepIdx >= 0 ? actionsStepIdx : currentStepIndex + 1);
-
-      const actionsResp = await fetch('/api/generate/scene-actions', {
-        method: 'POST',
-        headers: getApiHeaders(),
-        body: JSON.stringify(
-          withThinkingConfig({
-            outline: contentData.effectiveOutline || firstOutline,
-            allOutlines: outlines,
-            content: contentData.content,
-            stageId: stage.id,
-            agents,
-            previousSpeeches: [],
-            userProfile,
-            languageDirective,
-          }),
-        ),
-        signal,
-      });
-
-      if (!actionsResp.ok) {
-        const errorData = await actionsResp.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(errorData.error || t('generation.sceneGenerateFailed'));
-      }
-
-      const data = await actionsResp.json();
-      if (!data.success || !data.scene) {
-        throw new Error(data.error || t('generation.sceneGenerateFailed'));
-      }
-
-      // Generate TTS for first scene (part of actions step — blocking)
-      if (settings.ttsEnabled) {
-        const speechActions = (data.scene.actions || []).filter(
-          (a: { type: string; text?: string }) => a.type === 'speech' && a.text,
+        store.setCurrentGeneratingOrder(outline.order);
+        if (contentStepIdx >= 0) setCurrentStepIndex(contentStepIdx);
+        setStatusMessage(
+          t('generation.generatingPageContent', { current: currentPage, total: totalPages }),
         );
 
-        let ttsFailCount = 0;
-        for (const action of speechActions) {
-          const audioId = `tts_${action.id}`;
-          action.audioId = audioId;
-          try {
-            const resp = await fetch('/api/generate/tts', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                text: action.text,
-                audioId,
-                ttsVoice: settings.ttsVoice,
-                ttsSpeed: settings.ttsSpeed,
-              }),
-              signal,
-            });
-            if (!resp.ok) {
-              ttsFailCount++;
-              continue;
-            }
-            const ttsData = await resp.json();
-            if (!ttsData.success || !ttsData.file?.url) {
-              ttsFailCount++;
-              continue;
-            }
-            action.audioUrl = ttsData.file.url;
-          } catch (err) {
-            log.warn(`[TTS] Failed for ${audioId}:`, err);
-            ttsFailCount++;
-          }
+        const contentResp = await fetch('/api/generate/scene-content', {
+          method: 'POST',
+          headers: getApiHeaders(),
+          body: JSON.stringify(
+            withThinkingConfig({
+              outline,
+              allOutlines: outlines,
+              pdfImages: currentSession.pdfImages,
+              stageInfo,
+              stageId: stage.id,
+              agents,
+              languageDirective,
+            }),
+          ),
+          signal,
+        });
+
+        if (!contentResp.ok) {
+          const errorData = await contentResp.json().catch(() => ({ error: 'Request failed' }));
+          throw new Error(errorData.error || t('generation.sceneGenerateFailed'));
         }
 
-        if (ttsFailCount > 0 && speechActions.length > 0) {
-          throw new Error(t('generation.speechFailed'));
+        const contentData = await contentResp.json();
+        if (!contentData.success || !contentData.content) {
+          throw new Error(contentData.error || t('generation.sceneGenerateFailed'));
         }
+
+        throwIfAborted(signal);
+        if (actionsStepIdx >= 0) setCurrentStepIndex(actionsStepIdx);
+        setStatusMessage(
+          t('generation.generatingPageActions', { current: currentPage, total: totalPages }),
+        );
+
+        const actionsResp = await fetch('/api/generate/scene-actions', {
+          method: 'POST',
+          headers: getApiHeaders(),
+          body: JSON.stringify(
+            withThinkingConfig({
+              outline: contentData.effectiveOutline || outline,
+              allOutlines: outlines,
+              content: contentData.content,
+              stageId: stage.id,
+              agents,
+              previousSpeeches,
+              userProfile,
+              languageDirective,
+            }),
+          ),
+          signal,
+        });
+
+        if (!actionsResp.ok) {
+          const errorData = await actionsResp.json().catch(() => ({ error: 'Request failed' }));
+          throw new Error(errorData.error || t('generation.sceneGenerateFailed'));
+        }
+
+        const data = await actionsResp.json();
+        if (!data.success || !data.scene) {
+          throw new Error(data.error || t('generation.sceneGenerateFailed'));
+        }
+
+        const scene = data.scene as Scene;
+        if (settings.ttsEnabled) {
+          setStatusMessage(
+            t('generation.generatingPageSpeech', { current: currentPage, total: totalPages }),
+          );
+          await generateTTSForScene(scene, signal);
+        }
+
+        throwIfAborted(signal);
+        store.addScene(scene);
+        previousSpeeches = data.previousSpeeches || [];
       }
 
-      // Add scene to store and navigate
-      store.addScene(data.scene);
-      store.setCurrentSceneId(data.scene.id);
+      throwIfAborted(signal);
+      const mediaElementIds = getEnabledMediaElementIds(outlines);
+      if (mediaElementIds.length > 0) {
+        if (actionsStepIdx >= 0) setCurrentStepIndex(actionsStepIdx);
+        setStatusMessage(t('generation.generatingMedia'));
+        await generateMediaForOutlines(outlines, stage.id, signal);
+        throwIfAborted(signal);
+        ensureMediaGenerationComplete(stage.id, outlines);
+      }
 
-      // Set remaining outlines as skeleton placeholders
-      const remaining = outlines.filter((o) => o.order !== data.scene.order);
-      store.setGeneratingOutlines(remaining);
-
-      // Store generation params for classroom to continue generation
-      sessionStorage.setItem(
-        'generationParams',
-        JSON.stringify({
-          pdfImages: currentSession.pdfImages,
-          agents,
-          userProfile,
-          languageDirective,
-        }),
+      const generatedScenes = [...useStageStore.getState().scenes].sort(
+        (a, b) => a.order - b.order,
       );
+      if (generatedScenes.length !== outlines.length) {
+        throw new Error(t('generation.sceneGenerateFailed'));
+      }
 
+      store.setScenes(generatedScenes);
+      store.setCurrentSceneId(generatedScenes[0]?.id ?? null);
+      store.setGeneratingOutlines([]);
+      store.setGenerationStatus('completed');
+      setStatusMessage(t('generation.courseGenerated'));
+      setIsComplete(true);
+
+      sessionStorage.removeItem('generationParams');
       sessionStorage.removeItem('generationSession');
+      store.setAutoSaveSuspended(false);
       await store.saveToStorage();
+      await new Promise((resolve) => setTimeout(resolve, 600));
       router.push(`/classroom/${stage.id}`);
     } catch (err) {
+      const store = useStageStore.getState();
+      store.setAutoSaveSuspended(false);
+      if (generatedStageId && store.stage?.id === generatedStageId) {
+        store.clearStore();
+      }
       // AbortError is expected when navigating away — don't show as error
       if (err instanceof DOMException && err.name === 'AbortError') {
         log.info('[GenerationPreview] Generation aborted');
         return;
       }
+      sessionStorage.removeItem('generationParams');
       sessionStorage.removeItem('generationSession');
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -878,7 +975,7 @@ function GenerationPreviewContent() {
                       {error
                         ? error
                         : isComplete
-                          ? t('generation.classroomReady')
+                          ? statusMessage || t('generation.classroomReady')
                           : statusMessage || t(activeStep.description)}
                     </p>
                   </motion.div>

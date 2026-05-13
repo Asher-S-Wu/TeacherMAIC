@@ -66,7 +66,7 @@ interface ResponsesBody {
   instructions?: string;
   max_output_tokens: number;
   thinking?: { type: 'enabled' | 'disabled' };
-  reasoning?: { effort: 'xhigh' };
+  reasoning?: { effort: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' };
   text?: { verbosity: 'high' };
 }
 
@@ -176,7 +176,7 @@ function buildResponsesBody(
   };
 
   if (params.model.providerId === DEVELOPER_PROVIDER_ID) {
-    body.reasoning = { effort: 'xhigh' };
+    body.reasoning = { effort: 'medium' };
     body.text = { verbosity: 'high' };
   } else {
     body.thinking = { type: getArkThinkingType(thinking) };

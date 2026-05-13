@@ -17,7 +17,7 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
     requestAdapter: 'openai-responses',
     defaultMode: 'enabled',
     effortValues: ['minimal', 'low', 'medium', 'high', 'xhigh'],
-    defaultEffort: 'xhigh',
+    defaultEffort: 'medium',
     defaultEnabled: true,
     budgetAdjustable: true,
   },

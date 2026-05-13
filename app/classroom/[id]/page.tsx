@@ -6,13 +6,24 @@ import { useStageStore } from '@/lib/store';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useSceneGenerator } from '@/lib/hooks/use-scene-generator';
-import { useMediaGenerationStore } from '@/lib/store/media-generation';
+import { isMediaPlaceholder, useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useWhiteboardHistoryStore } from '@/lib/store/whiteboard-history';
 import { createLogger } from '@/lib/logger';
 import { MediaStageProvider } from '@/lib/contexts/media-stage-context';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
+import type { Scene } from '@/lib/types/stage';
 
 const log = createLogger('Classroom');
+
+function hasUnresolvedMediaPlaceholders(scenes: Scene[]): boolean {
+  return scenes.some((scene) => {
+    if (scene.content?.type !== 'slide') return false;
+    return scene.content.canvas.elements.some(
+      (element) =>
+        'src' in element && typeof element.src === 'string' && isMediaPlaceholder(element.src),
+    );
+  });
+}
 
 export default function ClassroomDetailPage() {
   const params = useParams();
@@ -131,7 +142,7 @@ export default function ClassroomDetailPage() {
         userProfile: params.userProfile,
         languageDirective: params.languageDirective || stage.languageDirective,
       });
-    } else if (outlines.length > 0 && stage) {
+    } else if (outlines.length > 0 && stage && hasUnresolvedMediaPlaceholders(scenes)) {
       // All scenes are generated, but some media may not have finished.
       // Resume media generation for any unfinished tasks.
       // generateMediaForOutlines skips already-completed tasks automatically.
