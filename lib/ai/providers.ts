@@ -21,6 +21,8 @@ export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`
 export const DEEPSEEK_PROVIDER_ID: BuiltInProviderId = 'deepseek';
 export const DEEPSEEK_MODEL_ID = 'deepseek-v4-pro';
 export const DEEPSEEK_MODEL_NAME = 'DeepSeek V4 Pro';
+export const DEEPSEEK_FLASH_MODEL_ID = 'deepseek-v4-flash';
+export const DEEPSEEK_FLASH_MODEL_NAME = 'DeepSeek V4 Flash';
 export const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
 export const DEEPSEEK_CHAT_COMPLETIONS_PATH = '/chat/completions';
 
@@ -66,6 +68,17 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
       {
         id: DEEPSEEK_MODEL_ID,
         name: DEEPSEEK_MODEL_NAME,
+        contextWindow: 1000000,
+        outputWindow: 384000,
+        capabilities: {
+          streaming: true,
+          tools: true,
+          json: true,
+        },
+      },
+      {
+        id: DEEPSEEK_FLASH_MODEL_ID,
+        name: DEEPSEEK_FLASH_MODEL_NAME,
         contextWindow: 1000000,
         outputWindow: 384000,
         capabilities: {

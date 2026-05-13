@@ -22,7 +22,6 @@ import {
   X,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
-import { LanguageSwitcher } from '@/components/language-switcher';
 import { createLogger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupInput, InputGroupButton } from '@/components/ui/input-group';
@@ -339,11 +338,6 @@ function HomePage() {
         ref={toolbarRef}
         className="fixed top-4 right-4 z-50 flex items-center gap-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md px-2 py-1.5 rounded-full border border-gray-100/50 dark:border-gray-700/50 shadow-sm"
       >
-        {/* Language Selector */}
-        <LanguageSwitcher onOpen={() => setThemeOpen(false)} />
-
-        <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
-
         {/* Theme Selector */}
         <div className="relative">
           <button

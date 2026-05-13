@@ -306,7 +306,7 @@ interface ClassroomCompletePageProps {
 }
 
 export function ClassroomCompletePage({ scenes, title }: ClassroomCompletePageProps) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const prefersReducedMotion = useReducedMotion();
 
   // Computed once on mount: re-grading on every render would be wasteful and
@@ -331,11 +331,11 @@ export function ClassroomCompletePage({ scenes, title }: ClassroomCompletePagePr
 
   const dateLabel = useMemo(() => {
     try {
-      return new Intl.DateTimeFormat(locale).format(new Date());
+      return new Intl.DateTimeFormat('zh-CN').format(new Date());
     } catch {
       return new Date().toLocaleDateString();
     }
-  }, [locale]);
+  }, []);
 
   const trailItems = TYPE_ORDER.filter((type) => (summary.countsByType[type] ?? 0) > 0).map(
     (type) => ({

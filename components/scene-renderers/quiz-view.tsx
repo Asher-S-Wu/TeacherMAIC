@@ -643,7 +643,7 @@ function ScoreBanner({
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function QuizView({ questions, sceneId }: QuizViewProps) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
 
   // Rehydrate submitted state from the account on first mount.
   const [initialSubmitted] = useState<SubmittedState>(() => readSubmittedState(sceneId));
@@ -749,7 +749,7 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
           gradeShortAnswerQuestion(
             q,
             (answers[q.id] as string) ?? '',
-            locale,
+            'zh-CN',
             t('quiz.gradingFailed'),
           ),
         ),
@@ -772,7 +772,7 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [phase, questions, answers, locale, sceneId, t]);
+  }, [phase, questions, answers, sceneId, t]);
 
   const handleRetry = useCallback(() => {
     setPhase('not_started');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, type ReactNode } from 'react';
-import { Bot, Paperclip, FileImage, FileText, X } from 'lucide-react';
+import { Zap, Atom, Network, Paperclip, FileImage, FileText, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,12 @@ import { useSettingsStore } from '@/lib/store/settings';
 import type { SettingsSection } from '@/lib/types/settings';
 import { MediaPopover } from '@/components/generation/media-popover';
 import { ModelSelectorPopover } from '@/components/generation/model-selector-popover';
+
+const PRESET_LABELS: Record<string, { label: string; icon: typeof Zap }> = {
+  fast: { label: '快速', icon: Zap },
+  think: { label: '思考', icon: Atom },
+  expert: { label: '专家', icon: Network },
+};
 
 // ─── Constants ───────────────────────────────────────────────
 const MAX_PDF_SIZE_MB = 50;
@@ -47,13 +53,22 @@ export function GenerationToolbar({
   const { t } = useI18n();
   const currentProviderId = useSettingsStore((s) => s.providerId);
   const currentModelId = useSettingsStore((s) => s.modelId);
-  const providersConfig = useSettingsStore((s) => s.providersConfig);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const currentProviderConfig = providersConfig?.[currentProviderId];
-  const currentModel = currentProviderConfig?.models.find((model) => model.id === currentModelId);
   const attachmentCount = (pdfFile ? 1 : 0) + imageFiles.length;
+
+  const getCurrentPreset = () => {
+    if (currentProviderId === 'deepseek' && currentModelId === 'deepseek-v4-flash') {
+      return PRESET_LABELS.fast;
+    }
+    if (currentProviderId === 'deepseek' && currentModelId === 'deepseek-v4-pro') {
+      return PRESET_LABELS.expert;
+    }
+    return PRESET_LABELS.think;
+  };
+
+  const currentPreset = getCurrentPreset();
 
   const removeImageFile = (index: number) => {
     onImageFilesChange(imageFiles.filter((_, i) => i !== index));
@@ -114,16 +129,8 @@ export function GenerationToolbar({
                 'order-3 ml-auto border-violet-200/70 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800/70 dark:bg-violet-950/30 dark:text-violet-300 dark:hover:bg-violet-950/50',
               )}
             >
-              {currentProviderConfig?.icon ? (
-                <img
-                  src={currentProviderConfig.icon}
-                  alt=""
-                  className="size-[14px] shrink-0 rounded-sm"
-                />
-              ) : (
-                <Bot className="size-[14px] shrink-0" />
-              )}
-              <span>{currentModel?.name || t('settings.serverManagedModel')}</span>
+              <currentPreset.icon className="size-[14px] shrink-0" />
+              <span>{currentPreset.label}</span>
             </button>
           </TooltipTrigger>
           <TooltipContent>{t('settings.serverManagedModelDesc')}</TooltipContent>

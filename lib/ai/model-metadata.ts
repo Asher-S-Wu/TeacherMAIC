@@ -21,6 +21,13 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
     defaultEnabled: true,
     budgetAdjustable: true,
   },
+  'deepseek:deepseek-v4-flash': {
+    control: 'toggle',
+    requestAdapter: 'deepseek-chat',
+    defaultMode: 'disabled',
+    defaultEnabled: false,
+    toggleable: false,
+  },
 };
 
 export function getCatalogThinkingCapability(
