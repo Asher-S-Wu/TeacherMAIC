@@ -32,8 +32,8 @@ import { GenerationToolbar } from '@/components/generation/generation-toolbar';
 import { AgentBar } from '@/components/agent/agent-bar';
 import { useTheme } from '@/lib/hooks/use-theme';
 import { nanoid } from 'nanoid';
-import { storeImageFile, storePdfBlob } from '@/lib/utils/image-storage';
-import type { PdfImage, UserRequirements } from '@/lib/types/generation';
+import { storePdfBlob } from '@/lib/utils/image-storage';
+import type { UserRequirements } from '@/lib/types/generation';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useUserProfileStore, AVATAR_OPTIONS } from '@/lib/store/user-profile';
 import {
@@ -58,14 +58,12 @@ const log = createLogger('Home');
 
 interface FormState {
   pdfFile: File | null;
-  imageFiles: File[];
   requirement: string;
   webSearch: boolean;
 }
 
 const initialFormState: FormState = {
   pdfFile: null,
-  imageFiles: [],
   requirement: '',
   webSearch: true,
 };
@@ -263,7 +261,6 @@ function HomePage() {
       let pdfStorageKey: string | undefined;
       let pdfFileName: string | undefined;
       let pdfProviderId: string | undefined;
-      const sourceImages: PdfImage[] = [];
 
       if (form.pdfFile) {
         pdfStorageKey = await storePdfBlob(form.pdfFile);
@@ -272,24 +269,12 @@ function HomePage() {
         pdfProviderId = settings.pdfProviderId;
       }
 
-      for (let i = 0; i < form.imageFiles.length; i++) {
-        const file = form.imageFiles[i];
-        const saved = await storeImageFile(file, { source: 'home-attachment' });
-        sourceImages.push({
-          id: `user_img_${i + 1}`,
-          src: '',
-          pageNumber: 0,
-          description: `用户上传的参考图片：${file.name}`,
-          storageId: saved.id,
-        });
-      }
-
       const sessionState = {
         sessionId: nanoid(),
         requirements,
         pdfText: '',
-        pdfImages: sourceImages,
-        imageStorageIds: sourceImages.map((img) => img.storageId).filter(Boolean),
+        pdfImages: [],
+        imageStorageIds: [],
         pdfStorageKey,
         pdfFileName,
         pdfProviderId,
@@ -521,8 +506,6 @@ function HomePage() {
                   }}
                   pdfFile={form.pdfFile}
                   onPdfFileChange={(f) => updateForm('pdfFile', f)}
-                  imageFiles={form.imageFiles}
-                  onImageFilesChange={(files) => updateForm('imageFiles', files)}
                   onPdfError={setError}
                   voiceButton={
                     <SpeechButton

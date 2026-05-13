@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Zap, Atom, Network, Check } from 'lucide-react';
+import { Zap, Atom, Network } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useSettingsStore } from '@/lib/store/settings';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { EXPERT_MODEL_ID, EXPERT_PROVIDER_ID } from '@/lib/ai/providers';
+import { getThinkingConfigKey } from '@/lib/ai/thinking-config';
 
 interface PresetOption {
   id: string;
@@ -33,9 +34,9 @@ const PRESET_OPTIONS: PresetOption[] = [
     label: '思考',
     description: '擅长解决更难的问题',
     icon: Atom,
-    providerId: 'ark',
-    modelId: 'doubao-seed-2-0-lite-260428',
-    thinkingConfig: { mode: 'enabled' },
+    providerId: 'deepseek',
+    modelId: 'deepseek-v4-flash',
+    thinkingConfig: { mode: 'enabled', effort: 'max' },
   },
   {
     id: 'expert',
@@ -57,12 +58,35 @@ export function ModelSelectorPopover({ children }: ModelSelectorPopoverProps) {
 
   const currentProviderId = useSettingsStore((s) => s.providerId);
   const currentModelId = useSettingsStore((s) => s.modelId);
+  const thinkingConfigs = useSettingsStore((s) => s.thinkingConfigs);
   const setModel = useSettingsStore((s) => s.setModel);
   const setThinkingConfig = useSettingsStore((s) => s.setThinkingConfig);
 
   const getCurrentPresetId = (): string => {
     for (const option of PRESET_OPTIONS) {
       if (option.providerId === currentProviderId && option.modelId === currentModelId) {
+        const currentThinkingConfig =
+          thinkingConfigs[getThinkingConfigKey(option.providerId, option.modelId)];
+        if (
+          option.thinkingConfig?.effort &&
+          currentThinkingConfig?.effort !== option.thinkingConfig.effort
+        ) {
+          continue;
+        }
+        if (
+          option.thinkingConfig?.mode === 'disabled' &&
+          currentThinkingConfig?.mode &&
+          currentThinkingConfig.mode !== 'disabled'
+        ) {
+          continue;
+        }
+        if (
+          option.thinkingConfig?.mode &&
+          option.thinkingConfig.mode !== 'disabled' &&
+          currentThinkingConfig?.mode !== option.thinkingConfig.mode
+        ) {
+          continue;
+        }
         return option.id;
       }
     }

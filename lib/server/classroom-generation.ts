@@ -18,6 +18,8 @@ import { resolveModel } from '@/lib/server/resolve-model';
 import { buildSearchQuery, decideWebSearch } from '@/lib/server/search-query-builder';
 import { searchWithArk, formatSearchResultsAsContext } from '@/lib/web-search/ark';
 import { persistClassroom } from '@/lib/server/classroom-storage';
+import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
+import { CLASSROOM_GENERATION_CONCURRENCY } from '@/lib/constants/classroom-generation';
 import {
   generateMediaForClassroom,
   replaceMediaPlaceholders,
@@ -369,17 +371,15 @@ export async function generateClassroom(
   log.info('Stage 2: Generating scene content and actions...');
   let generatedScenes = 0;
 
-  for (const [index, outline] of outlines.entries()) {
-    const progressStart = 30 + Math.floor((index / Math.max(outlines.length, 1)) * 60);
+  await options.onProgress?.({
+    step: 'generating_scenes',
+    progress: 31,
+    message: `正在最多五路并行生成页面：已完成 0/${outlines.length}`,
+    scenesGenerated: generatedScenes,
+    totalScenes: outlines.length,
+  });
 
-    await options.onProgress?.({
-      step: 'generating_scenes',
-      progress: Math.max(progressStart, 31),
-      message: `Generating scene ${index + 1}/${outlines.length}: ${outline.title}`,
-      scenesGenerated: generatedScenes,
-      totalScenes: outlines.length,
-    });
-
+  await runConcurrentQueue(outlines, CLASSROOM_GENERATION_CONCURRENCY, async (outline) => {
     const content = await generateSceneContent(outline, aiCall, {
       agents,
       languageDirective,
@@ -401,17 +401,19 @@ export async function generateClassroom(
     }
 
     generatedScenes += 1;
-    const progressEnd = 30 + Math.floor(((index + 1) / Math.max(outlines.length, 1)) * 60);
     await options.onProgress?.({
       step: 'generating_scenes',
-      progress: Math.min(progressEnd, 90),
-      message: `Generated ${generatedScenes}/${outlines.length} scenes`,
+      progress: Math.min(
+        30 + Math.floor((generatedScenes / Math.max(outlines.length, 1)) * 60),
+        90,
+      ),
+      message: `正在最多五路并行生成页面：已完成 ${generatedScenes}/${outlines.length}`,
       scenesGenerated: generatedScenes,
       totalScenes: outlines.length,
     });
-  }
+  });
 
-  const scenes = store.getState().scenes;
+  const scenes = [...store.getState().scenes].sort((a, b) => a.order - b.order);
   log.info(`Pipeline complete: ${scenes.length} scenes generated`);
 
   if (scenes.length === 0) {

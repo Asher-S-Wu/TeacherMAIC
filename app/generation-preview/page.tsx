@@ -17,8 +17,10 @@ import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { cleanupOldImages } from '@/lib/utils/image-storage';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
+import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
+import { CLASSROOM_GENERATION_CONCURRENCY } from '@/lib/constants/classroom-generation';
 import { nanoid } from 'nanoid';
 import type { Stage, Scene } from '@/lib/types/stage';
 import type { SceneOutline, PdfImage } from '@/lib/types/generation';
@@ -687,91 +689,100 @@ function GenerationPreviewContent() {
           ? `Student: ${currentSession.requirements.userNickname || 'Unknown'}${currentSession.requirements.userBio ? ` — ${currentSession.requirements.userBio}` : ''}`
           : undefined;
 
-      let previousSpeeches: string[] = [];
-
-      for (const [index, outline] of outlines.entries()) {
-        const currentPage = index + 1;
-        throwIfAborted(signal);
-
-        store.setCurrentGeneratingOrder(outline.order);
-        if (contentStepIdx >= 0) setCurrentStepIndex(contentStepIdx);
+      let completedPages = 0;
+      const updateParallelStatus = () => {
         setStatusMessage(
-          t('generation.generatingPageContent', { current: currentPage, total: totalPages }),
+          t('generation.generatingPagesParallel', {
+            completed: completedPages,
+            total: totalPages,
+          }),
         );
+      };
 
-        const contentResp = await fetch('/api/generate/scene-content', {
-          method: 'POST',
-          headers: getApiHeaders(),
-          body: JSON.stringify(
-            withThinkingConfig({
-              outline,
-              allOutlines: outlines,
-              pdfImages: currentSession.pdfImages,
-              stageInfo,
-              stageId: stage.id,
-              agents,
-              languageDirective,
-            }),
-          ),
-          signal,
-        });
+      if (contentStepIdx >= 0) setCurrentStepIndex(contentStepIdx);
+      updateParallelStatus();
 
-        if (!contentResp.ok) {
-          const errorData = await contentResp.json().catch(() => ({ error: 'Request failed' }));
-          throw new Error(errorData.error || t('generation.sceneGenerateFailed'));
-        }
+      await runConcurrentQueue(
+        outlines,
+        CLASSROOM_GENERATION_CONCURRENCY,
+        async (outline) => {
+          throwIfAborted(signal);
 
-        const contentData = await contentResp.json();
-        if (!contentData.success || !contentData.content) {
-          throw new Error(contentData.error || t('generation.sceneGenerateFailed'));
-        }
+          store.setCurrentGeneratingOrder(outline.order);
+          if (contentStepIdx >= 0) setCurrentStepIndex(contentStepIdx);
 
-        throwIfAborted(signal);
-        if (actionsStepIdx >= 0) setCurrentStepIndex(actionsStepIdx);
-        setStatusMessage(
-          t('generation.generatingPageActions', { current: currentPage, total: totalPages }),
-        );
+          const contentResp = await fetch('/api/generate/scene-content', {
+            method: 'POST',
+            headers: getApiHeaders(),
+            body: JSON.stringify(
+              withThinkingConfig({
+                outline,
+                allOutlines: outlines,
+                pdfImages: currentSession.pdfImages,
+                stageInfo,
+                stageId: stage.id,
+                agents,
+                languageDirective,
+              }),
+            ),
+            signal,
+          });
 
-        const actionsResp = await fetch('/api/generate/scene-actions', {
-          method: 'POST',
-          headers: getApiHeaders(),
-          body: JSON.stringify(
-            withThinkingConfig({
-              outline: contentData.effectiveOutline || outline,
-              allOutlines: outlines,
-              content: contentData.content,
-              stageId: stage.id,
-              agents,
-              previousSpeeches,
-              userProfile,
-              languageDirective,
-            }),
-          ),
-          signal,
-        });
+          if (!contentResp.ok) {
+            const errorData = await contentResp.json().catch(() => ({ error: 'Request failed' }));
+            throw new Error(errorData.error || t('generation.sceneGenerateFailed'));
+          }
 
-        if (!actionsResp.ok) {
-          const errorData = await actionsResp.json().catch(() => ({ error: 'Request failed' }));
-          throw new Error(errorData.error || t('generation.sceneGenerateFailed'));
-        }
+          const contentData = await contentResp.json();
+          if (!contentData.success || !contentData.content) {
+            throw new Error(contentData.error || t('generation.sceneGenerateFailed'));
+          }
 
-        const data = await actionsResp.json();
-        if (!data.success || !data.scene) {
-          throw new Error(data.error || t('generation.sceneGenerateFailed'));
-        }
+          throwIfAborted(signal);
+          if (actionsStepIdx >= 0) setCurrentStepIndex(actionsStepIdx);
+          updateParallelStatus();
 
-        const scene = data.scene as Scene;
-        if (settings.ttsEnabled) {
-          setStatusMessage(
-            t('generation.generatingPageSpeech', { current: currentPage, total: totalPages }),
-          );
-          await generateTTSForScene(scene, signal);
-        }
+          const actionsResp = await fetch('/api/generate/scene-actions', {
+            method: 'POST',
+            headers: getApiHeaders(),
+            body: JSON.stringify(
+              withThinkingConfig({
+                outline: contentData.effectiveOutline || outline,
+                allOutlines: outlines,
+                content: contentData.content,
+                stageId: stage.id,
+                agents,
+                previousSpeeches: [],
+                userProfile,
+                languageDirective,
+              }),
+            ),
+            signal,
+          });
 
-        throwIfAborted(signal);
-        store.addScene(scene);
-        previousSpeeches = data.previousSpeeches || [];
-      }
+          if (!actionsResp.ok) {
+            const errorData = await actionsResp.json().catch(() => ({ error: 'Request failed' }));
+            throw new Error(errorData.error || t('generation.sceneGenerateFailed'));
+          }
+
+          const data = await actionsResp.json();
+          if (!data.success || !data.scene) {
+            throw new Error(data.error || t('generation.sceneGenerateFailed'));
+          }
+
+          const scene = data.scene as Scene;
+          if (settings.ttsEnabled) {
+            updateParallelStatus();
+            await generateTTSForScene(scene, signal);
+          }
+
+          throwIfAborted(signal);
+          store.addScene(scene);
+          completedPages += 1;
+          updateParallelStatus();
+        },
+        () => !signal.aborted,
+      );
 
       throwIfAborted(signal);
       const mediaElementIds = getEnabledMediaElementIds(outlines);

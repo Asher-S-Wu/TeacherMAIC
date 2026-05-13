@@ -10,6 +10,8 @@ import type { Scene } from '@/lib/types/stage';
 import type { SpeechAction } from '@/lib/types/action';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
+import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
+import { CLASSROOM_GENERATION_CONCURRENCY } from '@/lib/constants/classroom-generation';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('SceneGenerator');
@@ -269,125 +271,124 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
         log.warn('Media generation error:', err);
       });
 
-      // Get previousSpeeches from last completed scene
-      let previousSpeeches: string[] = [];
-      const sortedScenes = [...scenes].sort((a, b) => a.order - b.order);
-      if (sortedScenes.length > 0) {
-        const lastScene = sortedScenes[sortedScenes.length - 1];
-        previousSpeeches = (lastScene.actions || [])
-          .filter((a): a is SpeechAction => a.type === 'speech')
-          .map((a) => a.text);
-      }
-
-      // Serial generation loop — two-step per outline
+      // Five-lane queue — each page still runs content -> actions -> TTS in order.
       try {
         let pausedByFailureOrAbort = false;
-        for (const outline of pending) {
-          if (abortRef.current || store.getState().generationEpoch !== startEpoch) {
-            store.getState().setGenerationStatus('paused');
-            pausedByFailureOrAbort = true;
-            break;
-          }
+        const pauseGeneration = () => {
+          pausedByFailureOrAbort = true;
+          store.getState().setGenerationStatus('paused');
+        };
+        const isCurrentRun = () =>
+          !pausedByFailureOrAbort &&
+          !abortRef.current &&
+          store.getState().generationEpoch === startEpoch;
 
-          store.getState().setCurrentGeneratingOrder(outline.order);
-
-          // Step 1: Generate content
-          options.onPhaseChange?.('content', outline);
-          const contentResult = await fetchSceneContent(
-            {
-              outline,
-              allOutlines: outlines,
-              stageId: stage.id,
-              pdfImages: params.pdfImages,
-              stageInfo: params.stageInfo,
-              agents: params.agents,
-              languageDirective: params.languageDirective,
-            },
-            signal,
-          );
-
-          if (!contentResult.success || !contentResult.content) {
-            if (abortRef.current || store.getState().generationEpoch !== startEpoch) {
-              pausedByFailureOrAbort = true;
-              break;
+        await runConcurrentQueue(
+          pending,
+          CLASSROOM_GENERATION_CONCURRENCY,
+          async (outline) => {
+            if (!isCurrentRun()) {
+              pauseGeneration();
+              throw new DOMException('Generation aborted', 'AbortError');
             }
-            store.getState().addFailedOutline(outline);
-            options.onSceneFailed?.(outline, contentResult.error || 'Content generation failed');
-            store.getState().setGenerationStatus('paused');
-            pausedByFailureOrAbort = true;
-            break;
-          }
 
-          if (abortRef.current || store.getState().generationEpoch !== startEpoch) {
-            store.getState().setGenerationStatus('paused');
-            pausedByFailureOrAbort = true;
-            break;
-          }
+            try {
+              store.getState().setCurrentGeneratingOrder(outline.order);
 
-          // Step 2: Generate actions + assemble scene
-          options.onPhaseChange?.('actions', outline);
-          const actionsResult = await fetchSceneActions(
-            {
-              outline: contentResult.effectiveOutline || outline,
-              allOutlines: outlines,
-              content: contentResult.content,
-              stageId: stage.id,
-              agents: params.agents,
-              previousSpeeches,
-              userProfile: params.userProfile,
-              languageDirective: params.languageDirective,
-            },
-            signal,
-          );
-
-          if (actionsResult.success && actionsResult.scene) {
-            const scene = actionsResult.scene;
-            const settings = useSettingsStore.getState();
-
-            // TTS generation — failure means the whole scene fails
-            if (settings.ttsEnabled) {
-              const ttsResult = await generateTTSForScene(
-                scene,
-                params.languageDirective || params.stageInfo.language,
+              // Step 1: Generate content
+              options.onPhaseChange?.('content', outline);
+              const contentResult = await fetchSceneContent(
+                {
+                  outline,
+                  allOutlines: outlines,
+                  stageId: stage.id,
+                  pdfImages: params.pdfImages,
+                  stageInfo: params.stageInfo,
+                  agents: params.agents,
+                  languageDirective: params.languageDirective,
+                },
                 signal,
               );
-              if (!ttsResult.success) {
-                if (abortRef.current || store.getState().generationEpoch !== startEpoch) {
-                  pausedByFailureOrAbort = true;
-                  break;
-                }
-                store.getState().addFailedOutline(outline);
-                options.onSceneFailed?.(outline, ttsResult.error || 'TTS generation failed');
-                store.getState().setGenerationStatus('paused');
-                pausedByFailureOrAbort = true;
-                break;
+
+              if (!contentResult.success || !contentResult.content) {
+                throw new Error(contentResult.error || 'Content generation failed');
               }
-            }
 
-            // Epoch changed — stage switched, discard this scene
-            if (store.getState().generationEpoch !== startEpoch) {
-              pausedByFailureOrAbort = true;
-              break;
-            }
+              if (!isCurrentRun()) {
+                pauseGeneration();
+                throw new DOMException('Generation aborted', 'AbortError');
+              }
 
-            removeGeneratingOutline(outline.id);
-            store.getState().addScene(scene);
-            options.onSceneGenerated?.(scene, outline.order);
-            previousSpeeches = actionsResult.previousSpeeches || [];
-          } else {
-            if (abortRef.current || store.getState().generationEpoch !== startEpoch) {
-              pausedByFailureOrAbort = true;
-              break;
-            }
-            store.getState().addFailedOutline(outline);
-            options.onSceneFailed?.(outline, actionsResult.error || 'Actions generation failed');
-            store.getState().setGenerationStatus('paused');
-            pausedByFailureOrAbort = true;
-            break;
-          }
-        }
+              // Step 2: Generate actions + assemble scene
+              options.onPhaseChange?.('actions', outline);
+              const actionsResult = await fetchSceneActions(
+                {
+                  outline: contentResult.effectiveOutline || outline,
+                  allOutlines: outlines,
+                  content: contentResult.content,
+                  stageId: stage.id,
+                  agents: params.agents,
+                  previousSpeeches: [],
+                  userProfile: params.userProfile,
+                  languageDirective: params.languageDirective,
+                },
+                signal,
+              );
 
-        if (!abortRef.current && !pausedByFailureOrAbort) {
+              if (!actionsResult.success || !actionsResult.scene) {
+                throw new Error(actionsResult.error || 'Actions generation failed');
+              }
+
+              const scene = actionsResult.scene;
+              const settings = useSettingsStore.getState();
+
+              // TTS generation — failure means the whole scene fails
+              if (settings.ttsEnabled) {
+                const ttsResult = await generateTTSForScene(
+                  scene,
+                  params.languageDirective || params.stageInfo.language,
+                  signal,
+                );
+                if (!ttsResult.success) {
+                  throw new Error(ttsResult.error || 'TTS generation failed');
+                }
+              }
+
+              // Epoch changed — stage switched, discard this scene
+              if (!isCurrentRun()) {
+                pauseGeneration();
+                throw new DOMException('Generation aborted', 'AbortError');
+              }
+
+              removeGeneratingOutline(outline.id);
+              store.getState().addScene(scene);
+              options.onSceneGenerated?.(scene, outline.order);
+            } catch (error) {
+              if (
+                error instanceof DOMException ||
+                abortRef.current ||
+                store.getState().generationEpoch !== startEpoch
+              ) {
+                pauseGeneration();
+                throw error;
+              }
+
+              const message =
+                error instanceof Error ? error.message : 'Scene generation failed';
+              store.getState().addFailedOutline(outline);
+              options.onSceneFailed?.(outline, message);
+              pauseGeneration();
+              throw error;
+            }
+          },
+          isCurrentRun,
+        );
+
+        if (
+          !abortRef.current &&
+          !pausedByFailureOrAbort &&
+          store.getState().generationEpoch === startEpoch
+        ) {
           store.getState().setGenerationStatus('completed');
           store.getState().setGeneratingOutlines([]);
           options.onComplete?.();
@@ -397,6 +398,8 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
         if (err instanceof DOMException && err.name === 'AbortError') {
           log.info('Generation aborted');
           store.getState().setGenerationStatus('paused');
+        } else if (store.getState().generationStatus === 'paused') {
+          log.warn('Generation paused after page failure:', err);
         } else {
           throw err;
         }
@@ -465,15 +468,6 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
           return;
         }
 
-        // Step 2: Actions
-        const sortedScenes = [...store.getState().scenes].sort((a, b) => a.order - b.order);
-        const lastScene = sortedScenes[sortedScenes.length - 1];
-        const previousSpeeches = lastScene
-          ? (lastScene.actions || [])
-              .filter((a): a is SpeechAction => a.type === 'speech')
-              .map((a) => a.text)
-          : [];
-
         const actionsResult = await fetchSceneActions(
           {
             outline: contentResult.effectiveOutline || outline,
@@ -481,7 +475,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
             content: contentResult.content,
             stageId: state.stage.id,
             agents: params.agents,
-            previousSpeeches,
+            previousSpeeches: [],
             userProfile: params.userProfile,
             languageDirective: params.languageDirective,
           },

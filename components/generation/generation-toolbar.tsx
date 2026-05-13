@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, type ReactNode } from 'react';
-import { Zap, Atom, Network, Paperclip, FileImage, FileText, X } from 'lucide-react';
+import { Zap, Atom, Network, Paperclip, FileText, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,7 @@ import type { SettingsSection } from '@/lib/types/settings';
 import { MediaPopover } from '@/components/generation/media-popover';
 import { ModelSelectorPopover } from '@/components/generation/model-selector-popover';
 import { isExpertModel } from '@/lib/ai/providers';
+import { getThinkingConfigKey } from '@/lib/ai/thinking-config';
 
 const PRESET_LABELS: Record<string, { label: string; icon: typeof Zap }> = {
   fast: { label: '快速', icon: Zap },
@@ -21,10 +22,6 @@ const PRESET_LABELS: Record<string, { label: string; icon: typeof Zap }> = {
 // ─── Constants ───────────────────────────────────────────────
 const MAX_PDF_SIZE_MB = 50;
 const MAX_PDF_SIZE_BYTES = MAX_PDF_SIZE_MB * 1024 * 1024;
-const MAX_IMAGE_SIZE_MB = 20;
-const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
-const MAX_IMAGE_COUNT = 10;
-const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
 // ─── Types ───────────────────────────────────────────────────
 export interface GenerationToolbarProps {
@@ -33,8 +30,6 @@ export interface GenerationToolbarProps {
   onSettingsOpen: (section?: SettingsSection) => void;
   pdfFile: File | null;
   onPdfFileChange: (file: File | null) => void;
-  imageFiles: File[];
-  onImageFilesChange: (files: File[]) => void;
   onPdfError: (error: string | null) => void;
   voiceButton?: ReactNode;
 }
@@ -46,22 +41,25 @@ export function GenerationToolbar({
   onSettingsOpen,
   pdfFile,
   onPdfFileChange,
-  imageFiles,
-  onImageFilesChange,
   onPdfError,
   voiceButton,
 }: GenerationToolbarProps) {
   const { t } = useI18n();
   const currentProviderId = useSettingsStore((s) => s.providerId);
   const currentModelId = useSettingsStore((s) => s.modelId);
+  const thinkingConfigs = useSettingsStore((s) => s.thinkingConfigs);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const attachmentCount = (pdfFile ? 1 : 0) + imageFiles.length;
+  const attachmentCount = pdfFile ? 1 : 0;
 
   const getCurrentPreset = () => {
     if (currentProviderId === 'deepseek' && currentModelId === 'deepseek-v4-flash') {
-      return PRESET_LABELS.fast;
+      const thinkingConfig =
+        thinkingConfigs[getThinkingConfigKey(currentProviderId, currentModelId)];
+      return thinkingConfig?.mode === 'enabled' && thinkingConfig?.effort === 'max'
+        ? PRESET_LABELS.think
+        : PRESET_LABELS.fast;
     }
     if (isExpertModel(currentProviderId, currentModelId)) {
       return PRESET_LABELS.expert;
@@ -71,13 +69,8 @@ export function GenerationToolbar({
 
   const currentPreset = getCurrentPreset();
 
-  const removeImageFile = (index: number) => {
-    onImageFilesChange(imageFiles.filter((_, i) => i !== index));
-  };
-
   const handleFileSelect = (files: FileList | File[]) => {
     let nextPdf = pdfFile;
-    const nextImages = [...imageFiles];
 
     for (const file of Array.from(files)) {
       if (file.type === 'application/pdf') {
@@ -89,26 +82,12 @@ export function GenerationToolbar({
         continue;
       }
 
-      if (IMAGE_TYPES.includes(file.type)) {
-        if (file.size > MAX_IMAGE_SIZE_BYTES) {
-          onPdfError(t('upload.imageFileTooLarge'));
-          return;
-        }
-        if (nextImages.length >= MAX_IMAGE_COUNT) {
-          onPdfError(t('upload.imageCountLimit'));
-          return;
-        }
-        nextImages.push(file);
-        continue;
-      }
-
       onPdfError(t('upload.unsupportedAttachment'));
       return;
     }
 
     onPdfError(null);
     onPdfFileChange(nextPdf);
-    onImageFilesChange(nextImages);
   };
 
   // ─── Pill button helper ─────────────────────────────
@@ -159,8 +138,7 @@ export function GenerationToolbar({
               type="file"
               ref={fileInputRef}
               className="hidden"
-              accept=".pdf,image/png,image/jpeg,image/webp"
-              multiple
+              accept=".pdf,application/pdf"
               onChange={(e) => {
                 if (e.target.files?.length) handleFileSelect(e.target.files);
                 e.target.value = '';
@@ -187,25 +165,6 @@ export function GenerationToolbar({
                     </button>
                   </div>
                 )}
-                {imageFiles.map((file, index) => (
-                  <div key={`${file.name}-${file.size}-${index}`} className="flex items-center gap-2">
-                    <div className="size-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
-                      <FileImage className="size-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{file.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeImageFile(index)}
-                      className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </div>
-                ))}
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="w-full rounded-lg border border-dashed border-muted-foreground/25 px-3 py-2 text-xs text-muted-foreground hover:border-violet-300 hover:text-foreground"
