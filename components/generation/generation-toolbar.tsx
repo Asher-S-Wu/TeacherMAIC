@@ -9,6 +9,7 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import type { SettingsSection } from '@/lib/types/settings';
 import { MediaPopover } from '@/components/generation/media-popover';
+import { ModelSelectorPopover } from '@/components/generation/model-selector-popover';
 
 // ─── Constants ───────────────────────────────────────────────
 const MAX_PDF_SIZE_MB = 50;
@@ -103,30 +104,31 @@ export function GenerationToolbar({
   return (
     <div className="flex h-[32px] min-w-0 flex-1 flex-nowrap items-center gap-[8px] overflow-hidden">
       {/* ── Server-managed model ── */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={() => onSettingsOpen('providers')}
-            className={cn(
-              pillCls,
-              'order-3 ml-auto border-violet-200/70 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800/70 dark:bg-violet-950/30 dark:text-violet-300 dark:hover:bg-violet-950/50',
-            )}
-          >
-            {currentProviderConfig?.icon ? (
-              <img
-                src={currentProviderConfig.icon}
-                alt=""
-                className="size-[14px] shrink-0 rounded-sm"
-              />
-            ) : (
-              <Bot className="size-[14px] shrink-0" />
-            )}
-            <span>{currentModel?.name || t('settings.serverManagedModel')}</span>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{t('settings.serverManagedModelDesc')}</TooltipContent>
-      </Tooltip>
+      <ModelSelectorPopover>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                pillCls,
+                'order-3 ml-auto border-violet-200/70 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800/70 dark:bg-violet-950/30 dark:text-violet-300 dark:hover:bg-violet-950/50',
+              )}
+            >
+              {currentProviderConfig?.icon ? (
+                <img
+                  src={currentProviderConfig.icon}
+                  alt=""
+                  className="size-[14px] shrink-0 rounded-sm"
+                />
+              ) : (
+                <Bot className="size-[14px] shrink-0" />
+              )}
+              <span>{currentModel?.name || t('settings.serverManagedModel')}</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{t('settings.serverManagedModelDesc')}</TooltipContent>
+        </Tooltip>
+      </ModelSelectorPopover>
 
       {/* ── Attachments ── */}
       <Popover>

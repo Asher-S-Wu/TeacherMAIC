@@ -464,6 +464,8 @@
     },
     "requestUrl": "リクエストURL",
     "models": "モデル",
+    "current": "現在",
+    "backToProviders": "プロバイダー一覧に戻る",
     "addModel": "追加",
     "reset": "リセット",
     "fetch": "取得",

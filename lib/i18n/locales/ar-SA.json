@@ -464,6 +464,8 @@
     },
     "requestUrl": "عنوان الطلب",
     "models": "النماذج",
+    "current": "الحالي",
+    "backToProviders": "العودة إلى المزودين",
     "addModel": "جديد",
     "reset": "إعادة تعيين",
     "fetch": "جلب",

@@ -464,6 +464,8 @@
     },
     "requestUrl": "URL запроса",
     "models": "Модели",
+    "current": "Текущая",
+    "backToProviders": "Назад к провайдерам",
     "addModel": "Добавить",
     "reset": "Сброс",
     "fetch": "Получить",

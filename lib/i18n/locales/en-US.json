@@ -471,6 +471,8 @@
     },
     "requestUrl": "Request URL",
     "models": "Models",
+    "current": "Current",
+    "backToProviders": "Back to providers",
     "addModel": "Add",
     "reset": "Reset",
     "fetch": "Fetch",
