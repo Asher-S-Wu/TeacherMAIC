@@ -79,7 +79,7 @@ interface ChatCompletionsBody {
   stream: boolean;
   max_tokens: number;
   thinking: { type: 'enabled' };
-  reasoning_effort: 'max';
+  reasoning_effort: 'high';
 }
 
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
@@ -231,7 +231,7 @@ function buildDeepSeekChatCompletionsBody(
     stream,
     max_tokens: getMaxOutputTokens(params),
     thinking: { type: 'enabled' },
-    reasoning_effort: 'max',
+    reasoning_effort: 'high',
   };
 }
 
