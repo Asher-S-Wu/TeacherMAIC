@@ -43,15 +43,6 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
     defaultEnabled: false,
     budgetAdjustable: true,
   },
-  'openrouter:moonshotai/kimi-k2.6': {
-    control: 'effort',
-    requestAdapter: 'openrouter-responses',
-    defaultMode: 'enabled',
-    effortValues: ['minimal', 'low', 'medium', 'high'],
-    defaultEffort: 'high',
-    defaultEnabled: true,
-    budgetAdjustable: true,
-  },
 };
 
 export function getCatalogThinkingCapability(

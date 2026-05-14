@@ -46,7 +46,7 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     icon: Network,
     providerId: EXPERT_PROVIDER_ID,
     modelId: EXPERT_MODEL_ID,
-    thinkingConfig: { mode: 'enabled', effort: 'high' },
+    thinkingConfig: { mode: 'disabled', effort: 'none' },
   },
 };
 

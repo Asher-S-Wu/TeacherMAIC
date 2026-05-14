@@ -2,22 +2,18 @@
  * Web Search API
  *
  * POST /api/web-search
- * Simple JSON request/response using Ark web search.
+ * Simple JSON request/response using XCrawl research.
  */
 
 import { NextRequest } from 'next/server';
 import { callLLM } from '@/lib/ai/llm';
-import { searchWithArk, formatSearchResultsAsContext } from '@/lib/web-search/ark';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
-import {
-  buildSearchQuery,
-  decideWebSearch,
-  SEARCH_QUERY_REWRITE_EXCERPT_LENGTH,
-} from '@/lib/server/search-query-builder';
+import { SEARCH_QUERY_REWRITE_EXCERPT_LENGTH } from '@/lib/server/search-query-builder';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import type { AICallFn } from '@/lib/generation/pipeline-types';
+import { runAgentDrivenWebResearch } from '@/lib/server/web-research';
 
 const log = createLogger('WebSearch');
 
@@ -52,6 +48,7 @@ export async function POST(req: NextRequest) {
 
     const { model: languageModel, thinkingConfig } = await resolveModelFromRequest(req, body);
     const createAiCall = (operation: string): AICallFn => async (systemPrompt, userPrompt) => {
+      const maxOutputTokens = operation === 'web-search-research-summary' ? 1600 : 256;
       const result = await callLLM(
         {
           model: languageModel,
@@ -59,7 +56,7 @@ export async function POST(req: NextRequest) {
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
-          maxOutputTokens: 256,
+          maxOutputTokens,
         },
         operation,
         undefined,
@@ -67,46 +64,26 @@ export async function POST(req: NextRequest) {
       );
       return result.text;
     };
-    const decisionAiCall = createAiCall('web-search-decision');
-    const rewriteAiCall = createAiCall('web-search-query-rewrite');
-
-    const decision = await decideWebSearch(query, boundedPdfText, decisionAiCall);
-    if (!decision.shouldSearch) {
-      log.info('Skipping web search after smart decision', {
-        reason: decision.reason,
-        hasPdfContext: decision.hasPdfContext,
-        rawRequirementLength: decision.rawRequirementLength,
-      });
-      return apiSuccess({
-        answer: '',
-        sources: [],
-        context: '',
-        query,
-        responseTime: 0,
-        skipped: true,
-        reason: decision.reason,
-      });
-    }
-
-    const searchQuery = await buildSearchQuery(query, boundedPdfText, rewriteAiCall);
-
-    log.info('Running web search API request', {
-      decisionReason: decision.reason,
-      hasPdfContext: searchQuery.hasPdfContext,
-      rawRequirementLength: searchQuery.rawRequirementLength,
-      rewriteAttempted: searchQuery.rewriteAttempted,
-      finalQueryLength: searchQuery.finalQueryLength,
+    log.info('Running XCrawl web research API request', {
+      hasPdfContext: Boolean(boundedPdfText),
+      rawRequirementLength: query.trim().length,
     });
 
-    const result = await searchWithArk({ query: searchQuery.query, apiKey });
-    const context = formatSearchResultsAsContext(result);
+    const result = await runAgentDrivenWebResearch({
+      requirement: query,
+      pdfText: boundedPdfText,
+      apiKey,
+      createAiCall,
+    });
 
     return apiSuccess({
       answer: result.answer,
       sources: result.sources,
-      context,
+      context: result.context,
       query: result.query,
       responseTime: result.responseTime,
+      skipped: result.skipped,
+      reason: result.reason,
     });
   } catch (err) {
     log.error(`Web search failed [query="${query?.substring(0, 60) ?? 'unknown'}"]:`, err);

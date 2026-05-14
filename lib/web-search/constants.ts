@@ -8,9 +8,9 @@ import type { WebSearchProviderId, WebSearchProviderConfig } from './types';
  * Web Search Provider Registry
  */
 export const WEB_SEARCH_PROVIDERS: Record<WebSearchProviderId, WebSearchProviderConfig> = {
-  'ark-search': {
-    id: 'ark-search',
-    name: '火山方舟联网搜索',
+  xcrawl: {
+    id: 'xcrawl',
+    name: 'XCrawl 联网检索',
     requiresApiKey: true,
   },
 };

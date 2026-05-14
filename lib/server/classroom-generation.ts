@@ -15,8 +15,7 @@ import { createLogger } from '@/lib/logger';
 import { isExpertModelString, isProviderKeyRequired } from '@/lib/ai/providers';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { resolveModel } from '@/lib/server/resolve-model';
-import { buildSearchQuery, decideWebSearch } from '@/lib/server/search-query-builder';
-import { searchWithArk, formatSearchResultsAsContext } from '@/lib/web-search/ark';
+import { runAgentDrivenWebResearch } from '@/lib/server/web-research';
 import { persistClassroom } from '@/lib/server/classroom-storage';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
 import { CLASSROOM_GENERATION_CONCURRENCY } from '@/lib/constants/classroom-generation';
@@ -220,6 +219,7 @@ export async function generateClassroom(
     userPrompt,
     _images,
   ) => {
+    const maxOutputTokens = operation === 'web-search-research-summary' ? 1600 : 256;
     const result = await callLLM(
       {
         model: languageModel,
@@ -227,7 +227,7 @@ export async function generateClassroom(
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        maxOutputTokens: 256,
+        maxOutputTokens,
       },
       operation,
       undefined,
@@ -235,8 +235,6 @@ export async function generateClassroom(
     );
     return result.text;
   };
-  const searchDecisionAiCall = createSearchAiCall('web-search-decision');
-  const searchQueryAiCall = createSearchAiCall('web-search-query-rewrite');
 
   const requirements: UserRequirements = {
     requirement,
@@ -254,35 +252,24 @@ export async function generateClassroom(
   // Web search
   let researchContext: string | undefined;
   if (input.enableWebSearch ?? true) {
-    const arkSearchKey = resolveWebSearchApiKey();
-    if (!arkSearchKey) {
-      throw new Error('已开启联网搜索，但火山方舟 API Key 未配置，请在 Vercel 配置 ARK_API_KEY');
+    const xcrawlApiKey = resolveWebSearchApiKey();
+    if (!xcrawlApiKey) {
+      throw new Error('已开启联网搜索，但 XCrawl API Key 未配置，请在 Vercel 配置 XCRAWL_API_KEY');
     }
-    const searchDecision = await decideWebSearch(requirement, pdfText, searchDecisionAiCall);
-    if (!searchDecision.shouldSearch) {
+    const searchResult = await runAgentDrivenWebResearch({
+      requirement,
+      pdfText,
+      apiKey: xcrawlApiKey,
+      createAiCall: createSearchAiCall,
+    });
+    if (searchResult.skipped) {
       log.info('Skipping web search after smart decision', {
-        reason: searchDecision.reason,
-        hasPdfContext: searchDecision.hasPdfContext,
-        rawRequirementLength: searchDecision.rawRequirementLength,
+        reason: searchResult.reason,
       });
     } else {
-      const searchQuery = await buildSearchQuery(requirement, pdfText, searchQueryAiCall);
-
-      log.info('Running web search for classroom generation', {
-        decisionReason: searchDecision.reason,
-        hasPdfContext: searchQuery.hasPdfContext,
-        rawRequirementLength: searchQuery.rawRequirementLength,
-        rewriteAttempted: searchQuery.rewriteAttempted,
-        finalQueryLength: searchQuery.finalQueryLength,
-      });
-
-      const searchResult = await searchWithArk({
-        query: searchQuery.query,
-        apiKey: arkSearchKey,
-      });
-      researchContext = formatSearchResultsAsContext(searchResult);
+      researchContext = searchResult.context;
       if (researchContext) {
-        log.info(`Web search returned ${searchResult.sources.length} sources`);
+        log.info(`XCrawl research returned ${searchResult.sources.length} sources`);
       }
     }
   }

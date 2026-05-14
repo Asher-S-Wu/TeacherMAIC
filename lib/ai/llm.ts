@@ -7,7 +7,12 @@
 import { createLogger } from '@/lib/logger';
 import { ARK_RESPONSES_PATH } from './ark-models';
 import { OPENROUTER_RESPONSES_PATH } from './openrouter-models';
-import { DEEPSEEK_CHAT_COMPLETIONS_PATH, DEEPSEEK_PROVIDER_ID } from './providers';
+import {
+  DEEPSEEK_CHAT_COMPLETIONS_PATH,
+  DEEPSEEK_PROVIDER_ID,
+  OPENROUTER_KIMI_K2_6_MODEL_ID,
+  OPENROUTER_PROVIDER_ID,
+} from './providers';
 import type { ArkResponsesModel } from './providers';
 import type { ThinkingConfig, ThinkingEffort } from '@/lib/types/provider';
 
@@ -83,7 +88,7 @@ interface OpenRouterResponsesBody {
   stream: boolean;
   instructions?: string;
   max_output_tokens: number;
-  reasoning: { effort: Extract<ThinkingEffort, 'minimal' | 'low' | 'medium' | 'high'> };
+  reasoning?: { effort: Extract<ThinkingEffort, 'minimal' | 'low' | 'medium' | 'high'> };
 }
 
 type ChatCompletionMessage = {
@@ -108,6 +113,13 @@ function isDeepSeekProvider(model: ArkResponsesModel): boolean {
 
 function isOpenRouterResponsesProvider(model: ArkResponsesModel): boolean {
   return model.providerType === 'openrouter-responses';
+}
+
+function isOpenRouterKimiModel(model: ArkResponsesModel): boolean {
+  return (
+    model.providerId === OPENROUTER_PROVIDER_ID &&
+    model.modelId === OPENROUTER_KIMI_K2_6_MODEL_ID
+  );
 }
 
 function getArkResponsesUrl(model: ArkResponsesModel): string {
@@ -157,6 +169,18 @@ function getReasoningEffort(
     return config.effort;
   }
   return 'high';
+}
+
+function shouldSendOpenRouterReasoning(
+  model: ArkResponsesModel,
+  config?: ThinkingConfig,
+): boolean {
+  if (isOpenRouterKimiModel(model)) return false;
+  if (!config) return false;
+  if (config.mode === 'disabled' || config.enabled === false || config.effort === 'none') {
+    return false;
+  }
+  return config.mode === 'enabled' || config.enabled === true || Boolean(config.effort);
 }
 
 function imageToUrl(part: ImagePart): string {
@@ -288,13 +312,15 @@ function buildOpenRouterResponsesBody(
     throw new Error('LLM request missing input');
   }
 
+  const includeReasoning = shouldSendOpenRouterReasoning(params.model, thinking);
+
   return {
     model: params.model.modelId,
     input,
     stream,
     ...(instructions.length > 0 ? { instructions: instructions.join('\n\n') } : {}),
     max_output_tokens: getMaxOutputTokens(params),
-    reasoning: { effort: getReasoningEffort(thinking) },
+    ...(includeReasoning ? { reasoning: { effort: getReasoningEffort(thinking) } } : {}),
   };
 }
 

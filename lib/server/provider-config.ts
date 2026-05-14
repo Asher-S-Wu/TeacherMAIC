@@ -37,6 +37,7 @@ interface ServerConfig {
 const ARK_API_KEY_ENV = 'ARK_API_KEY';
 const DEEPSEEK_API_KEY_ENV = 'DEEPSEEK_API_KEY';
 const OPENROUTER_API_KEY_ENV = 'OPENROUTER_API_KEY';
+const XCRAWL_API_KEY_ENV = 'XCRAWL_API_KEY';
 const VOLCENGINE_TTS_API_KEY_ENV = 'VOLCENGINE_TTS_API_KEY';
 const VOLCENGINE_TTS_RESOURCE_ID_ENV = 'VOLCENGINE_TTS_RESOURCE_ID';
 
@@ -81,6 +82,11 @@ function loadArkOnlySection(providerId: string): Record<string, ServerProviderEn
   return apiKey ? { [providerId]: { apiKey } } : {};
 }
 
+function loadXCrawlSection(): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[XCRAWL_API_KEY_ENV] || undefined;
+  return apiKey ? { xcrawl: { apiKey } } : {};
+}
+
 function loadDoubaoSpeechSection(providerId: string): Record<string, ServerProviderEntry> {
   const apiKey = process.env[VOLCENGINE_TTS_API_KEY_ENV] || undefined;
   const resourceId = process.env[VOLCENGINE_TTS_RESOURCE_ID_ENV] || 'seed-tts-2.0';
@@ -101,7 +107,7 @@ function buildConfig(): ServerConfig {
     pdf: loadEnvSection(PDF_ENV_MAP),
     image: loadArkOnlySection('ark-image'),
     video: loadArkOnlySection('ark-video'),
-    webSearch: loadArkOnlySection('ark-search'),
+    webSearch: loadXCrawlSection(),
   };
 }
 
@@ -284,5 +290,5 @@ export function getServerWebSearchProviders(): Record<string, { baseUrl?: string
 }
 
 export function resolveWebSearchApiKey(): string {
-  return getConfig().webSearch['ark-search']?.apiKey || '';
+  return getConfig().webSearch.xcrawl?.apiKey || '';
 }

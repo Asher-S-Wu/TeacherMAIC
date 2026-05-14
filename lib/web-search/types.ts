@@ -12,7 +12,7 @@ export interface WebSearchResult {
   responseTime: number;
 }
 
-export type WebSearchProviderId = 'ark-search';
+export type WebSearchProviderId = 'xcrawl';
 
 export interface WebSearchProviderConfig {
   id: WebSearchProviderId;

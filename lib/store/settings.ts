@@ -377,9 +377,9 @@ const getDefaultVideoConfig = () => ({
 
 // Initialize default Web Search config
 const getDefaultWebSearchConfig = () => ({
-  webSearchProviderId: 'ark-search' as WebSearchProviderId,
+  webSearchProviderId: 'xcrawl' as WebSearchProviderId,
   webSearchProvidersConfig: {
-    'ark-search': { apiKey: '', baseUrl: '', enabled: true },
+    xcrawl: { apiKey: '', baseUrl: '', enabled: true },
   } as Record<WebSearchProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -649,7 +649,7 @@ export const useSettingsStore = create<SettingsState>()(
         setASREnabled: (enabled) => set({ asrEnabled: enabled }),
 
         // Web Search actions
-        setWebSearchProvider: () => set({ webSearchProviderId: 'ark-search' as WebSearchProviderId }),
+        setWebSearchProvider: (providerId) => set({ webSearchProviderId: providerId }),
         setWebSearchProviderConfig: (providerId, config) =>
           set((state) => {
             const { apiKey: _apiKey, baseUrl: _baseUrl, ...safeConfig } = config;
@@ -761,11 +761,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['videoProvidersConfig'];
 
               const defaultWebSearch = getDefaultWebSearchConfig();
-              const webSearchServerConfig = data.webSearch['ark-search'];
+              const webSearchServerConfig = data.webSearch.xcrawl;
               const newWebSearchConfig = {
-                'ark-search': {
-                  ...defaultWebSearch.webSearchProvidersConfig['ark-search'],
-                  enabled: state.webSearchProvidersConfig['ark-search']?.enabled ?? true,
+                xcrawl: {
+                  ...defaultWebSearch.webSearchProvidersConfig.xcrawl,
+                  enabled: state.webSearchProvidersConfig.xcrawl?.enabled ?? true,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!webSearchServerConfig,
@@ -813,7 +813,7 @@ export const useSettingsStore = create<SettingsState>()(
                 videoProviderId: 'ark-video' as VideoProviderId,
                 videoModelId: ARK_VIDEO_MODEL_ID,
                 videoGenerationEnabled,
-                webSearchProviderId: 'ark-search' as WebSearchProviderId,
+                webSearchProviderId: 'xcrawl' as WebSearchProviderId,
               };
             });
           } catch (e) {
@@ -865,7 +865,7 @@ export const useSettingsStore = create<SettingsState>()(
           imageModelId: ARK_IMAGE_MODEL_ID,
           videoProviderId: 'ark-video' as VideoProviderId,
           videoModelId: ARK_VIDEO_MODEL_ID,
-          webSearchProviderId: 'ark-search' as WebSearchProviderId,
+          webSearchProviderId: 'xcrawl' as WebSearchProviderId,
           thinkingConfigs,
         } as SettingsState;
       },
