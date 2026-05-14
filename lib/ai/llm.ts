@@ -8,8 +8,6 @@ import { createLogger } from '@/lib/logger';
 import { ARK_RESPONSES_PATH } from './ark-models';
 import { OPENROUTER_RESPONSES_PATH } from './openrouter-models';
 import {
-  DEEPSEEK_CHAT_COMPLETIONS_PATH,
-  DEEPSEEK_PROVIDER_ID,
   OPENROUTER_KIMI_K2_6_MODEL_ID,
   OPENROUTER_PROVIDER_ID,
 } from './providers';
@@ -88,28 +86,10 @@ interface OpenRouterResponsesBody {
   stream: boolean;
   instructions?: string;
   max_output_tokens: number;
-  reasoning?: { effort: Extract<ThinkingEffort, 'minimal' | 'low' | 'medium' | 'high'> };
-}
-
-type ChatCompletionMessage = {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-};
-
-interface ChatCompletionsBody {
-  model: string;
-  messages: ChatCompletionMessage[];
-  stream: boolean;
-  max_tokens: number;
-  thinking: { type: 'enabled' | 'disabled' };
-  reasoning_effort?: ThinkingEffort;
+  reasoning?: { effort: string };
 }
 
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
-
-function isDeepSeekProvider(model: ArkResponsesModel): boolean {
-  return model.providerId === DEEPSEEK_PROVIDER_ID;
-}
 
 function isOpenRouterResponsesProvider(model: ArkResponsesModel): boolean {
   return model.providerType === 'openrouter-responses';
@@ -130,23 +110,12 @@ function getOpenRouterResponsesUrl(model: ArkResponsesModel): string {
   return `${model.baseUrl.replace(/\/$/, '')}${OPENROUTER_RESPONSES_PATH}`;
 }
 
-function getDeepSeekChatCompletionsUrl(model: ArkResponsesModel): string {
-  return `${model.baseUrl.replace(/\/$/, '')}${DEEPSEEK_CHAT_COMPLETIONS_PATH}`;
-}
-
 function getMaxOutputTokens(params: LLMGenerateParams): number {
   return params.maxOutputTokens ?? params.model.modelInfo?.outputWindow ?? 128000;
 }
 
 function getArkThinkingType(config?: ThinkingConfig): 'enabled' | 'disabled' {
   if (config?.mode === 'disabled' || config?.enabled === false) return 'disabled';
-  return 'enabled';
-}
-
-function getDeepSeekThinkingType(config?: ThinkingConfig): 'enabled' | 'disabled' {
-  if (config?.mode === 'disabled' || config?.enabled === false || config?.effort === 'none') {
-    return 'disabled';
-  }
   return 'enabled';
 }
 
@@ -171,11 +140,14 @@ function getReasoningEffort(
   return 'high';
 }
 
+function isOpenRouterReasoningModel(model: ArkResponsesModel): boolean {
+  return isOpenRouterKimiModel(model);
+}
+
 function shouldSendOpenRouterReasoning(
   model: ArkResponsesModel,
   config?: ThinkingConfig,
 ): boolean {
-  if (isOpenRouterKimiModel(model)) return false;
   if (!config) return false;
   if (config.mode === 'disabled' || config.enabled === false || config.effort === 'none') {
     return false;
@@ -313,6 +285,7 @@ function buildOpenRouterResponsesBody(
   }
 
   const includeReasoning = shouldSendOpenRouterReasoning(params.model, thinking);
+  const forceDisableReasoning = isOpenRouterReasoningModel(params.model) && !includeReasoning;
 
   return {
     model: params.model.modelId,
@@ -321,47 +294,7 @@ function buildOpenRouterResponsesBody(
     ...(instructions.length > 0 ? { instructions: instructions.join('\n\n') } : {}),
     max_output_tokens: getMaxOutputTokens(params),
     ...(includeReasoning ? { reasoning: { effort: getReasoningEffort(thinking) } } : {}),
-  };
-}
-
-function buildChatCompletionMessages(params: LLMGenerateParams): ChatCompletionMessage[] {
-  const messages: ChatCompletionMessage[] = [];
-
-  if (params.system?.trim()) {
-    messages.push({ role: 'system', content: params.system });
-  }
-
-  for (const message of params.messages ?? []) {
-    const content = contentToPlainText(message.content);
-    if (!content.trim()) continue;
-    messages.push({ role: message.role, content });
-  }
-
-  if (params.prompt !== undefined) {
-    messages.push({ role: 'user', content: params.prompt });
-  }
-
-  if (messages.length === 0) {
-    throw new Error('LLM request missing input');
-  }
-
-  return messages;
-}
-
-function buildDeepSeekChatCompletionsBody(
-  params: LLMGenerateParams,
-  thinking?: ThinkingConfig,
-  stream = false,
-): ChatCompletionsBody {
-  const thinkingType = getDeepSeekThinkingType(thinking);
-
-  return {
-    model: params.model.modelId,
-    messages: buildChatCompletionMessages(params),
-    stream,
-    max_tokens: getMaxOutputTokens(params),
-    thinking: { type: thinkingType },
-    ...(thinkingType === 'enabled' && thinking?.effort ? { reasoning_effort: thinking.effort } : {}),
+    ...(forceDisableReasoning ? { reasoning: { effort: 'none' } } : {}),
   };
 }
 
@@ -439,42 +372,12 @@ async function requestOpenRouterResponses(
   return response;
 }
 
-async function requestDeepSeekChatCompletions(
-  params: LLMGenerateParams,
-  source: string,
-  thinking: ThinkingConfig | undefined,
-  stream: boolean,
-): Promise<Response> {
-  const body = buildDeepSeekChatCompletionsBody(params, thinking, stream);
-  const response = await fetch(getDeepSeekChatCompletionsUrl(params.model), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${params.model.apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-    signal: params.abortSignal,
-  });
-
-  if (!response.ok) {
-    const message = await readProviderError(response);
-    throw new Error(
-      `DeepSeek Chat Completions API failed [${source}, model=${params.model.modelId}, status=${response.status}]: ${message}`,
-    );
-  }
-
-  return response;
-}
-
 async function requestLLMResponse(
   params: LLMGenerateParams,
   source: string,
   thinking: ThinkingConfig | undefined,
   stream: boolean,
 ): Promise<Response> {
-  if (isDeepSeekProvider(params.model)) {
-    return requestDeepSeekChatCompletions(params, source, thinking, stream);
-  }
   if (isOpenRouterResponsesProvider(params.model)) {
     return requestOpenRouterResponses(params, source, thinking, stream);
   }
@@ -516,13 +419,6 @@ function extractTextFromResponse(payload: unknown): string {
     .join('');
 }
 
-function extractTextFromChatCompletionResponse(payload: unknown): string {
-  if (!isRecord(payload) || !Array.isArray(payload.choices)) return '';
-  const firstChoice = payload.choices[0];
-  if (!isRecord(firstChoice) || !isRecord(firstChoice.message)) return '';
-  return typeof firstChoice.message.content === 'string' ? firstChoice.message.content : '';
-}
-
 function getSseData(block: string): string {
   return block
     .split(/\r?\n/)
@@ -542,13 +438,6 @@ function extractTextDelta(eventPayload: unknown): string {
   const delta = eventPayload.delta;
   if (isRecord(delta) && typeof delta.text === 'string') return delta.text;
   return '';
-}
-
-function extractChatCompletionDelta(eventPayload: unknown): string {
-  if (!isRecord(eventPayload) || !Array.isArray(eventPayload.choices)) return '';
-  const firstChoice = eventPayload.choices[0];
-  if (!isRecord(firstChoice) || !isRecord(firstChoice.delta)) return '';
-  return typeof firstChoice.delta.content === 'string' ? firstChoice.delta.content : '';
 }
 
 async function* streamArkText(
@@ -661,61 +550,6 @@ async function* streamOpenRouterText(
   }
 }
 
-async function* streamDeepSeekText(
-  params: LLMStreamParams,
-  source: string,
-  thinking?: ThinkingConfig,
-): AsyncIterable<string> {
-  const response = await requestDeepSeekChatCompletions(params, source, thinking, true);
-  if (!response.body) {
-    throw new Error(`DeepSeek Chat Completions API returned an empty stream [${source}]`);
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (value) {
-        buffer += decoder.decode(value, { stream: !done });
-        buffer = buffer.replace(/\r\n/g, '\n');
-      }
-      if (done) {
-        buffer += decoder.decode();
-        buffer = buffer.replace(/\r\n/g, '\n');
-      }
-
-      let separatorIndex = buffer.indexOf('\n\n');
-      while (separatorIndex >= 0) {
-        const block = buffer.slice(0, separatorIndex);
-        buffer = buffer.slice(separatorIndex + 2);
-
-        const data = getSseData(block);
-        if (data && data !== '[DONE]') {
-          const parsed = JSON.parse(data) as unknown;
-          const delta = extractChatCompletionDelta(parsed);
-          if (delta) yield delta;
-        }
-
-        separatorIndex = buffer.indexOf('\n\n');
-      }
-
-      if (done) break;
-    }
-
-    const tail = getSseData(buffer);
-    if (tail && tail !== '[DONE]') {
-      const parsed = JSON.parse(tail) as unknown;
-      const delta = extractChatCompletionDelta(parsed);
-      if (delta) yield delta;
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
 export async function callLLM<T extends LLMGenerateParams>(
   params: T,
   source: string,
@@ -733,9 +567,7 @@ export async function callLLM<T extends LLMGenerateParams>(
       const response = await requestLLMResponse(params, source, thinking, false);
       const payload = (await response.json()) as unknown;
       const result: LLMTextResult = {
-        text: isDeepSeekProvider(params.model)
-          ? extractTextFromChatCompletionResponse(payload)
-          : extractTextFromResponse(payload),
+        text: extractTextFromResponse(payload),
         rawResponse: payload,
       };
 
@@ -766,9 +598,6 @@ export function streamLLM<T extends LLMStreamParams>(
   source: string,
   thinking?: ThinkingConfig,
 ): LLMStreamResult {
-  if (isDeepSeekProvider(params.model)) {
-    return { textStream: streamDeepSeekText(params, source, thinking) };
-  }
   if (isOpenRouterResponsesProvider(params.model)) {
     return { textStream: streamOpenRouterText(params, source, thinking) };
   }

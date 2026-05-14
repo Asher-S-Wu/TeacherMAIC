@@ -445,11 +445,9 @@
     "addProviderDescription": "可在模型列表中切换火山方舟或 OpenRouter",
     "providerNames": {
       "ark": "火山方舟",
-      "deepseek": "DeepSeek",
       "openrouter": "OpenRouter"
     },
     "providerTypes": {
-      "openai": "OpenAI 协议",
       "ark-responses": "Responses API",
       "openrouter-responses": "Responses API"
     },

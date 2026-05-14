@@ -10,7 +10,7 @@
  * so we use undici's ProxyAgent when a proxy is configured.
  *
  * Usage: import { proxyFetch } from '@/lib/server/proxy-fetch';
- *        const res = await proxyFetch('https://api.deepseek.com/...', { ... });
+ *        const res = await proxyFetch('https://example.com/api/...', { ... });
  */
 
 import { ProxyAgent, fetch as undiciFetch, type RequestInit as UndiciRequestInit } from 'undici';

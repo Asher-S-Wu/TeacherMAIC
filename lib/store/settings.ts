@@ -688,11 +688,6 @@ export const useSettingsStore = create<SettingsState>()(
                 apiKey: '',
                 isServerConfigured: !!data.providers.ark,
               };
-              newProvidersConfig.deepseek = {
-                ...newProvidersConfig.deepseek,
-                apiKey: '',
-                isServerConfigured: !!data.providers.deepseek,
-              };
               newProvidersConfig.openrouter = {
                 ...newProvidersConfig.openrouter,
                 apiKey: '',

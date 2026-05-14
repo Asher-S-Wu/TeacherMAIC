@@ -25,24 +25,6 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
     toggleable: true,
     budgetAdjustable: true,
   },
-  'deepseek:deepseek-v4-pro': {
-    control: 'effort',
-    requestAdapter: 'deepseek-chat',
-    defaultMode: 'disabled',
-    effortValues: ['none', 'max'],
-    defaultEffort: 'none',
-    defaultEnabled: false,
-    budgetAdjustable: true,
-  },
-  'deepseek:deepseek-v4-flash': {
-    control: 'effort',
-    requestAdapter: 'deepseek-chat',
-    defaultMode: 'disabled',
-    effortValues: ['none', 'max'],
-    defaultEffort: 'none',
-    defaultEnabled: false,
-    budgetAdjustable: true,
-  },
 };
 
 export function getCatalogThinkingCapability(

@@ -29,13 +29,6 @@ import {
 export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'ark';
 export const DEFAULT_MODEL_ID = ARK_LLM_MODEL_ID;
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
-export const DEEPSEEK_PROVIDER_ID: BuiltInProviderId = 'deepseek';
-export const DEEPSEEK_MODEL_ID = 'deepseek-v4-pro';
-export const DEEPSEEK_MODEL_NAME = 'DeepSeek V4 Pro';
-export const DEEPSEEK_FLASH_MODEL_ID = 'deepseek-v4-flash';
-export const DEEPSEEK_FLASH_MODEL_NAME = 'DeepSeek V4 Flash';
-export const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
-export const DEEPSEEK_CHAT_COMPLETIONS_PATH = '/chat/completions';
 export const OPENROUTER_PROVIDER_ID: BuiltInProviderId = 'openrouter';
 export const OPENROUTER_KIMI_K2_6_MODEL_ID = KIMI_K2_6_MODEL_ID;
 export const OPENROUTER_KIMI_K2_6_MODEL_NAME = KIMI_K2_6_MODEL_NAME;
@@ -82,38 +75,6 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
           streaming: true,
           tools: true,
           vision: true,
-        },
-      },
-    ],
-  },
-  deepseek: {
-    id: 'deepseek',
-    name: 'DeepSeek',
-    type: 'openai',
-    defaultBaseUrl: DEEPSEEK_BASE_URL,
-    requiresApiKey: true,
-    icon: '/logos/deepseek-color.svg',
-    models: [
-      {
-        id: DEEPSEEK_MODEL_ID,
-        name: DEEPSEEK_MODEL_NAME,
-        contextWindow: 1000000,
-        outputWindow: 384000,
-        capabilities: {
-          streaming: true,
-          tools: true,
-          json: true,
-        },
-      },
-      {
-        id: DEEPSEEK_FLASH_MODEL_ID,
-        name: DEEPSEEK_FLASH_MODEL_NAME,
-        contextWindow: 1000000,
-        outputWindow: 384000,
-        capabilities: {
-          streaming: true,
-          tools: true,
-          json: true,
         },
       },
     ],

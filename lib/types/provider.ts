@@ -5,7 +5,7 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId = 'ark' | 'deepseek' | 'openrouter';
+export type BuiltInProviderId = 'ark' | 'openrouter';
 
 /**
  * Provider ID
@@ -15,7 +15,7 @@ export type ProviderId = BuiltInProviderId;
 /**
  * Provider API types
  */
-export type ProviderType = 'openai' | 'ark-responses' | 'openrouter-responses';
+export type ProviderType = 'ark-responses' | 'openrouter-responses';
 
 export type ThinkingControlType =
   | 'none'
@@ -33,7 +33,6 @@ export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
 export type ThinkingRequestAdapter =
   | 'none'
   | 'ark-responses'
-  | 'deepseek-chat'
   | 'openrouter-responses';
 
 /**
