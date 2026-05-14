@@ -14,6 +14,7 @@ import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { AGENT_COLOR_PALETTE } from '@/lib/constants/agent-defaults';
 
 const log = createLogger('Agent Profiles API');
+const MAX_AGENT_PROFILE_ATTEMPTS = 3;
 
 interface RequestBody {
   stageInfo: { name: string; description?: string };
@@ -24,6 +25,18 @@ interface RequestBody {
   availableVoices?: Array<{ providerId: string; voiceId: string; voiceName: string }>;
 }
 
+type ParsedAgentProfiles = {
+  agents: Array<{
+    name: string;
+    role: string;
+    persona: string;
+    avatar: string;
+    color: string;
+    priority: number;
+    voice?: string;
+  }>;
+};
+
 function stripCodeFences(text: string): string {
   let cleaned = text.trim();
   // Remove markdown code fences (```json ... ``` or ``` ... ```)
@@ -31,6 +44,40 @@ function stripCodeFences(text: string): string {
     cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
   }
   return cleaned.trim();
+}
+
+function buildRetryMessages(userPrompt: string, previousResponse: string, reason: string) {
+  return [
+    { role: 'user' as const, content: userPrompt },
+    {
+      role: 'assistant' as const,
+      content: previousResponse.slice(0, 8000),
+    },
+    {
+      role: 'user' as const,
+      content: `The previous response could not be used.
+
+Problem:
+${reason}
+
+Regenerate the entire response now. Return ONLY one complete valid JSON object that exactly matches the requested schema. Do not include markdown, comments, trailing commas, or any text outside JSON.`,
+    },
+  ];
+}
+
+function parseAndValidateAgentProfiles(rawText: string): ParsedAgentProfiles {
+  const parsed = JSON.parse(rawText) as ParsedAgentProfiles;
+
+  if (!parsed.agents || !Array.isArray(parsed.agents) || parsed.agents.length < 2) {
+    throw new Error(`Expected at least 2 agents, got ${parsed.agents?.length ?? 0}`);
+  }
+
+  const teacherCount = parsed.agents.filter((a) => a.role === 'teacher').length;
+  if (teacherCount !== 1) {
+    throw new Error(`Expected exactly 1 teacher, got ${teacherCount}`);
+  }
+
+  return parsed;
 }
 
 export async function POST(req: NextRequest) {
@@ -137,55 +184,57 @@ Return a JSON object with this exact structure:
 
     log.info(`Generating agent profiles for "${stageInfo.name}" [model=${modelString}]`);
 
-    const result = await callLLM(
-      {
-        model: languageModel,
-        system: systemPrompt,
-        prompt: userPrompt,
-      },
-      'agent-profiles',
-      undefined,
-      thinkingConfig,
-    );
-
     // ── Parse LLM response ──
-    const rawText = stripCodeFences(result.text);
-    let parsed: {
-      agents: Array<{
-        name: string;
-        role: string;
-        persona: string;
-        avatar: string;
-        color: string;
-        priority: number;
-        voice?: string;
-      }>;
-    };
+    let parsed: ParsedAgentProfiles | null = null;
+    let lastRawText = '';
+    let lastError: Error | null = null;
 
-    try {
-      parsed = JSON.parse(rawText);
-    } catch {
-      log.error('Failed to parse LLM response as JSON:', rawText.substring(0, 500));
-      return apiError('PARSE_FAILED', 500, 'Failed to parse agent profiles from LLM response');
-    }
-
-    // ── Validate parsed structure ──
-    if (!parsed.agents || !Array.isArray(parsed.agents) || parsed.agents.length < 2) {
-      log.error(`Expected at least 2 agents, got ${parsed.agents?.length ?? 0}`);
-      return apiError(
-        'GENERATION_FAILED',
-        500,
-        `Expected at least 2 agents but LLM returned ${parsed.agents?.length ?? 0}`,
+    for (let attempt = 1; attempt <= MAX_AGENT_PROFILE_ATTEMPTS; attempt += 1) {
+      const result = await callLLM(
+        {
+          model: languageModel,
+          system: systemPrompt,
+          ...(attempt === 1
+            ? { prompt: userPrompt }
+            : {
+                messages: buildRetryMessages(
+                  userPrompt,
+                  lastRawText,
+                  lastError?.message ?? 'The previous response was invalid JSON.',
+                ),
+              }),
+        },
+        'agent-profiles',
+        undefined,
+        thinkingConfig,
       );
+
+      const rawText = stripCodeFences(result.text);
+      lastRawText = rawText;
+
+      try {
+        parsed = parseAndValidateAgentProfiles(rawText);
+        if (attempt > 1) {
+          log.info(`Agent profiles JSON fixed after retry ${attempt - 1}`);
+        }
+        break;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        const message = `Agent profiles response invalid (attempt ${attempt}/${MAX_AGENT_PROFILE_ATTEMPTS}): ${lastError.message}`;
+
+        if (attempt < MAX_AGENT_PROFILE_ATTEMPTS) {
+          log.warn(message, 'Retrying with correction prompt.');
+        } else {
+          log.error(message, rawText.substring(0, 500));
+        }
+      }
     }
 
-    const teacherCount = parsed.agents.filter((a) => a.role === 'teacher').length;
-    if (teacherCount !== 1) {
-      log.error(`Expected exactly 1 teacher, got ${teacherCount}`);
+    if (!parsed) {
       return apiError(
-        'GENERATION_FAILED',
+        'PARSE_FAILED',
         500,
-        `Expected exactly 1 teacher but LLM returned ${teacherCount}`,
+        `Failed to parse agent profiles from LLM response after ${MAX_AGENT_PROFILE_ATTEMPTS} attempts`,
       );
     }
 

@@ -20,9 +20,9 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { SystemMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
-import type { ArkResponsesModel } from '@/lib/ai/providers';
+import type { ChatCompletionsModel } from '@/lib/ai/providers';
 
-import { ArkResponsesLangGraphAdapter } from './ark-responses-adapter';
+import { ChatCompletionsLangGraphAdapter } from './chat-completions-adapter';
 import type { StatelessEvent } from '@/lib/types/chat';
 import type { StatelessChatRequest } from '@/lib/types/chat';
 import type { ThinkingConfig } from '@/lib/types/provider';
@@ -50,7 +50,7 @@ const OrchestratorState = Annotation.Root({
   storeState: Annotation<StatelessChatRequest['storeState']>,
   availableAgentIds: Annotation<string[]>,
   maxTurns: Annotation<number>,
-  languageModel: Annotation<ArkResponsesModel>,
+  languageModel: Annotation<ChatCompletionsModel>,
   thinkingConfig: Annotation<ThinkingConfig | null>,
   discussionContext: Annotation<{ topic: string; prompt?: string } | null>,
   triggerAgentId: Annotation<string | null>,
@@ -176,7 +176,7 @@ async function directorNode(
     state.storeState.whiteboardOpen,
   );
 
-  const adapter = new ArkResponsesLangGraphAdapter(
+  const adapter = new ChatCompletionsLangGraphAdapter(
     state.languageModel,
     state.thinkingConfig ?? undefined,
   );
@@ -291,7 +291,7 @@ async function runAgentGeneration(
     state.agentResponses,
   );
   const openaiMessages = convertMessagesToOpenAI(state.messages, agentId);
-  const adapter = new ArkResponsesLangGraphAdapter(
+  const adapter = new ChatCompletionsLangGraphAdapter(
     state.languageModel,
     state.thinkingConfig ?? undefined,
   );
@@ -501,11 +501,11 @@ export function createOrchestrationGraph() {
 
 /**
  * Build initial state for the orchestration graph from a StatelessChatRequest
- * and a pre-created Ark Responses model instance.
+ * and a pre-created Chat Completions model instance.
  */
 export function buildInitialState(
   request: StatelessChatRequest,
-  languageModel: ArkResponsesModel,
+  languageModel: ChatCompletionsModel,
   thinkingConfig?: ThinkingConfig,
 ): typeof OrchestratorState.State {
   // Build request-scoped agent config overrides for generated agents.

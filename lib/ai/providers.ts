@@ -50,7 +50,7 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
   ark: {
     id: 'ark',
     name: '火山方舟',
-    type: 'ark-responses',
+    type: 'ark-chat-completions',
     defaultBaseUrl: ARK_BASE_URL,
     requiresApiKey: true,
     icon: '/logos/doubao-color.svg',
@@ -82,7 +82,7 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
   openrouter: {
     id: 'openrouter',
     name: 'OpenRouter',
-    type: 'openrouter-responses',
+    type: 'openrouter-chat-completions',
     defaultBaseUrl: OPENROUTER_BASE_URL,
     requiresApiKey: true,
     models: [
@@ -115,11 +115,11 @@ function getProviderConfig(providerId: string): ProviderConfig | null {
  * Model instance with its configuration info
  */
 export interface ModelWithInfo {
-  model: ArkResponsesModel;
+  model: ChatCompletionsModel;
   modelInfo: ModelInfo | null;
 }
 
-export interface ArkResponsesModel {
+export interface ChatCompletionsModel {
   providerId: ProviderId;
   providerType: ProviderType;
   modelId: string;
@@ -155,7 +155,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
   const effectiveApiKey = config.apiKey || '';
   const effectiveBaseUrl = provider.defaultBaseUrl || ARK_BASE_URL;
 
-  const model: ArkResponsesModel = {
+  const model: ChatCompletionsModel = {
     providerId: config.providerId,
     providerType: provider.type,
     modelId: config.modelId,

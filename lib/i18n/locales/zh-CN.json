@@ -448,8 +448,8 @@
       "openrouter": "OpenRouter"
     },
     "providerTypes": {
-      "ark-responses": "Responses API",
-      "openrouter-responses": "Responses API"
+      "ark-chat-completions": "Chat Completions",
+      "openrouter-chat-completions": "Chat Completions"
     },
     "modelCount": "个模型",
     "modelSingular": "个模型",

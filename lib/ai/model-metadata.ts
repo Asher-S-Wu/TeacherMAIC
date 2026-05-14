@@ -7,7 +7,7 @@ export function getModelMetadataKey(providerId: string, modelId: string): string
 const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
   'ark:doubao-seed-2-0-mini-260428': {
     control: 'effort',
-    requestAdapter: 'ark-responses',
+    requestAdapter: 'ark-chat-completions',
     defaultMode: 'enabled',
     effortValues: ['none', 'minimal', 'low', 'medium', 'high'],
     defaultEffort: 'high',
@@ -17,7 +17,7 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
   },
   'ark:doubao-seed-2-0-lite-260428': {
     control: 'effort',
-    requestAdapter: 'ark-responses',
+    requestAdapter: 'ark-chat-completions',
     defaultMode: 'enabled',
     effortValues: ['none', 'minimal', 'low', 'medium', 'high'],
     defaultEffort: 'high',

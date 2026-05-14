@@ -1,17 +1,17 @@
 /**
  * Unified LLM Call Layer
  *
- * Text generation goes through provider-specific APIs.
+ * Text generation goes through provider-specific Chat Completions APIs.
  */
 
 import { createLogger } from '@/lib/logger';
-import { ARK_RESPONSES_PATH } from './ark-models';
-import { OPENROUTER_RESPONSES_PATH } from './openrouter-models';
+import { ARK_CHAT_COMPLETIONS_PATH } from './ark-models';
+import { OPENROUTER_CHAT_COMPLETIONS_PATH } from './openrouter-models';
 import {
   OPENROUTER_KIMI_K2_6_MODEL_ID,
   OPENROUTER_PROVIDER_ID,
 } from './providers';
-import type { ArkResponsesModel } from './providers';
+import type { ChatCompletionsModel } from './providers';
 import type { ThinkingConfig, ThinkingEffort } from '@/lib/types/provider';
 
 const log = createLogger('LLM');
@@ -24,7 +24,7 @@ type MessageContent = string | Array<TextPart | ImagePart>;
 type LLMMessage = { role: 'system' | 'user' | 'assistant'; content: MessageContent };
 
 export interface LLMGenerateParams {
-  model: ArkResponsesModel;
+  model: ChatCompletionsModel;
   system?: string;
   prompt?: string;
   messages?: LLMMessage[];
@@ -54,60 +54,46 @@ export interface LLMRetryOptions {
   validate?: (text: string) => boolean;
 }
 
-type ArkInputTextPart = { type: 'input_text'; text: string };
-type ArkOutputTextPart = { type: 'output_text'; text: string };
-type ArkInputImagePart = { type: 'input_image'; image_url: string; detail: 'high' };
-type ArkInputPart = ArkInputTextPart | ArkOutputTextPart | ArkInputImagePart;
-type ArkInputItem = {
-  role: 'user' | 'assistant';
-  content: ArkInputPart[];
+type ChatTextPart = { type: 'text'; text: string };
+type ChatImagePart = { type: 'image_url'; image_url: { url: string; detail: 'high' } };
+type ChatContentPart = ChatTextPart | ChatImagePart;
+type ChatMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string | ChatContentPart[];
 };
 
-interface ResponsesBody {
+interface ChatCompletionsBody {
   model: string;
-  input: ArkInputItem[];
+  messages: ChatMessage[];
   stream: boolean;
-  instructions?: string;
-  max_output_tokens: number;
+  max_tokens: number;
   thinking?: { type: 'enabled' | 'disabled' };
   reasoning_effort?: Extract<ThinkingEffort, 'minimal' | 'low' | 'medium' | 'high'>;
-}
-
-type OpenRouterInputPart = ArkInputPart;
-type OpenRouterInputItem = {
-  type: 'message';
-  role: 'user' | 'assistant';
-  content: OpenRouterInputPart[];
-};
-
-interface OpenRouterResponsesBody {
-  model: string;
-  input: OpenRouterInputItem[];
-  stream: boolean;
-  instructions?: string;
-  max_output_tokens: number;
   reasoning?: { effort: string };
 }
 
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
 
-function isOpenRouterResponsesProvider(model: ArkResponsesModel): boolean {
-  return model.providerType === 'openrouter-responses';
+function isOpenRouterChatCompletionsProvider(model: ChatCompletionsModel): boolean {
+  return model.providerType === 'openrouter-chat-completions';
 }
 
-function isOpenRouterKimiModel(model: ArkResponsesModel): boolean {
+function isArkChatCompletionsProvider(model: ChatCompletionsModel): boolean {
+  return model.providerType === 'ark-chat-completions';
+}
+
+function isOpenRouterKimiModel(model: ChatCompletionsModel): boolean {
   return (
     model.providerId === OPENROUTER_PROVIDER_ID &&
     model.modelId === OPENROUTER_KIMI_K2_6_MODEL_ID
   );
 }
 
-function getArkResponsesUrl(model: ArkResponsesModel): string {
-  return `${model.baseUrl.replace(/\/$/, '')}${ARK_RESPONSES_PATH}`;
-}
-
-function getOpenRouterResponsesUrl(model: ArkResponsesModel): string {
-  return `${model.baseUrl.replace(/\/$/, '')}${OPENROUTER_RESPONSES_PATH}`;
+function getChatCompletionsUrl(model: ChatCompletionsModel): string {
+  const path = isOpenRouterChatCompletionsProvider(model)
+    ? OPENROUTER_CHAT_COMPLETIONS_PATH
+    : ARK_CHAT_COMPLETIONS_PATH;
+  return `${model.baseUrl.replace(/\/$/, '')}${path}`;
 }
 
 function getMaxOutputTokens(params: LLMGenerateParams): number {
@@ -140,12 +126,12 @@ function getReasoningEffort(
   return 'high';
 }
 
-function isOpenRouterReasoningModel(model: ArkResponsesModel): boolean {
+function isOpenRouterReasoningModel(model: ChatCompletionsModel): boolean {
   return isOpenRouterKimiModel(model);
 }
 
 function shouldSendOpenRouterReasoning(
-  model: ArkResponsesModel,
+  model: ChatCompletionsModel,
   config?: ThinkingConfig,
 ): boolean {
   if (!config) return false;
@@ -174,128 +160,81 @@ function contentToPlainText(content: MessageContent): string {
     .join('\n');
 }
 
-function contentToArkParts(role: 'user' | 'assistant', content: MessageContent): ArkInputPart[] {
-  if (typeof content === 'string') {
-    return [
-      role === 'assistant'
-        ? { type: 'output_text', text: content }
-        : { type: 'input_text', text: content },
-    ];
-  }
-
+function contentToChatContent(content: MessageContent): string | ChatContentPart[] {
+  if (typeof content === 'string') return content;
   return content.map((part) => {
     if (part.type === 'text') {
-      return role === 'assistant'
-        ? ({ type: 'output_text', text: part.text } as ArkOutputTextPart)
-        : ({ type: 'input_text', text: part.text } as ArkInputTextPart);
+      return { type: 'text', text: part.text } satisfies ChatTextPart;
     }
     return {
-      type: 'input_image',
-      image_url: imageToUrl(part),
-      detail: 'high',
-    } as ArkInputImagePart;
+      type: 'image_url',
+      image_url: {
+        url: imageToUrl(part),
+        detail: 'high',
+      },
+    } satisfies ChatImagePart;
   });
 }
 
-function buildResponsesBody(
-  params: LLMGenerateParams,
-  thinking?: ThinkingConfig,
-  stream = false,
-): ResponsesBody {
-  const instructions: string[] = [];
-  const input: ArkInputItem[] = [];
+function buildMessages(params: LLMGenerateParams): ChatMessage[] {
+  const messages: ChatMessage[] = [];
 
   if (params.system?.trim()) {
-    instructions.push(params.system);
+    messages.push({ role: 'system', content: params.system });
   }
 
   for (const message of params.messages ?? []) {
-    if (message.role === 'system') {
-      const systemText = contentToPlainText(message.content);
-      if (systemText.trim()) instructions.push(systemText);
-      continue;
-    }
-    input.push({
+    messages.push({
       role: message.role,
-      content: contentToArkParts(message.role, message.content),
+      content:
+        message.role === 'system'
+          ? contentToPlainText(message.content)
+          : contentToChatContent(message.content),
     });
   }
 
   if (params.prompt !== undefined) {
-    input.push({
-      role: 'user',
-      content: [{ type: 'input_text', text: params.prompt }],
-    });
+    messages.push({ role: 'user', content: params.prompt });
   }
 
-  if (input.length === 0) {
+  if (messages.length === 0) {
     throw new Error('LLM request missing input');
   }
 
-  const body: ResponsesBody = {
-    model: params.model.modelId,
-    input,
-    stream,
-    ...(instructions.length > 0 ? { instructions: instructions.join('\n\n') } : {}),
-    max_output_tokens: getMaxOutputTokens(params),
-    thinking: { type: getArkThinkingType(thinking) },
-    ...(getArkThinkingType(thinking) === 'enabled'
-      ? { reasoning_effort: getReasoningEffort(thinking) }
-      : {}),
-  };
-
-  return body;
+  return messages;
 }
 
-function buildOpenRouterResponsesBody(
+function buildChatCompletionsBody(
   params: LLMGenerateParams,
   thinking?: ThinkingConfig,
   stream = false,
-): OpenRouterResponsesBody {
-  const instructions: string[] = [];
-  const input: OpenRouterInputItem[] = [];
-
-  if (params.system?.trim()) {
-    instructions.push(params.system);
-  }
-
-  for (const message of params.messages ?? []) {
-    if (message.role === 'system') {
-      const systemText = contentToPlainText(message.content);
-      if (systemText.trim()) instructions.push(systemText);
-      continue;
-    }
-    input.push({
-      type: 'message',
-      role: message.role,
-      content: contentToArkParts(message.role, message.content),
-    });
-  }
-
-  if (params.prompt !== undefined) {
-    input.push({
-      type: 'message',
-      role: 'user',
-      content: [{ type: 'input_text', text: params.prompt }],
-    });
-  }
-
-  if (input.length === 0) {
-    throw new Error('LLM request missing input');
-  }
-
-  const includeReasoning = shouldSendOpenRouterReasoning(params.model, thinking);
-  const forceDisableReasoning = isOpenRouterReasoningModel(params.model) && !includeReasoning;
-
-  return {
+): ChatCompletionsBody {
+  const body: ChatCompletionsBody = {
     model: params.model.modelId,
-    input,
+    messages: buildMessages(params),
     stream,
-    ...(instructions.length > 0 ? { instructions: instructions.join('\n\n') } : {}),
-    max_output_tokens: getMaxOutputTokens(params),
-    ...(includeReasoning ? { reasoning: { effort: getReasoningEffort(thinking) } } : {}),
-    ...(forceDisableReasoning ? { reasoning: { effort: 'none' } } : {}),
+    max_tokens: getMaxOutputTokens(params),
   };
+
+  if (isArkChatCompletionsProvider(params.model)) {
+    const thinkingType = getArkThinkingType(thinking);
+    body.thinking = { type: thinkingType };
+    if (thinkingType === 'enabled') {
+      body.reasoning_effort = getReasoningEffort(thinking);
+    }
+  }
+
+  if (isOpenRouterChatCompletionsProvider(params.model)) {
+    const includeReasoning = shouldSendOpenRouterReasoning(params.model, thinking);
+    const forceDisableReasoning = isOpenRouterReasoningModel(params.model) && !includeReasoning;
+    if (includeReasoning) {
+      body.reasoning = { effort: getReasoningEffort(thinking) };
+    } else if (forceDisableReasoning) {
+      body.reasoning = { effort: 'none' };
+    }
+  }
+
+  return body;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -318,14 +257,14 @@ async function readProviderError(response: Response): Promise<string> {
   return text;
 }
 
-async function requestArkResponses(
+async function requestChatCompletions(
   params: LLMGenerateParams,
   source: string,
   thinking: ThinkingConfig | undefined,
   stream: boolean,
 ): Promise<Response> {
-  const body = buildResponsesBody(params, thinking, stream);
-  const response = await fetch(getArkResponsesUrl(params.model), {
+  const body = buildChatCompletionsBody(params, thinking, stream);
+  const response = await fetch(getChatCompletionsUrl(params.model), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${params.model.apiKey}`,
@@ -338,50 +277,11 @@ async function requestArkResponses(
   if (!response.ok) {
     const message = await readProviderError(response);
     throw new Error(
-      `Ark Responses API failed [${source}, model=${params.model.modelId}, status=${response.status}]: ${message}`,
+      `Chat Completions API failed [${source}, model=${params.model.modelId}, status=${response.status}]: ${message}`,
     );
   }
 
   return response;
-}
-
-async function requestOpenRouterResponses(
-  params: LLMGenerateParams,
-  source: string,
-  thinking: ThinkingConfig | undefined,
-  stream: boolean,
-): Promise<Response> {
-  const body = buildOpenRouterResponsesBody(params, thinking, stream);
-  const response = await fetch(getOpenRouterResponsesUrl(params.model), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${params.model.apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-    signal: params.abortSignal,
-  });
-
-  if (!response.ok) {
-    const message = await readProviderError(response);
-    throw new Error(
-      `OpenRouter Responses API failed [${source}, model=${params.model.modelId}, status=${response.status}]: ${message}`,
-    );
-  }
-
-  return response;
-}
-
-async function requestLLMResponse(
-  params: LLMGenerateParams,
-  source: string,
-  thinking: ThinkingConfig | undefined,
-  stream: boolean,
-): Promise<Response> {
-  if (isOpenRouterResponsesProvider(params.model)) {
-    return requestOpenRouterResponses(params, source, thinking, stream);
-  }
-  return requestArkResponses(params, source, thinking, stream);
 }
 
 function extractTextFromContent(content: unknown): string {
@@ -391,32 +291,21 @@ function extractTextFromContent(content: unknown): string {
   return content
     .map((part) => {
       if (!isRecord(part)) return '';
-      const partType = typeof part.type === 'string' ? part.type : '';
-      if (partType && partType !== 'output_text' && partType !== 'text') return '';
       if (typeof part.text === 'string') return part.text;
-      if (typeof part.content === 'string') return part.content;
       return '';
     })
     .join('');
 }
 
-function extractTextFromResponse(payload: unknown): string {
+function extractTextFromChatCompletion(payload: unknown): string {
   if (!isRecord(payload)) return '';
-  if (typeof payload.output_text === 'string') return payload.output_text;
-
-  const output = payload.output;
-  if (!Array.isArray(output)) return '';
-
-  return output
-    .map((item) => {
-      if (!isRecord(item)) return '';
-      const itemType = typeof item.type === 'string' ? item.type : '';
-      if (itemType && itemType !== 'message' && itemType !== 'output_text') return '';
-      if (typeof item.text === 'string') return item.text;
-      if (typeof item.content === 'string') return item.content;
-      return extractTextFromContent(item.content);
-    })
-    .join('');
+  const choices = payload.choices;
+  if (!Array.isArray(choices)) return '';
+  const first = choices[0];
+  if (!isRecord(first)) return '';
+  const message = first.message;
+  if (!isRecord(message)) return '';
+  return extractTextFromContent(message.content);
 }
 
 function getSseData(block: string): string {
@@ -429,80 +318,27 @@ function getSseData(block: string): string {
 
 function extractTextDelta(eventPayload: unknown): string {
   if (!isRecord(eventPayload)) return '';
-  const eventType = typeof eventPayload.type === 'string' ? eventPayload.type : '';
-  const isTextDelta =
-    eventType === 'response.output_text.delta' || eventType.endsWith('.output_text.delta');
-  if (isTextDelta && typeof eventPayload.delta === 'string') return eventPayload.delta;
-  if (eventType && !isTextDelta) return '';
-  if (typeof eventPayload.delta === 'string') return eventPayload.delta;
-  const delta = eventPayload.delta;
-  if (isRecord(delta) && typeof delta.text === 'string') return delta.text;
-  return '';
+  const choices = eventPayload.choices;
+  if (!Array.isArray(choices)) return '';
+
+  return choices
+    .map((choice) => {
+      if (!isRecord(choice)) return '';
+      const delta = choice.delta;
+      if (!isRecord(delta)) return '';
+      return extractTextFromContent(delta.content);
+    })
+    .join('');
 }
 
-async function* streamArkText(
+async function* streamChatCompletionsText(
   params: LLMStreamParams,
   source: string,
   thinking?: ThinkingConfig,
 ): AsyncIterable<string> {
-  const response = await requestArkResponses(params, source, thinking, true);
+  const response = await requestChatCompletions(params, source, thinking, true);
   if (!response.body) {
-    throw new Error(`Ark Responses API returned an empty stream [${source}]`);
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (value) {
-        buffer += decoder.decode(value, { stream: !done });
-        buffer = buffer.replace(/\r\n/g, '\n');
-      }
-      if (done) {
-        buffer += decoder.decode();
-        buffer = buffer.replace(/\r\n/g, '\n');
-      }
-
-      let separatorIndex = buffer.indexOf('\n\n');
-      while (separatorIndex >= 0) {
-        const block = buffer.slice(0, separatorIndex);
-        buffer = buffer.slice(separatorIndex + 2);
-
-        const data = getSseData(block);
-        if (data && data !== '[DONE]') {
-          const parsed = JSON.parse(data) as unknown;
-          const delta = extractTextDelta(parsed);
-          if (delta) yield delta;
-        }
-
-        separatorIndex = buffer.indexOf('\n\n');
-      }
-
-      if (done) break;
-    }
-
-    const tail = getSseData(buffer);
-    if (tail && tail !== '[DONE]') {
-      const parsed = JSON.parse(tail) as unknown;
-      const delta = extractTextDelta(parsed);
-      if (delta) yield delta;
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-async function* streamOpenRouterText(
-  params: LLMStreamParams,
-  source: string,
-  thinking?: ThinkingConfig,
-): AsyncIterable<string> {
-  const response = await requestOpenRouterResponses(params, source, thinking, true);
-  if (!response.body) {
-    throw new Error(`OpenRouter Responses API returned an empty stream [${source}]`);
+    throw new Error(`Chat Completions API returned an empty stream [${source}]`);
   }
 
   const reader = response.body.getReader();
@@ -564,10 +400,10 @@ export async function callLLM<T extends LLMGenerateParams>(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const response = await requestLLMResponse(params, source, thinking, false);
+      const response = await requestChatCompletions(params, source, thinking, false);
       const payload = (await response.json()) as unknown;
       const result: LLMTextResult = {
-        text: extractTextFromResponse(payload),
+        text: extractTextFromChatCompletion(payload),
         rawResponse: payload,
       };
 
@@ -598,8 +434,5 @@ export function streamLLM<T extends LLMStreamParams>(
   source: string,
   thinking?: ThinkingConfig,
 ): LLMStreamResult {
-  if (isOpenRouterResponsesProvider(params.model)) {
-    return { textStream: streamOpenRouterText(params, source, thinking) };
-  }
-  return { textStream: streamArkText(params, source, thinking) };
+  return { textStream: streamChatCompletionsText(params, source, thinking) };
 }

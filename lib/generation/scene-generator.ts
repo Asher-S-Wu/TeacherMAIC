@@ -20,7 +20,7 @@ import type {
 } from '@/lib/types/generation';
 import type { WidgetType, WidgetConfig, TeacherAction } from '@/lib/types/widgets';
 import type { PromptId } from '@/lib/prompts/types';
-import type { ArkResponsesModel } from '@/lib/ai/providers';
+import type { ChatCompletionsModel } from '@/lib/ai/providers';
 import type { StageStore } from '@/lib/api/stage-api';
 import { createStageAPI } from '@/lib/api/stage-api';
 import { generatePBLContent } from '@/lib/pbl/generate-pbl';
@@ -66,7 +66,7 @@ const log = createLogger('Generation');
 export interface SceneContentOptions {
   assignedImages?: PdfImage[];
   imageMapping?: ImageMapping;
-  languageModel?: ArkResponsesModel;
+  languageModel?: ChatCompletionsModel;
   visionEnabled?: boolean;
   generatedMediaMapping?: ImageMapping;
   agents?: AgentInfo[];
@@ -818,12 +818,12 @@ function validateQuizAnswer(
  */
 async function generatePBLSceneContent(
   outline: SceneOutline,
-  languageModel?: ArkResponsesModel,
+  languageModel?: ChatCompletionsModel,
   languageDirective?: string,
   thinkingConfig?: ThinkingConfig,
 ): Promise<GeneratedPBLContent | null> {
   if (!languageModel) {
-    log.error('Ark Responses model required for PBL generation');
+    log.error('Chat Completions model required for PBL generation');
     return null;
   }
 

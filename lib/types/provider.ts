@@ -15,7 +15,7 @@ export type ProviderId = BuiltInProviderId;
 /**
  * Provider API types
  */
-export type ProviderType = 'ark-responses' | 'openrouter-responses';
+export type ProviderType = 'ark-chat-completions' | 'openrouter-chat-completions';
 
 export type ThinkingControlType =
   | 'none'
@@ -32,8 +32,8 @@ export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
 
 export type ThinkingRequestAdapter =
   | 'none'
-  | 'ark-responses'
-  | 'openrouter-responses';
+  | 'ark-chat-completions'
+  | 'openrouter-chat-completions';
 
 /**
  * Describes a model's thinking/reasoning API control capability.
@@ -95,7 +95,7 @@ export interface ThinkingConfig {
    * Adapter maps to closest supported value per provider.
    */
   budgetTokens?: number;
-  /** Provider-specific option for APIs that can suppress reasoning text from responses. */
+  /** Provider-specific option for APIs that can suppress reasoning text from model output. */
   excludeReasoningOutput?: boolean;
 }
 

@@ -12,11 +12,11 @@ import type { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager
 import type { ChatResult } from '@langchain/core/outputs';
 
 import { callLLM, streamLLM } from '@/lib/ai/llm';
-import type { ArkResponsesModel } from '@/lib/ai/providers';
+import type { ChatCompletionsModel } from '@/lib/ai/providers';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
 
-const log = createLogger('ArkResponsesAdapter');
+const log = createLogger('ChatCompletionsAdapter');
 
 /**
  * Stream chunk types for streaming generation
@@ -24,20 +24,20 @@ const log = createLogger('ArkResponsesAdapter');
 export type StreamChunk = { type: 'delta'; content: string } | { type: 'done'; content: string };
 
 /**
- * Adapter to use the configured Ark Responses model with LangGraph.
+ * Adapter to use the configured Chat Completions model with LangGraph.
  */
-export class ArkResponsesLangGraphAdapter extends BaseChatModel {
-  private languageModel: ArkResponsesModel;
+export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
+  private languageModel: ChatCompletionsModel;
   private thinking?: ThinkingConfig;
 
-  constructor(languageModel: ArkResponsesModel, thinking?: ThinkingConfig) {
+  constructor(languageModel: ChatCompletionsModel, thinking?: ThinkingConfig) {
     super({});
     this.languageModel = languageModel;
     this.thinking = thinking;
   }
 
   _llmType(): string {
-    return 'ark-responses';
+    return 'chat-completions';
   }
 
   _combineLLMOutput() {
@@ -86,7 +86,7 @@ export class ArkResponsesLangGraphAdapter extends BaseChatModel {
 
       const content = result.text || '';
 
-      log.info('[Ark Responses Adapter] Response:', {
+      log.info('[Chat Completions Adapter] Response:', {
         textLength: content.length,
       });
 
@@ -103,7 +103,7 @@ export class ArkResponsesLangGraphAdapter extends BaseChatModel {
         llmOutput: {},
       };
     } catch (error) {
-      log.error('[Ark Responses Adapter Error]', error);
+      log.error('[Chat Completions Adapter Error]', error);
       throw error;
     }
   }
@@ -112,7 +112,7 @@ export class ArkResponsesLangGraphAdapter extends BaseChatModel {
    * Stream generate with text deltas
    *
    * Yields chunks of text as they arrive, then yields done with full content.
-   * Uses streamLLM for Responses API streaming.
+   * Uses streamLLM for Chat Completions streaming.
    */
   async *streamGenerate(
     messages: BaseMessage[],

@@ -1,11 +1,11 @@
 /**
- * PBL Generation using Ark Responses API
+ * PBL Generation using Chat Completions API
  *
  * Core generation engine that designs a complete PBL project as JSON.
  */
 
 import { callLLM } from '@/lib/ai/llm';
-import type { ArkResponsesModel } from '@/lib/ai/providers';
+import type { ChatCompletionsModel } from '@/lib/ai/providers';
 import type { PBLProjectConfig } from './types';
 import { buildPBLSystemPrompt } from './pbl-system-prompt';
 import type { ThinkingConfig } from '@/lib/types/provider';
@@ -137,7 +137,7 @@ function validateProjectConfig(config: PBLProjectConfig, expectedIssueCount: num
  */
 export async function generatePBLContent(
   config: GeneratePBLConfig,
-  model: ArkResponsesModel,
+  model: ChatCompletionsModel,
   callbacks?: GeneratePBLCallbacks,
   thinkingConfig?: ThinkingConfig,
 ): Promise<PBLProjectConfig> {
@@ -233,7 +233,7 @@ person_in_charge, participants, and issueboard.agent_ids must reference student 
  */
 async function postProcessPBL(
   config: PBLProjectConfig,
-  model: ArkResponsesModel,
+  model: ChatCompletionsModel,
   languageDirective: string,
   callbacks?: GeneratePBLCallbacks,
   thinkingConfig?: ThinkingConfig,

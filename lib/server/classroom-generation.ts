@@ -31,6 +31,7 @@ import type { ObjectId } from 'mongodb';
 import { AGENT_COLOR_PALETTE, AGENT_DEFAULT_AVATARS } from '@/lib/constants/agent-defaults';
 
 const log = createLogger('Classroom');
+const MAX_AGENT_PROFILE_ATTEMPTS = 3;
 
 export interface GenerateClassroomInput {
   requirement: string;
@@ -106,6 +107,43 @@ function stripCodeFences(text: string): string {
   return cleaned.trim();
 }
 
+type ParsedServerAgentProfiles = {
+  agents: Array<{ name: string; role: string; persona: string }>;
+};
+
+function buildAgentProfileRetryPrompt(
+  userPrompt: string,
+  previousResponse: string,
+  reason: string,
+): string {
+  return `${userPrompt}
+
+The previous response could not be used.
+
+Problem:
+${reason}
+
+Previous response:
+${previousResponse.slice(0, 8000)}
+
+Regenerate the entire response now. Return ONLY one complete valid JSON object that exactly matches the requested schema. Do not include markdown, comments, trailing commas, or any text outside JSON.`;
+}
+
+function parseAndValidateServerAgentProfiles(rawText: string): ParsedServerAgentProfiles {
+  const parsed = JSON.parse(rawText) as ParsedServerAgentProfiles;
+
+  if (!parsed.agents || !Array.isArray(parsed.agents) || parsed.agents.length < 2) {
+    throw new Error(`Expected at least 2 agents, got ${parsed.agents?.length ?? 0}`);
+  }
+
+  const teacherCount = parsed.agents.filter((a) => a.role === 'teacher').length;
+  if (teacherCount !== 1) {
+    throw new Error(`Expected exactly 1 teacher, got ${teacherCount}`);
+  }
+
+  return parsed;
+}
+
 async function generateAgentProfiles(
   requirement: string,
   languageDirective: string,
@@ -135,19 +173,45 @@ Return a JSON object with this exact structure:
   ]
 }`;
 
-  const response = await aiCall(systemPrompt, userPrompt);
-  const rawText = stripCodeFences(response);
-  const parsed = JSON.parse(rawText) as {
-    agents: Array<{ name: string; role: string; persona: string }>;
-  };
+  let parsed: ParsedServerAgentProfiles | null = null;
+  let lastRawText = '';
+  let lastError: Error | null = null;
 
-  if (!parsed.agents || !Array.isArray(parsed.agents) || parsed.agents.length < 2) {
-    throw new Error(`Expected at least 2 agents, got ${parsed.agents?.length ?? 0}`);
+  for (let attempt = 1; attempt <= MAX_AGENT_PROFILE_ATTEMPTS; attempt += 1) {
+    const prompt =
+      attempt === 1
+        ? userPrompt
+        : buildAgentProfileRetryPrompt(
+            userPrompt,
+            lastRawText,
+            lastError?.message ?? 'The previous response was invalid JSON.',
+          );
+    const response = await aiCall(systemPrompt, prompt);
+    const rawText = stripCodeFences(response);
+    lastRawText = rawText;
+
+    try {
+      parsed = parseAndValidateServerAgentProfiles(rawText);
+      if (attempt > 1) {
+        log.info(`Agent profiles JSON fixed after retry ${attempt - 1}`);
+      }
+      break;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      const message = `Agent profiles response invalid (attempt ${attempt}/${MAX_AGENT_PROFILE_ATTEMPTS}): ${lastError.message}`;
+
+      if (attempt < MAX_AGENT_PROFILE_ATTEMPTS) {
+        log.warn(message, 'Retrying with correction prompt.');
+      } else {
+        log.error(message, rawText.substring(0, 500));
+      }
+    }
   }
 
-  const teacherCount = parsed.agents.filter((a) => a.role === 'teacher').length;
-  if (teacherCount !== 1) {
-    throw new Error(`Expected exactly 1 teacher, got ${teacherCount}`);
+  if (!parsed) {
+    throw new Error(
+      `Failed to parse agent profiles from LLM response after ${MAX_AGENT_PROFILE_ATTEMPTS} attempts`,
+    );
   }
 
   return parsed.agents.map((a, i) => ({
