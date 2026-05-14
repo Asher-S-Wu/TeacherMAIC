@@ -67,6 +67,7 @@ interface ResponsesBody {
   instructions?: string;
   max_output_tokens: number;
   thinking?: { type: 'enabled' | 'disabled' };
+  reasoning_effort?: Extract<ThinkingEffort, 'minimal' | 'low' | 'medium' | 'high'>;
 }
 
 type OpenRouterInputPart = ArkInputPart;
@@ -122,7 +123,7 @@ function getDeepSeekChatCompletionsUrl(model: ArkResponsesModel): string {
 }
 
 function getMaxOutputTokens(params: LLMGenerateParams): number {
-  return params.model.modelInfo?.outputWindow ?? params.maxOutputTokens ?? 128000;
+  return params.maxOutputTokens ?? params.model.modelInfo?.outputWindow ?? 128000;
 }
 
 function getArkThinkingType(config?: ThinkingConfig): 'enabled' | 'disabled' {
@@ -137,7 +138,7 @@ function getDeepSeekThinkingType(config?: ThinkingConfig): 'enabled' | 'disabled
   return 'enabled';
 }
 
-function getOpenRouterReasoningEffort(
+function getReasoningEffort(
   config?: ThinkingConfig,
 ): Extract<ThinkingEffort, 'minimal' | 'low' | 'medium' | 'high'> {
   if (
@@ -242,6 +243,9 @@ function buildResponsesBody(
     ...(instructions.length > 0 ? { instructions: instructions.join('\n\n') } : {}),
     max_output_tokens: getMaxOutputTokens(params),
     thinking: { type: getArkThinkingType(thinking) },
+    ...(getArkThinkingType(thinking) === 'enabled'
+      ? { reasoning_effort: getReasoningEffort(thinking) }
+      : {}),
   };
 
   return body;
@@ -290,7 +294,7 @@ function buildOpenRouterResponsesBody(
     stream,
     ...(instructions.length > 0 ? { instructions: instructions.join('\n\n') } : {}),
     max_output_tokens: getMaxOutputTokens(params),
-    reasoning: { effort: getOpenRouterReasoningEffort(thinking) },
+    reasoning: { effort: getReasoningEffort(thinking) },
   };
 }
 
