@@ -6,6 +6,7 @@
 
 import { createLogger } from '@/lib/logger';
 import { ARK_RESPONSES_PATH } from './ark-models';
+import { OPENROUTER_RESPONSES_PATH } from './openrouter-models';
 import { DEEPSEEK_CHAT_COMPLETIONS_PATH, DEEPSEEK_PROVIDER_ID } from './providers';
 import type { ArkResponsesModel } from './providers';
 import type { ThinkingConfig, ThinkingEffort } from '@/lib/types/provider';
@@ -68,6 +69,22 @@ interface ResponsesBody {
   thinking?: { type: 'enabled' | 'disabled' };
 }
 
+type OpenRouterInputPart = ArkInputPart;
+type OpenRouterInputItem = {
+  type: 'message';
+  role: 'user' | 'assistant';
+  content: OpenRouterInputPart[];
+};
+
+interface OpenRouterResponsesBody {
+  model: string;
+  input: OpenRouterInputItem[];
+  stream: boolean;
+  instructions?: string;
+  max_output_tokens: number;
+  reasoning: { effort: Extract<ThinkingEffort, 'minimal' | 'low' | 'medium' | 'high'> };
+}
+
 type ChatCompletionMessage = {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -88,8 +105,16 @@ function isDeepSeekProvider(model: ArkResponsesModel): boolean {
   return model.providerId === DEEPSEEK_PROVIDER_ID;
 }
 
+function isOpenRouterResponsesProvider(model: ArkResponsesModel): boolean {
+  return model.providerType === 'openrouter-responses';
+}
+
 function getArkResponsesUrl(model: ArkResponsesModel): string {
   return `${model.baseUrl.replace(/\/$/, '')}${ARK_RESPONSES_PATH}`;
+}
+
+function getOpenRouterResponsesUrl(model: ArkResponsesModel): string {
+  return `${model.baseUrl.replace(/\/$/, '')}${OPENROUTER_RESPONSES_PATH}`;
 }
 
 function getDeepSeekChatCompletionsUrl(model: ArkResponsesModel): string {
@@ -97,10 +122,7 @@ function getDeepSeekChatCompletionsUrl(model: ArkResponsesModel): string {
 }
 
 function getMaxOutputTokens(params: LLMGenerateParams): number {
-  if (isDeepSeekProvider(params.model)) {
-    return params.model.modelInfo?.outputWindow ?? 384000;
-  }
-  return params.maxOutputTokens ?? params.model.modelInfo?.outputWindow ?? 128000;
+  return params.model.modelInfo?.outputWindow ?? params.maxOutputTokens ?? 128000;
 }
 
 function getArkThinkingType(config?: ThinkingConfig): 'enabled' | 'disabled' {
@@ -113,6 +135,27 @@ function getDeepSeekThinkingType(config?: ThinkingConfig): 'enabled' | 'disabled
     return 'disabled';
   }
   return 'enabled';
+}
+
+function getOpenRouterReasoningEffort(
+  config?: ThinkingConfig,
+): Extract<ThinkingEffort, 'minimal' | 'low' | 'medium' | 'high'> {
+  if (
+    config?.mode === 'disabled' ||
+    config?.enabled === false ||
+    config?.effort === 'none'
+  ) {
+    return 'minimal';
+  }
+  if (
+    config?.effort === 'minimal' ||
+    config?.effort === 'low' ||
+    config?.effort === 'medium' ||
+    config?.effort === 'high'
+  ) {
+    return config.effort;
+  }
+  return 'high';
 }
 
 function imageToUrl(part: ImagePart): string {
@@ -204,6 +247,53 @@ function buildResponsesBody(
   return body;
 }
 
+function buildOpenRouterResponsesBody(
+  params: LLMGenerateParams,
+  thinking?: ThinkingConfig,
+  stream = false,
+): OpenRouterResponsesBody {
+  const instructions: string[] = [];
+  const input: OpenRouterInputItem[] = [];
+
+  if (params.system?.trim()) {
+    instructions.push(params.system);
+  }
+
+  for (const message of params.messages ?? []) {
+    if (message.role === 'system') {
+      const systemText = contentToPlainText(message.content);
+      if (systemText.trim()) instructions.push(systemText);
+      continue;
+    }
+    input.push({
+      type: 'message',
+      role: message.role,
+      content: contentToArkParts(message.role, message.content),
+    });
+  }
+
+  if (params.prompt !== undefined) {
+    input.push({
+      type: 'message',
+      role: 'user',
+      content: [{ type: 'input_text', text: params.prompt }],
+    });
+  }
+
+  if (input.length === 0) {
+    throw new Error('LLM request missing input');
+  }
+
+  return {
+    model: params.model.modelId,
+    input,
+    stream,
+    ...(instructions.length > 0 ? { instructions: instructions.join('\n\n') } : {}),
+    max_output_tokens: getMaxOutputTokens(params),
+    reasoning: { effort: getOpenRouterReasoningEffort(thinking) },
+  };
+}
+
 function buildChatCompletionMessages(params: LLMGenerateParams): ChatCompletionMessage[] {
   const messages: ChatCompletionMessage[] = [];
 
@@ -292,6 +382,33 @@ async function requestArkResponses(
   return response;
 }
 
+async function requestOpenRouterResponses(
+  params: LLMGenerateParams,
+  source: string,
+  thinking: ThinkingConfig | undefined,
+  stream: boolean,
+): Promise<Response> {
+  const body = buildOpenRouterResponsesBody(params, thinking, stream);
+  const response = await fetch(getOpenRouterResponsesUrl(params.model), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${params.model.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    signal: params.abortSignal,
+  });
+
+  if (!response.ok) {
+    const message = await readProviderError(response);
+    throw new Error(
+      `OpenRouter Responses API failed [${source}, model=${params.model.modelId}, status=${response.status}]: ${message}`,
+    );
+  }
+
+  return response;
+}
+
 async function requestDeepSeekChatCompletions(
   params: LLMGenerateParams,
   source: string,
@@ -327,6 +444,9 @@ async function requestLLMResponse(
 ): Promise<Response> {
   if (isDeepSeekProvider(params.model)) {
     return requestDeepSeekChatCompletions(params, source, thinking, stream);
+  }
+  if (isOpenRouterResponsesProvider(params.model)) {
+    return requestOpenRouterResponses(params, source, thinking, stream);
   }
   return requestArkResponses(params, source, thinking, stream);
 }
@@ -409,6 +529,61 @@ async function* streamArkText(
   const response = await requestArkResponses(params, source, thinking, true);
   if (!response.body) {
     throw new Error(`Ark Responses API returned an empty stream [${source}]`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (value) {
+        buffer += decoder.decode(value, { stream: !done });
+        buffer = buffer.replace(/\r\n/g, '\n');
+      }
+      if (done) {
+        buffer += decoder.decode();
+        buffer = buffer.replace(/\r\n/g, '\n');
+      }
+
+      let separatorIndex = buffer.indexOf('\n\n');
+      while (separatorIndex >= 0) {
+        const block = buffer.slice(0, separatorIndex);
+        buffer = buffer.slice(separatorIndex + 2);
+
+        const data = getSseData(block);
+        if (data && data !== '[DONE]') {
+          const parsed = JSON.parse(data) as unknown;
+          const delta = extractTextDelta(parsed);
+          if (delta) yield delta;
+        }
+
+        separatorIndex = buffer.indexOf('\n\n');
+      }
+
+      if (done) break;
+    }
+
+    const tail = getSseData(buffer);
+    if (tail && tail !== '[DONE]') {
+      const parsed = JSON.parse(tail) as unknown;
+      const delta = extractTextDelta(parsed);
+      if (delta) yield delta;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+async function* streamOpenRouterText(
+  params: LLMStreamParams,
+  source: string,
+  thinking?: ThinkingConfig,
+): AsyncIterable<string> {
+  const response = await requestOpenRouterResponses(params, source, thinking, true);
+  if (!response.body) {
+    throw new Error(`OpenRouter Responses API returned an empty stream [${source}]`);
   }
 
   const reader = response.body.getReader();
@@ -561,9 +736,11 @@ export function streamLLM<T extends LLMStreamParams>(
   source: string,
   thinking?: ThinkingConfig,
 ): LLMStreamResult {
-  return {
-    textStream: isDeepSeekProvider(params.model)
-      ? streamDeepSeekText(params, source, thinking)
-      : streamArkText(params, source, thinking),
-  };
+  if (isDeepSeekProvider(params.model)) {
+    return { textStream: streamDeepSeekText(params, source, thinking) };
+  }
+  if (isOpenRouterResponsesProvider(params.model)) {
+    return { textStream: streamOpenRouterText(params, source, thinking) };
+  }
+  return { textStream: streamArkText(params, source, thinking) };
 }

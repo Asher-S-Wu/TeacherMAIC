@@ -5,7 +5,7 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId = 'ark' | 'deepseek';
+export type BuiltInProviderId = 'ark' | 'deepseek' | 'openrouter';
 
 /**
  * Provider ID
@@ -15,7 +15,7 @@ export type ProviderId = BuiltInProviderId;
 /**
  * Provider API types
  */
-export type ProviderType = 'openai' | 'ark-responses';
+export type ProviderType = 'openai' | 'ark-responses' | 'openrouter-responses';
 
 export type ThinkingControlType =
   | 'none'
@@ -30,7 +30,11 @@ export type ThinkingMode = 'default' | 'disabled' | 'enabled' | 'auto';
 export type ThinkingEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
 
-export type ThinkingRequestAdapter = 'none' | 'ark-responses' | 'deepseek-chat';
+export type ThinkingRequestAdapter =
+  | 'none'
+  | 'ark-responses'
+  | 'deepseek-chat'
+  | 'openrouter-responses';
 
 /**
  * Describes a model's thinking/reasoning API control capability.

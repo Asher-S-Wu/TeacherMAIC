@@ -15,7 +15,7 @@ import type { ThinkingConfig } from '@/lib/types/provider';
 import { resolveApiKey } from '@/lib/server/provider-config';
 
 export interface ResolvedModel extends ModelWithInfo {
-  /** Server-configured model string (e.g. "ark:doubao-seed-2-0-lite-260428") */
+  /** Server-configured model string (e.g. "openrouter:moonshotai/kimi-k2.6") */
   modelString: string;
   /** Resolved provider ID (e.g. "ark") */
   providerId: string;

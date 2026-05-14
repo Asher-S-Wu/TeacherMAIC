@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, type ReactNode } from 'react';
-import { Zap, Atom, Network, Paperclip, FileText, X } from 'lucide-react';
+import { Paperclip, FileText, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -10,14 +10,7 @@ import { useSettingsStore } from '@/lib/store/settings';
 import type { SettingsSection } from '@/lib/types/settings';
 import { MediaPopover } from '@/components/generation/media-popover';
 import { ModelSelectorPopover } from '@/components/generation/model-selector-popover';
-import { isExpertModel } from '@/lib/ai/providers';
-import { getThinkingConfigKey } from '@/lib/ai/thinking-config';
-
-const PRESET_LABELS: Record<string, { label: string; icon: typeof Zap }> = {
-  fast: { label: '快速', icon: Zap },
-  think: { label: '思考', icon: Atom },
-  expert: { label: '专家', icon: Network },
-};
+import { getCurrentModelPreset } from '@/components/generation/model-presets';
 
 // ─── Constants ───────────────────────────────────────────────
 const MAX_PDF_SIZE_MB = 50;
@@ -53,21 +46,7 @@ export function GenerationToolbar({
 
   const attachmentCount = pdfFile ? 1 : 0;
 
-  const getCurrentPreset = () => {
-    if (currentProviderId === 'deepseek' && currentModelId === 'deepseek-v4-flash') {
-      const thinkingConfig =
-        thinkingConfigs[getThinkingConfigKey(currentProviderId, currentModelId)];
-      return thinkingConfig?.mode === 'enabled' && thinkingConfig?.effort === 'max'
-        ? PRESET_LABELS.think
-        : PRESET_LABELS.fast;
-    }
-    if (isExpertModel(currentProviderId, currentModelId)) {
-      return PRESET_LABELS.expert;
-    }
-    return PRESET_LABELS.think;
-  };
-
-  const currentPreset = getCurrentPreset();
+  const currentPreset = getCurrentModelPreset(currentProviderId, currentModelId, thinkingConfigs);
 
   const handleFileSelect = (files: FileList | File[]) => {
     let nextPdf = pdfFile;
@@ -106,7 +85,7 @@ export function GenerationToolbar({
               type="button"
               className={cn(
                 pillCls,
-                'order-3 ml-auto border-violet-200/70 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800/70 dark:bg-violet-950/30 dark:text-violet-300 dark:hover:bg-violet-950/50',
+                'order-3 ml-auto border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 dark:border-primary/25 dark:bg-primary/15 dark:hover:bg-primary/20',
               )}
             >
               <currentPreset.icon className="size-[14px] shrink-0" />

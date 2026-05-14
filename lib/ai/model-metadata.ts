@@ -5,6 +5,13 @@ export function getModelMetadataKey(providerId: string, modelId: string): string
 }
 
 const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
+  'ark:doubao-seed-2-0-mini-260428': {
+    control: 'toggle',
+    requestAdapter: 'ark-responses',
+    defaultMode: 'enabled',
+    defaultEnabled: true,
+    toggleable: true,
+  },
   'ark:doubao-seed-2-0-lite-260428': {
     control: 'toggle',
     requestAdapter: 'ark-responses',
@@ -28,6 +35,15 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
     effortValues: ['none', 'max'],
     defaultEffort: 'none',
     defaultEnabled: false,
+    budgetAdjustable: true,
+  },
+  'openrouter:moonshotai/kimi-k2.6': {
+    control: 'effort',
+    requestAdapter: 'openrouter-responses',
+    defaultMode: 'enabled',
+    effortValues: ['minimal', 'low', 'medium', 'high'],
+    defaultEffort: 'high',
+    defaultEnabled: true,
     budgetAdjustable: true,
   },
 };

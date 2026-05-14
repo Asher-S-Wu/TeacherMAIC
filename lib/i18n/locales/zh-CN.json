@@ -442,14 +442,16 @@
     "close": "关闭",
     "save": "保存",
     "providers": "语言模型",
-    "addProviderDescription": "可在模型列表中切换火山方舟或 DeepSeek V4 Pro",
+    "addProviderDescription": "可在模型列表中切换火山方舟或 OpenRouter",
     "providerNames": {
       "ark": "火山方舟",
-      "deepseek": "DeepSeek"
+      "deepseek": "DeepSeek",
+      "openrouter": "OpenRouter"
     },
     "providerTypes": {
       "openai": "OpenAI 协议",
-      "ark-responses": "Responses API"
+      "ark-responses": "Responses API",
+      "openrouter-responses": "Responses API"
     },
     "modelCount": "个模型",
     "modelSingular": "个模型",

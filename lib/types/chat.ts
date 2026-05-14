@@ -275,7 +275,7 @@ export interface StatelessChatRequest {
   };
   /** UI-selected per-model thinking config. */
   thinkingConfig?: ThinkingConfig;
-  /** UI-selected model string, e.g. "deepseek:deepseek-v4-pro". */
+  /** UI-selected model string, e.g. "openrouter:moonshotai/kimi-k2.6". */
   modelString?: string;
 }
 

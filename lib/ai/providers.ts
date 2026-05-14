@@ -13,7 +13,18 @@ import type {
   ModelConfig,
 } from '@/lib/types/provider';
 import { applyModelMetadata } from './model-metadata';
-import { ARK_BASE_URL, ARK_LLM_MODEL_ID, ARK_LLM_MODEL_NAME } from './ark-models';
+import {
+  ARK_BASE_URL,
+  ARK_LLM_MODEL_ID,
+  ARK_LLM_MODEL_NAME,
+  DOUBAO_SEED_2_0_LITE_MODEL_ID,
+  DOUBAO_SEED_2_0_LITE_MODEL_NAME,
+} from './ark-models';
+import {
+  KIMI_K2_6_MODEL_ID,
+  KIMI_K2_6_MODEL_NAME,
+  OPENROUTER_BASE_URL,
+} from './openrouter-models';
 
 export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'ark';
 export const DEFAULT_MODEL_ID = ARK_LLM_MODEL_ID;
@@ -23,11 +34,15 @@ export const DEEPSEEK_MODEL_ID = 'deepseek-v4-pro';
 export const DEEPSEEK_MODEL_NAME = 'DeepSeek V4 Pro';
 export const DEEPSEEK_FLASH_MODEL_ID = 'deepseek-v4-flash';
 export const DEEPSEEK_FLASH_MODEL_NAME = 'DeepSeek V4 Flash';
-export const EXPERT_PROVIDER_ID = DEEPSEEK_PROVIDER_ID;
-export const EXPERT_MODEL_ID = DEEPSEEK_MODEL_ID;
-export const EXPERT_MODEL_STRING = `${EXPERT_PROVIDER_ID}:${EXPERT_MODEL_ID}`;
 export const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
 export const DEEPSEEK_CHAT_COMPLETIONS_PATH = '/chat/completions';
+export const OPENROUTER_PROVIDER_ID: BuiltInProviderId = 'openrouter';
+export const OPENROUTER_KIMI_K2_6_MODEL_ID = KIMI_K2_6_MODEL_ID;
+export const OPENROUTER_KIMI_K2_6_MODEL_NAME = KIMI_K2_6_MODEL_NAME;
+export const OPENROUTER_EXPERT_MODEL_STRING = `${OPENROUTER_PROVIDER_ID}:${OPENROUTER_KIMI_K2_6_MODEL_ID}`;
+export const EXPERT_PROVIDER_ID = OPENROUTER_PROVIDER_ID;
+export const EXPERT_MODEL_ID = OPENROUTER_KIMI_K2_6_MODEL_ID;
+export const EXPERT_MODEL_STRING = OPENROUTER_EXPERT_MODEL_STRING;
 
 // Re-export shared provider types.
 export type { ProviderId, ProviderConfig, ModelInfo, ModelConfig };
@@ -50,6 +65,17 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
       {
         id: DEFAULT_MODEL_ID,
         name: ARK_LLM_MODEL_NAME,
+        contextWindow: 256000,
+        outputWindow: 128000,
+        capabilities: {
+          streaming: true,
+          tools: true,
+          vision: true,
+        },
+      },
+      {
+        id: DOUBAO_SEED_2_0_LITE_MODEL_ID,
+        name: DOUBAO_SEED_2_0_LITE_MODEL_NAME,
         contextWindow: 256000,
         outputWindow: 128000,
         capabilities: {
@@ -87,6 +113,27 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
         capabilities: {
           streaming: true,
           tools: true,
+          json: true,
+        },
+      },
+    ],
+  },
+  openrouter: {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    type: 'openrouter-responses',
+    defaultBaseUrl: OPENROUTER_BASE_URL,
+    requiresApiKey: true,
+    models: [
+      {
+        id: OPENROUTER_KIMI_K2_6_MODEL_ID,
+        name: OPENROUTER_KIMI_K2_6_MODEL_NAME,
+        contextWindow: 262000,
+        outputWindow: 32768,
+        capabilities: {
+          streaming: true,
+          tools: true,
+          vision: true,
           json: true,
         },
       },
@@ -189,7 +236,7 @@ export function parseModelString(modelString: string): {
 }
 
 export function isExpertModel(providerId: string, modelId: string): boolean {
-  return providerId === EXPERT_PROVIDER_ID && modelId === EXPERT_MODEL_ID;
+  return providerId === OPENROUTER_PROVIDER_ID && modelId === OPENROUTER_KIMI_K2_6_MODEL_ID;
 }
 
 export function isExpertModelString(modelString: string): boolean {

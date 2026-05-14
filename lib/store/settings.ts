@@ -214,6 +214,11 @@ export interface SettingsState {
 
   // Actions
   setModel: (providerId: ProviderId, modelId: string) => void;
+  setModelWithThinkingConfig: (
+    providerId: ProviderId,
+    modelId: string,
+    config: ThinkingConfig,
+  ) => void;
   setThinkingConfig: (
     providerId: ProviderId,
     modelId: string,
@@ -434,6 +439,19 @@ export const useSettingsStore = create<SettingsState>()(
 
         // Actions
         setModel: (providerId, modelId) => set({ providerId, modelId }),
+
+        setModelWithThinkingConfig: (providerId, modelId, config) =>
+          set((state) => {
+            const key = getThinkingConfigKey(providerId, modelId);
+            return {
+              providerId,
+              modelId,
+              thinkingConfigs: {
+                ...state.thinkingConfigs,
+                [key]: config,
+              },
+            };
+          }),
 
         setThinkingConfig: (providerId, modelId, config) =>
           set((state) => {
@@ -674,6 +692,11 @@ export const useSettingsStore = create<SettingsState>()(
                 ...newProvidersConfig.deepseek,
                 apiKey: '',
                 isServerConfigured: !!data.providers.deepseek,
+              };
+              newProvidersConfig.openrouter = {
+                ...newProvidersConfig.openrouter,
+                apiKey: '',
+                isServerConfigured: !!data.providers.openrouter,
               };
 
               const defaultAudio = getDefaultAudioConfig();

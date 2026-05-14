@@ -36,6 +36,7 @@ interface ServerConfig {
 
 const ARK_API_KEY_ENV = 'ARK_API_KEY';
 const DEEPSEEK_API_KEY_ENV = 'DEEPSEEK_API_KEY';
+const OPENROUTER_API_KEY_ENV = 'OPENROUTER_API_KEY';
 const VOLCENGINE_TTS_API_KEY_ENV = 'VOLCENGINE_TTS_API_KEY';
 const VOLCENGINE_TTS_RESOURCE_ID_ENV = 'VOLCENGINE_TTS_RESOURCE_ID';
 
@@ -66,9 +67,11 @@ function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
   const result: Record<string, ServerProviderEntry> = {};
   const arkApiKey = process.env[ARK_API_KEY_ENV] || undefined;
   const deepseekApiKey = process.env[DEEPSEEK_API_KEY_ENV] || undefined;
+  const openrouterApiKey = process.env[OPENROUTER_API_KEY_ENV] || undefined;
 
   if (arkApiKey) result.ark = { apiKey: arkApiKey };
   if (deepseekApiKey) result.deepseek = { apiKey: deepseekApiKey };
+  if (openrouterApiKey) result.openrouter = { apiKey: openrouterApiKey };
 
   return result;
 }

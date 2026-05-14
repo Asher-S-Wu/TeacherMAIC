@@ -1,8 +1,13 @@
 export const ARK_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 export const ARK_RESPONSES_PATH = '/responses';
 
-export const ARK_LLM_MODEL_ID = 'doubao-seed-2-0-lite-260428';
-export const ARK_LLM_MODEL_NAME = 'Doubao-Seed-2.0-lite';
+export const DOUBAO_SEED_2_0_MINI_MODEL_ID = 'doubao-seed-2-0-mini-260428';
+export const DOUBAO_SEED_2_0_MINI_MODEL_NAME = 'Doubao-Seed-2.0-mini';
+export const DOUBAO_SEED_2_0_LITE_MODEL_ID = 'doubao-seed-2-0-lite-260428';
+export const DOUBAO_SEED_2_0_LITE_MODEL_NAME = 'Doubao-Seed-2.0-lite';
+
+export const ARK_LLM_MODEL_ID = DOUBAO_SEED_2_0_MINI_MODEL_ID;
+export const ARK_LLM_MODEL_NAME = DOUBAO_SEED_2_0_MINI_MODEL_NAME;
 
 export const ARK_IMAGE_MODEL_ID = 'doubao-seedream-5-0-260128';
 export const ARK_IMAGE_MODEL_NAME = 'Seedream 5.0 lite';
