@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ScanLine,
@@ -87,6 +87,8 @@ function PdfScanVisualizer() {
 // Web Search: Miniature search engine results page with animated query + result rows
 function WebSearchVisualizer({ sources }: { sources: Array<{ title: string; url: string }> }) {
   const [activeResult, setActiveResult] = useState(0);
+  const resultRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const [highlightBounds, setHighlightBounds] = useState({ top: 0, height: 0 });
 
   // Cycle through result highlight when we have sources
   useEffect(() => {
@@ -105,7 +107,15 @@ function WebSearchVisualizer({ sources }: { sources: Array<{ title: string; url:
     { titleW: 50, urlW: 55, snippetW: [70, 65] },
   ];
 
-  const ROW_H = 38;
+  useLayoutEffect(() => {
+    const activeRow = resultRefs.current[activeResult];
+    if (!activeRow) return;
+
+    setHighlightBounds({
+      top: activeRow.offsetTop,
+      height: activeRow.offsetHeight,
+    });
+  }, [activeResult, sources.length]);
 
   return (
     <div className="size-56 relative flex items-center justify-center">
@@ -137,9 +147,8 @@ function WebSearchVisualizer({ sources }: { sources: Array<{ title: string; url:
           {sources.length > 0 && (
             <motion.div
               className="absolute left-2 right-2 rounded-lg bg-teal-500/[0.06] dark:bg-teal-400/[0.08]"
-              style={{ height: ROW_H - 6 }}
-              animate={{ y: activeResult * ROW_H }}
-              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+              animate={{ top: highlightBounds.top, height: highlightBounds.height }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
             />
           )}
 
@@ -181,6 +190,9 @@ function WebSearchVisualizer({ sources }: { sources: Array<{ title: string; url:
                 return (
                   <motion.div
                     key={source.url}
+                    ref={(node) => {
+                      resultRefs.current[i] = node;
+                    }}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.08, duration: 0.25 }}
@@ -627,6 +639,8 @@ function ContentVisualizer() {
 // Actions: Timeline of speech, spotlight, and interactions being orchestrated
 function ActionsVisualizer() {
   const [activeIdx, setActiveIdx] = useState(0);
+  const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const [highlightBounds, setHighlightBounds] = useState({ top: 0, height: 0 });
 
   const actionItems = [
     {
@@ -666,9 +680,6 @@ function ActionsVisualizer() {
     },
   ];
 
-  // Row height (py-1.5 = 6px×2 padding + icon ~16px) + gap 6px ≈ 34px per row
-  const ROW_H = 34;
-
   useEffect(() => {
     const timer = setInterval(() => {
       setActiveIdx((prev) => (prev + 1) % actionItems.length);
@@ -676,6 +687,16 @@ function ActionsVisualizer() {
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useLayoutEffect(() => {
+    const activeRow = rowRefs.current[activeIdx];
+    if (!activeRow) return;
+
+    setHighlightBounds({
+      top: activeRow.offsetTop,
+      height: activeRow.offsetHeight,
+    });
+  }, [activeIdx]);
 
   return (
     <div className="size-56 relative flex items-center justify-center">
@@ -701,12 +722,11 @@ function ActionsVisualizer() {
 
         {/* Action items */}
         <div className="p-2 space-y-1.5 relative">
-          {/* Sliding highlight — absolute, animates via y transform, no layout impact */}
+          {/* Sliding highlight follows the real active row size and position. */}
           <motion.div
             className="absolute left-2 right-2 rounded-lg bg-violet-500/[0.06] dark:bg-violet-400/[0.08]"
-            style={{ height: ROW_H - 6 }}
-            animate={{ y: activeIdx * ROW_H }}
-            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            animate={{ top: highlightBounds.top, height: highlightBounds.height }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
           />
 
           {actionItems.map((item, i) => {
@@ -716,6 +736,9 @@ function ActionsVisualizer() {
             return (
               <motion.div
                 key={i}
+                ref={(node) => {
+                  rowRefs.current[i] = node;
+                }}
                 initial={{ opacity: 0, x: -12 }}
                 animate={{ opacity: isPast ? 0.4 : 1, x: 0 }}
                 transition={{ delay: 0.1 + i * 0.08, duration: 0.3 }}
