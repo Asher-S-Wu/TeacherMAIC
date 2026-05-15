@@ -13,28 +13,34 @@ import type {
   ModelConfig,
 } from '@/lib/types/provider';
 import { applyModelMetadata } from './model-metadata';
+import { ARK_BASE_URL } from './ark-models';
 import {
-  ARK_BASE_URL,
-  ARK_LLM_MODEL_ID,
-  ARK_LLM_MODEL_NAME,
-  DOUBAO_SEED_2_0_LITE_MODEL_ID,
-  DOUBAO_SEED_2_0_LITE_MODEL_NAME,
-} from './ark-models';
-import {
-  KIMI_K2_6_MODEL_ID,
-  KIMI_K2_6_MODEL_NAME,
+  GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
+  GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_NAME,
+  GEMINI_3_FLASH_PREVIEW_MODEL_ID,
+  GEMINI_3_FLASH_PREVIEW_MODEL_NAME,
+  GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
+  GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_NAME,
   OPENROUTER_BASE_URL,
 } from './openrouter-models';
 
-export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'ark';
-export const DEFAULT_MODEL_ID = ARK_LLM_MODEL_ID;
-export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
 export const OPENROUTER_PROVIDER_ID: BuiltInProviderId = 'openrouter';
-export const OPENROUTER_KIMI_K2_6_MODEL_ID = KIMI_K2_6_MODEL_ID;
-export const OPENROUTER_KIMI_K2_6_MODEL_NAME = KIMI_K2_6_MODEL_NAME;
-export const OPENROUTER_EXPERT_MODEL_STRING = `${OPENROUTER_PROVIDER_ID}:${OPENROUTER_KIMI_K2_6_MODEL_ID}`;
+export const OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID =
+  GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID;
+export const OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_NAME =
+  GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_NAME;
+export const OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID = GEMINI_3_FLASH_PREVIEW_MODEL_ID;
+export const OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_NAME = GEMINI_3_FLASH_PREVIEW_MODEL_NAME;
+export const OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID =
+  GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID;
+export const OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_NAME =
+  GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_NAME;
+export const DEFAULT_PROVIDER_ID: BuiltInProviderId = OPENROUTER_PROVIDER_ID;
+export const DEFAULT_MODEL_ID = OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID;
+export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
+export const OPENROUTER_EXPERT_MODEL_STRING = `${OPENROUTER_PROVIDER_ID}:${OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID}`;
 export const EXPERT_PROVIDER_ID = OPENROUTER_PROVIDER_ID;
-export const EXPERT_MODEL_ID = OPENROUTER_KIMI_K2_6_MODEL_ID;
+export const EXPERT_MODEL_ID = OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID;
 export const EXPERT_MODEL_STRING = OPENROUTER_EXPERT_MODEL_STRING;
 
 // Re-export shared provider types.
@@ -54,30 +60,7 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
     defaultBaseUrl: ARK_BASE_URL,
     requiresApiKey: true,
     icon: '/logos/doubao-color.svg',
-    models: [
-      {
-        id: DEFAULT_MODEL_ID,
-        name: ARK_LLM_MODEL_NAME,
-        contextWindow: 256000,
-        outputWindow: 128000,
-        capabilities: {
-          streaming: true,
-          tools: true,
-          vision: true,
-        },
-      },
-      {
-        id: DOUBAO_SEED_2_0_LITE_MODEL_ID,
-        name: DOUBAO_SEED_2_0_LITE_MODEL_NAME,
-        contextWindow: 256000,
-        outputWindow: 128000,
-        capabilities: {
-          streaming: true,
-          tools: true,
-          vision: true,
-        },
-      },
-    ],
+    models: [],
   },
   openrouter: {
     id: 'openrouter',
@@ -87,10 +70,34 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
     requiresApiKey: true,
     models: [
       {
-        id: OPENROUTER_KIMI_K2_6_MODEL_ID,
-        name: OPENROUTER_KIMI_K2_6_MODEL_NAME,
-        contextWindow: 262000,
-        outputWindow: 32768,
+        id: OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
+        name: OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_NAME,
+        contextWindow: 1048576,
+        outputWindow: 65536,
+        capabilities: {
+          streaming: true,
+          tools: true,
+          vision: true,
+          json: true,
+        },
+      },
+      {
+        id: OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
+        name: OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_NAME,
+        contextWindow: 1048576,
+        outputWindow: 65536,
+        capabilities: {
+          streaming: true,
+          tools: true,
+          vision: true,
+          json: true,
+        },
+      },
+      {
+        id: OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
+        name: OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_NAME,
+        contextWindow: 1048576,
+        outputWindow: 65536,
         capabilities: {
           streaming: true,
           tools: true,
@@ -169,7 +176,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
 
 /**
  * Parse model string in format "providerId:modelId".
- * Bare model IDs are treated as Ark model IDs.
+ * Bare model IDs are treated as default-provider model IDs.
  */
 export function parseModelString(modelString: string): {
   providerId: ProviderId;
@@ -197,7 +204,10 @@ export function parseModelString(modelString: string): {
 }
 
 export function isExpertModel(providerId: string, modelId: string): boolean {
-  return providerId === OPENROUTER_PROVIDER_ID && modelId === OPENROUTER_KIMI_K2_6_MODEL_ID;
+  return (
+    providerId === OPENROUTER_PROVIDER_ID &&
+    modelId === OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID
+  );
 }
 
 export function isExpertModelString(modelString: string): boolean {
@@ -212,10 +222,12 @@ export function getAllModels(): {
   provider: ProviderConfig;
   models: ModelInfo[];
 }[] {
-  return Object.values(PROVIDERS).map((provider) => ({
-    provider,
-    models: provider.models,
-  }));
+  return Object.values(PROVIDERS)
+    .filter((provider) => provider.models.length > 0)
+    .map((provider) => ({
+      provider,
+      models: provider.models,
+    }));
 }
 
 /**

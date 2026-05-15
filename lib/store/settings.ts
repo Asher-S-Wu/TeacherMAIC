@@ -785,6 +785,7 @@ export const useSettingsStore = create<SettingsState>()(
 
               return {
                 providersConfig: newProvidersConfig,
+                thinkingConfigs: pruneThinkingConfigs(state.thinkingConfigs, newProvidersConfig),
                 ttsProvidersConfig: newTTSConfig,
                 asrProvidersConfig: newASRConfig,
                 pdfProvidersConfig: newPDFConfig,

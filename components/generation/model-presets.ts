@@ -1,9 +1,11 @@
 import { Atom, Network, Zap } from 'lucide-react';
 
-import { DOUBAO_SEED_2_0_LITE_MODEL_ID, DOUBAO_SEED_2_0_MINI_MODEL_ID } from '@/lib/ai/ark-models';
 import {
   EXPERT_MODEL_ID,
   EXPERT_PROVIDER_ID,
+  OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
+  OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
+  OPENROUTER_PROVIDER_ID,
   isExpertModel,
 } from '@/lib/ai/providers';
 import type { ProviderId, ThinkingConfig } from '@/lib/types/provider';
@@ -26,18 +28,18 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     label: '快速',
     description: '适用于大部分情况',
     icon: Zap,
-    providerId: 'ark',
-    modelId: DOUBAO_SEED_2_0_MINI_MODEL_ID,
-    thinkingConfig: { mode: 'disabled', effort: 'none' },
+    providerId: OPENROUTER_PROVIDER_ID,
+    modelId: OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
+    thinkingConfig: { mode: 'enabled', effort: 'high' },
   },
   think: {
     id: 'think',
     label: '标准',
     description: '擅长解决更难的问题',
     icon: Atom,
-    providerId: 'ark',
-    modelId: DOUBAO_SEED_2_0_LITE_MODEL_ID,
-    thinkingConfig: { mode: 'disabled', effort: 'none' },
+    providerId: OPENROUTER_PROVIDER_ID,
+    modelId: OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
+    thinkingConfig: { mode: 'enabled', effort: 'high' },
   },
   expert: {
     id: 'expert',
@@ -46,7 +48,7 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     icon: Network,
     providerId: EXPERT_PROVIDER_ID,
     modelId: EXPERT_MODEL_ID,
-    thinkingConfig: { mode: 'disabled', effort: 'none' },
+    thinkingConfig: { mode: 'enabled', effort: 'high' },
   },
 };
 
@@ -62,8 +64,18 @@ export function getCurrentModelPresetId(
   thinkingConfigs: Record<string, ThinkingConfig>,
 ): ModelPresetId {
   void thinkingConfigs;
-  if (providerId === 'ark' && modelId === DOUBAO_SEED_2_0_MINI_MODEL_ID) return 'fast';
-  if (providerId === 'ark' && modelId === DOUBAO_SEED_2_0_LITE_MODEL_ID) return 'think';
+  if (
+    providerId === OPENROUTER_PROVIDER_ID &&
+    modelId === OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID
+  ) {
+    return 'fast';
+  }
+  if (
+    providerId === OPENROUTER_PROVIDER_ID &&
+    modelId === OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID
+  ) {
+    return 'think';
+  }
 
   if (isExpertModel(providerId, modelId)) {
     return 'expert';

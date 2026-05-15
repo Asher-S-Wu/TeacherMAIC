@@ -8,7 +8,9 @@ import { createLogger } from '@/lib/logger';
 import { ARK_CHAT_COMPLETIONS_PATH } from './ark-models';
 import { OPENROUTER_CHAT_COMPLETIONS_PATH } from './openrouter-models';
 import {
-  OPENROUTER_KIMI_K2_6_MODEL_ID,
+  OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
+  OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
+  OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
   OPENROUTER_PROVIDER_ID,
 } from './providers';
 import type { ChatCompletionsModel } from './providers';
@@ -92,10 +94,16 @@ function isArkChatCompletionsProvider(model: ChatCompletionsModel): boolean {
   return model.providerType === 'ark-chat-completions';
 }
 
-function isOpenRouterKimiModel(model: ChatCompletionsModel): boolean {
+const OPENROUTER_REASONING_MODEL_IDS = new Set([
+  OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
+  OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
+  OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
+]);
+
+function isOpenRouterReasoningModel(model: ChatCompletionsModel): boolean {
   return (
     model.providerId === OPENROUTER_PROVIDER_ID &&
-    model.modelId === OPENROUTER_KIMI_K2_6_MODEL_ID
+    OPENROUTER_REASONING_MODEL_IDS.has(model.modelId)
   );
 }
 
@@ -136,17 +144,16 @@ function getReasoningEffort(
   return 'high';
 }
 
-function isOpenRouterReasoningModel(model: ChatCompletionsModel): boolean {
-  return isOpenRouterKimiModel(model);
-}
-
 function shouldSendOpenRouterReasoning(
   model: ChatCompletionsModel,
   config?: ThinkingConfig,
 ): boolean {
-  void model;
-  void config;
-  return false;
+  if (!isOpenRouterReasoningModel(model)) return false;
+  return !(
+    config?.mode === 'disabled' ||
+    config?.enabled === false ||
+    config?.effort === 'none'
+  );
 }
 
 function imageToUrl(part: ImagePart): string {

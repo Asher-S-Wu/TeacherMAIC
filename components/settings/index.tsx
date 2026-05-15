@@ -260,7 +260,8 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
       requiresApiKey: config.requiresApiKey,
       models: config.models,
       isServerConfigured: config.isServerConfigured,
-    }));
+    }))
+    .filter((provider) => provider.models.length > 0);
 
   // Get header content based on section
   const getHeaderContent = () => {

@@ -15,7 +15,7 @@ import type { ThinkingConfig } from '@/lib/types/provider';
 import { resolveApiKey } from '@/lib/server/provider-config';
 
 export interface ResolvedModel extends ModelWithInfo {
-  /** Server-configured model string (e.g. "openrouter:moonshotai/kimi-k2.6") */
+  /** Server-configured model string (e.g. "openrouter:google/gemini-3.1-flash-lite-preview") */
   modelString: string;
   /** Resolved provider ID (e.g. "ark") */
   providerId: string;
