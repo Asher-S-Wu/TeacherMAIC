@@ -53,13 +53,6 @@ export async function resolveModel(params: {
   };
 }
 
-function getThinkingConfigFromBody(body: unknown): ThinkingConfig | undefined {
-  if (!body || typeof body !== 'object') return undefined;
-  const record = body as { thinkingConfig?: unknown };
-  const config = record.thinkingConfig;
-  return config && typeof config === 'object' ? (config as ThinkingConfig) : undefined;
-}
-
 function getModelStringFromBody(body: unknown): string | undefined {
   if (!body || typeof body !== 'object') return undefined;
   const record = body as {
@@ -100,8 +93,5 @@ export async function resolveModelFromRequest(
   const resolved = await resolveModel({
     modelString: getModelStringFromBody(body),
   });
-  return {
-    ...resolved,
-    thinkingConfig: getThinkingConfigFromBody(body) ?? resolved.thinkingConfig,
-  };
+  return resolved;
 }

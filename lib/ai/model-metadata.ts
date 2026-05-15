@@ -4,28 +4,7 @@ export function getModelMetadataKey(providerId: string, modelId: string): string
   return `${providerId}:${modelId}`;
 }
 
-const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
-  'ark:doubao-seed-2-0-mini-260428': {
-    control: 'effort',
-    requestAdapter: 'ark-chat-completions',
-    defaultMode: 'enabled',
-    effortValues: ['none', 'minimal', 'low', 'medium', 'high'],
-    defaultEffort: 'high',
-    defaultEnabled: true,
-    toggleable: true,
-    budgetAdjustable: true,
-  },
-  'ark:doubao-seed-2-0-lite-260428': {
-    control: 'effort',
-    requestAdapter: 'ark-chat-completions',
-    defaultMode: 'enabled',
-    effortValues: ['none', 'minimal', 'low', 'medium', 'high'],
-    defaultEffort: 'high',
-    defaultEnabled: true,
-    toggleable: true,
-    budgetAdjustable: true,
-  },
-};
+const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {};
 
 export function getCatalogThinkingCapability(
   providerId: string,

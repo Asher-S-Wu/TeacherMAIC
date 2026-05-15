@@ -101,8 +101,8 @@ function getMaxOutputTokens(params: LLMGenerateParams): number {
 }
 
 function getArkThinkingType(config?: ThinkingConfig): 'enabled' | 'disabled' {
-  if (config?.mode === 'disabled' || config?.enabled === false) return 'disabled';
-  return 'enabled';
+  void config;
+  return 'disabled';
 }
 
 function getReasoningEffort(
@@ -134,11 +134,9 @@ function shouldSendOpenRouterReasoning(
   model: ChatCompletionsModel,
   config?: ThinkingConfig,
 ): boolean {
-  if (!config) return false;
-  if (config.mode === 'disabled' || config.enabled === false || config.effort === 'none') {
-    return false;
-  }
-  return config.mode === 'enabled' || config.enabled === true || Boolean(config.effort);
+  void model;
+  void config;
+  return false;
 }
 
 function imageToUrl(part: ImagePart): string {

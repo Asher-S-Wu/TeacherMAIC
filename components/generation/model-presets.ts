@@ -28,7 +28,7 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     icon: Zap,
     providerId: 'ark',
     modelId: DOUBAO_SEED_2_0_MINI_MODEL_ID,
-    thinkingConfig: { mode: 'enabled', effort: 'high' },
+    thinkingConfig: { mode: 'disabled', effort: 'none' },
   },
   think: {
     id: 'think',
@@ -37,7 +37,7 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     icon: Atom,
     providerId: 'ark',
     modelId: DOUBAO_SEED_2_0_LITE_MODEL_ID,
-    thinkingConfig: { mode: 'enabled', effort: 'high' },
+    thinkingConfig: { mode: 'disabled', effort: 'none' },
   },
   expert: {
     id: 'expert',
