@@ -427,7 +427,7 @@ async function requestTextGeneration(
   const body = isGeminiNativeProvider(params.model)
     ? buildGeminiGenerateContentBody(params, thinking)
     : buildArkChatCompletionsBody(params, thinking, stream);
-  const headers = isGeminiNativeProvider(params.model)
+  const headers: Record<string, string> = isGeminiNativeProvider(params.model)
     ? {
         'x-goog-api-key': params.model.apiKey,
         'Content-Type': 'application/json',
