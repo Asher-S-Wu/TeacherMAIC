@@ -10,7 +10,7 @@ import type { WebSearchProviderId, WebSearchProviderConfig } from './types';
 export const WEB_SEARCH_PROVIDERS: Record<WebSearchProviderId, WebSearchProviderConfig> = {
   xcrawl: {
     id: 'xcrawl',
-    name: 'XCrawl 联网检索',
+    name: '智能联网检索',
     requiresApiKey: true,
   },
 };
