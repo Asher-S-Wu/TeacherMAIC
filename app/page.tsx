@@ -20,6 +20,7 @@ import {
   Upload,
   Sparkles,
   X,
+  ArrowUpRight,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { createLogger } from '@/lib/logger';
@@ -743,8 +744,21 @@ function HomePage() {
       )}
 
       {/* Footer — flows with content, at the very end */}
-      <div className="mt-auto pt-12 pb-4 text-center text-xs text-muted-foreground/40">
-        AI 智慧教学平台 · 北京市朝阳区白家庄小学 李雪
+      <div className="mt-auto flex flex-col items-center gap-3 pt-12 pb-4 text-center">
+        <a
+          href="https://github.com/THU-MAIC/OpenMAIC"
+          target="_blank"
+          rel="noreferrer"
+          className="group inline-flex items-center gap-2 rounded-full border border-border/60 bg-white/70 px-3 py-1.5 text-xs shadow-sm shadow-black/[0.02] backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-violet-300/70 hover:bg-white hover:shadow-md hover:shadow-violet-500/10 dark:bg-slate-900/60 dark:hover:bg-slate-900"
+        >
+          <Sparkles className="size-3.5 text-violet-500" />
+          <span className="text-muted-foreground/70">灵感来自</span>
+          <span className="font-medium text-foreground/85">OpenMAIC</span>
+          <ArrowUpRight className="size-3 text-muted-foreground/50 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-violet-500" />
+        </a>
+        <div className="text-xs text-muted-foreground/40">
+          AI 智慧教学平台 · 北京市朝阳区白家庄小学 李雪
+        </div>
       </div>
     </div>
   );
