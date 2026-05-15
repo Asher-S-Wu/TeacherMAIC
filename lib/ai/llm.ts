@@ -39,6 +39,16 @@ export interface LLMTextResult {
   rawResponse: unknown;
 }
 
+export class LLMTransportError extends Error {
+  cause?: unknown;
+
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = 'LLMTransportError';
+    this.cause = cause;
+  }
+}
+
 export interface LLMStreamResult {
   textStream: AsyncIterable<string>;
 }
@@ -239,6 +249,40 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+function getErrorCode(error: unknown): string | undefined {
+  if (!isRecord(error)) return undefined;
+  const code = error.code;
+  return typeof code === 'string' || typeof code === 'number' ? String(code) : undefined;
+}
+
+function getErrorCause(error: unknown): unknown {
+  if (!isRecord(error)) return undefined;
+  return error.cause;
+}
+
+function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    const parts = [error.name !== 'Error' ? error.name : '', error.message].filter(Boolean);
+    const code = getErrorCode(error);
+    if (code) parts.push(`code=${code}`);
+
+    const cause = getErrorCause(error);
+    if (cause) {
+      parts.push(`cause=${describeError(cause)}`);
+    }
+
+    return parts.join(': ');
+  }
+
+  if (isRecord(error)) {
+    const code = getErrorCode(error);
+    const message = typeof error.message === 'string' ? error.message : JSON.stringify(error);
+    return code ? `${message}: code=${code}` : message;
+  }
+
+  return String(error);
+}
+
 async function readProviderError(response: Response): Promise<string> {
   const text = await response.text().catch(() => '');
   if (!text) return `${response.status} ${response.statusText}`;
@@ -262,15 +306,23 @@ async function requestChatCompletions(
   stream: boolean,
 ): Promise<Response> {
   const body = buildChatCompletionsBody(params, thinking, stream);
-  const response = await fetch(getChatCompletionsUrl(params.model), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${params.model.apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-    signal: params.abortSignal,
-  });
+  let response: Response;
+  try {
+    response = await fetch(getChatCompletionsUrl(params.model), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${params.model.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: params.abortSignal,
+    });
+  } catch (error) {
+    throw new LLMTransportError(
+      `Chat Completions request failed [${source}, model=${params.model.modelId}]: ${describeError(error)}`,
+      error,
+    );
+  }
 
   if (!response.ok) {
     const message = await readProviderError(response);
