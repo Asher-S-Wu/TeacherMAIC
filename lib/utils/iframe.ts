@@ -6,7 +6,9 @@
  */
 import { normalizeWidgetConfigScript, removeTailwindBrowserRuntime } from './interactive-html';
 
-export function patchHtmlForIframe(html: string): string {
+export type WidgetTheme = 'light' | 'dark';
+
+export function patchHtmlForIframe(html: string, theme: WidgetTheme = 'light'): string {
   const processedHtml = normalizeWidgetConfigScript(removeTailwindBrowserRuntime(html));
   const iframeCss = `<style data-iframe-patch>
   html, body {
@@ -21,6 +23,26 @@ export function patchHtmlForIframe(html: string): string {
      but ensure body actually fills it */
   body { min-height: 100vh; }
   </style>`;
+  const themeBridge = `<script data-widget-theme-bridge>
+  (function () {
+    function applyWidgetTheme(theme) {
+      if (theme !== 'light' && theme !== 'dark') return;
+      window.WIDGET_THEME = theme;
+      document.documentElement.dataset.widgetTheme = theme;
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      document.documentElement.style.colorScheme = theme;
+      window.dispatchEvent(new CustomEvent('widget-theme-change', { detail: { theme: theme } }));
+    }
+
+    applyWidgetTheme('${theme}');
+
+    window.addEventListener('message', function (event) {
+      if (!event.data || event.data.type !== 'SET_WIDGET_THEME') return;
+      applyWidgetTheme(event.data.theme);
+    });
+  })();
+  </script>`;
+  const injection = `${iframeCss}\n${themeBridge}`;
 
   // Insert right after <head> or at the start of the document
   const headIdx = processedHtml.indexOf('<head>');
@@ -29,7 +51,7 @@ export function patchHtmlForIframe(html: string): string {
     return (
       processedHtml.substring(0, insertPos) +
       '\n' +
-      iframeCss +
+      injection +
       processedHtml.substring(insertPos)
     );
   }
@@ -42,12 +64,12 @@ export function patchHtmlForIframe(html: string): string {
       return (
         processedHtml.substring(0, insertPos) +
         '\n' +
-        iframeCss +
+        injection +
         processedHtml.substring(insertPos)
       );
     }
   }
 
   // No head tag: prepend the sizing patch.
-  return iframeCss + processedHtml;
+  return injection + processedHtml;
 }

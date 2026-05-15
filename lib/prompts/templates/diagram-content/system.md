@@ -20,7 +20,7 @@ Generate a self-contained HTML diagram with connected nodes.
 
 1. **SVG-based** with embedded JSON config
 2. **First node visible** on load
-3. **High contrast**: White nodes on dark background, light edge labels
+3. **Theme-aware high contrast**: Support both light and dark themes. Light theme uses a light background with dark text/nodes; dark theme uses a dark background with light text/nodes.
 4. **Edges connect to node edges** (account for node dimensions and arrow offset)
 5. **Mobile**: Sidebar/panel collapsible, doesn't block diagram
 6. **No jitter**: Avoid hover transform conflicts on click

@@ -38,3 +38,4 @@ Generate a complete, interactive HTML code editor with:
 3. Test case validation
 4. Progressive hint system
 5. Embedded widget configuration JSON
+6. Light and dark palettes that follow `document.documentElement.dataset.widgetTheme`

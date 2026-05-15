@@ -4,6 +4,7 @@ import { useMemo, useRef, useEffect, useCallback } from 'react';
 import type { InteractiveContent } from '@/lib/types/stage';
 import { useWidgetIframeStore } from '@/lib/store/widget-iframe';
 import { patchHtmlForIframe } from '@/lib/utils/iframe';
+import { useTheme } from '@/lib/hooks/use-theme';
 
 interface InteractiveRendererProps {
   readonly content: InteractiveContent;
@@ -12,6 +13,7 @@ interface InteractiveRendererProps {
 
 export function InteractiveRenderer({ content, sceneId }: InteractiveRendererProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const { resolvedTheme } = useTheme();
   const registerIframe = useWidgetIframeStore((state) => state.registerIframe);
   const setActiveScene = useWidgetIframeStore((state) => state.setActiveScene);
 
@@ -37,6 +39,13 @@ export function InteractiveRenderer({ content, sceneId }: InteractiveRendererPro
     };
   }, [sceneId, registerIframe, sendMessageToIframe, setActiveScene]);
 
+  useEffect(() => {
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: 'SET_WIDGET_THEME', theme: resolvedTheme },
+      '*',
+    );
+  }, [resolvedTheme]);
+
   return (
     <div className="w-full h-full relative">
       <iframe
@@ -46,6 +55,12 @@ export function InteractiveRenderer({ content, sceneId }: InteractiveRendererPro
         className="absolute inset-0 w-full h-full border-0"
         title={`Interactive Scene ${sceneId}`}
         sandbox="allow-scripts allow-forms allow-popups"
+        onLoad={() => {
+          iframeRef.current?.contentWindow?.postMessage(
+            { type: 'SET_WIDGET_THEME', theme: resolvedTheme },
+            '*',
+          );
+        }}
       />
     </div>
   );

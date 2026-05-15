@@ -53,10 +53,11 @@ Generate a FUN, INTERACTIVE HTML game with these MANDATORY features:
 6. **Replay value**: Random elements or multiple solutions
 
 ### Visual Design
-1. Attractive theme matching the subject
+1. Attractive theme matching the subject and current app theme
 2. Clear UI for controls and feedback
 3. Animations for success/failure
 4. Responsive layout (mobile + desktop)
+5. Support both light and dark palettes using `document.documentElement.dataset.widgetTheme`
 
 ### Technical (MANDATORY)
 1. **Inline onclick for start button**: `<button onclick="startGame()">开始</button>` - NOT addEventListener

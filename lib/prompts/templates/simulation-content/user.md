@@ -61,4 +61,5 @@ Generate a complete, interactive HTML simulation with these MANDATORY features:
 1. Show current simulation state (running/paused/ended)
 2. Animate transitions
 3. Clear feedback when simulation ends
-4. High contrast colors for visibility
+4. High contrast colors for visibility in both light and dark themes
+5. Follow `document.documentElement.dataset.widgetTheme` and use separate light/dark palettes instead of a dark-only design

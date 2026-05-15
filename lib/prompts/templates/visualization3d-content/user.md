@@ -33,6 +33,7 @@ Generate a complete, interactive 3D visualization using Three.js with these MAND
 2. **Proper lighting** (ambient + directional/point lights)
 3. **OrbitControls** for camera manipulation
 4. **Responsive canvas** that fills the container
+5. **Theme-aware background** that follows `document.documentElement.dataset.widgetTheme`
 
 ### Objects
 1. Create 3D objects based on the visualization type

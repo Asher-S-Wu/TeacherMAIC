@@ -126,6 +126,14 @@ async function runCode() {
 - Ensure editor has minimum height of 200px on mobile
 - Test cases should be collapsible on small screens
 
+## Theme Support - FOLLOW THE CURRENT APP THEME
+
+- Read the current theme from `document.documentElement.dataset.widgetTheme` (`light` or `dark`)
+- Define both `:root[data-widget-theme='light']` and `:root[data-widget-theme='dark']` palettes with CSS variables
+- Use those variables for page background, editor shell, output panel, test result states, text, and borders
+- Do not make the playground dark-only
+- If the editor library supports themes, choose the matching editor theme for the current mode and update it when `widget-theme-change` fires
+
 ## Output Format
 
 Return ONLY the HTML document, no markdown fences or explanations.

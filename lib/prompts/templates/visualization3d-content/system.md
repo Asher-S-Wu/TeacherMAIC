@@ -18,7 +18,7 @@ Your output must be a complete HTML document with:
 ### 1. LIGHTING - Objects MUST be clearly visible
 
 **ALWAYS ensure:**
-- Background should NOT be pure black (use deep blue `#0a0a1a` or dark gradient)
+- Background must follow the current widget theme: use a light background in light mode and a deep non-black background in dark mode
 - Ambient light intensity at least `0.4` (not 0.1!)
 - Main objects MUST have dedicated lights illuminating them
 - For planets/Earth, use bright diffuse color (not dark!)
@@ -179,12 +179,26 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
   <title>3D Visualization</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root[data-widget-theme='light'] {
+      --scene-bg: #eef4ff;
+      --panel-bg: rgba(255, 255, 255, 0.9);
+      --panel-text: #1f2937;
+      --muted-text: #475569;
+      --panel-border: rgba(15, 23, 42, 0.12);
+    }
+    :root[data-widget-theme='dark'] {
+      --scene-bg: #0a0a1a;
+      --panel-bg: rgba(20, 20, 30, 0.9);
+      --panel-text: #f8fafc;
+      --muted-text: #cbd5e1;
+      --panel-border: rgba(255, 255, 255, 0.1);
+    }
     /* CRITICAL: Set body background to match scene - fallback if Three.js fails */
     html, body {
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #0a0a1a;  /* MUST match scene.background color! */
+      background: var(--scene-bg);
     }
     #canvas-container { width: 100%; height: 100%; position: relative; }
     canvas { display: block; }
@@ -193,7 +207,7 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
     #loading {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: #0a0a1a;
+      background: var(--scene-bg);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -217,7 +231,7 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(20, 20, 30, 0.9);
+      background: var(--panel-bg);
       backdrop-filter: blur(12px);
       padding: 16px;
       display: flex;
@@ -225,7 +239,7 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
       gap: 12px;
       justify-content: center;
       align-items: center;
-      border-top: 1px solid rgba(255,255,255,0.1);
+      border-top: 1px solid var(--panel-border);
     }
 
     .control-group {
@@ -237,7 +251,7 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
 
     label {
       font-size: 11px;
-      color: #aaa;
+      color: var(--muted-text);
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -300,12 +314,12 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
       position: absolute;
       top: 20px;
       left: 20px;
-      background: rgba(20, 20, 30, 0.85);
+      background: var(--panel-bg);
       backdrop-filter: blur(8px);
       padding: 16px;
       border-radius: 12px;
       max-width: 280px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid var(--panel-border);
     }
 
     #info h2 {
@@ -316,7 +330,7 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
 
     #info p {
       font-size: 13px;
-      color: #ccc;
+      color: var(--muted-text);
       line-height: 1.5;
     }
 
@@ -365,6 +379,13 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+    function getThemeColors() {
+      const isDark = document.documentElement.dataset.widgetTheme === 'dark';
+      return {
+        sceneBackground: isDark ? '#0a0a1a' : '#eef4ff'
+      };
+    }
+
     // WebGL support check - REQUIRED
     function checkWebGL() {
       try {
@@ -396,7 +417,7 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
 
         // Scene setup
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0a0a1a); // MUST match body background!
+        scene.background = new THREE.Color(getThemeColors().sceneBackground);
 
         // Camera with validated dimensions
         const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
@@ -465,6 +486,10 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
           camera.aspect = newWidth / newHeight;
           camera.updateProjectionMatrix();
           renderer.setSize(newWidth, newHeight);
+        });
+
+        window.addEventListener('widget-theme-change', () => {
+          scene.background = new THREE.Color(getThemeColors().sceneBackground);
         });
 
         // Hide loading overlay - scene is ready
@@ -536,23 +561,29 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
 ## Design Requirements
 
 ### 1. Visibility & Contrast
-- Background: Use `#0a0a1a` or dark gradient (NOT pure black)
+- Background: Follow the current theme. Use a light neutral/blue-tinted background in light mode and a deep non-black background in dark mode.
 - Objects: Use bright, distinct colors
 - Ambient light: At least 0.5 intensity
 - Add hemisphere light for natural fill
 
-### 2. Mobile Responsiveness
+### 2. Theme Support - FOLLOW THE CURRENT APP THEME
+- Read the current theme from `document.documentElement.dataset.widgetTheme` (`light` or `dark`)
+- Define both light and dark CSS variable palettes, including `--scene-bg`, panel colors, text, borders, and accents
+- Do not make the visualization dark-only
+- Use a `getThemeColors()` helper for Three.js colors and update `scene.background`, panel styling, and any 2D overlays when `widget-theme-change` fires
+
+### 3. Mobile Responsiveness
 - Touch-friendly controls (44px minimum)
 - Zoom buttons always visible
 - OrbitControls works with touch
 - Control panel at bottom for thumb access
 
-### 3. Performance
+### 4. Performance
 - Use `requestAnimationFrame`
 - Limit geometry complexity
 - Use 64 segments for spheres (not 128)
 
-### 4. Textures
+### 5. Textures
 - Create procedural textures using Canvas API
 - No external image dependencies
 - Earth: Blue ocean + green continents + white ice caps

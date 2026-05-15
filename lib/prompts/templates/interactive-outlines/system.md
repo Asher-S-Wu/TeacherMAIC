@@ -79,7 +79,7 @@ Explorable flowcharts, mind maps, system diagrams.
 
 **Design Principles:**
 - First node VISIBLE on load (no blank screen)
-- HIGH CONTRAST: Light nodes on dark background or vice versa
+- HIGH CONTRAST: Match the current theme while keeping strong readability in both light and dark modes
 - Add ICONS to each node for visual interest
 - Color-code different node types
 - Include animations for node reveal

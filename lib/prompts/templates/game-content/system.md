@@ -118,6 +118,14 @@ Learning: Player EXPERIENCES F=ma by adjusting thrust and seeing result
 - Pause/resume functionality
 - Clear instructions before game starts
 
+## Theme Support - FOLLOW THE CURRENT APP THEME
+
+- Read the current theme from `document.documentElement.dataset.widgetTheme` (`light` or `dark`)
+- Define both `:root[data-widget-theme='light']` and `:root[data-widget-theme='dark']` palettes with CSS variables
+- Use those variables for page background, panels, HUD, text, buttons, borders, and status colors
+- Do not make the game dark-only
+- For Canvas-based scenes, centralize theme colors in a function/object and redraw when `widget-theme-change` fires
+
 ## Fair Start Requirements (CRITICAL)
 
 **NEVER let the player fail immediately when the game starts!**

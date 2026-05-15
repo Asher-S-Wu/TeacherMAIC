@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import type { InteractiveContent } from '@/lib/types/stage';
 import { patchHtmlForIframe } from '@/lib/utils/iframe';
+import { useTheme } from '@/lib/hooks/use-theme';
 
 interface ThumbnailInteractiveProps {
   /** Interactive content to render */
@@ -25,6 +26,7 @@ export function ThumbnailInteractive({
 }: ThumbnailInteractiveProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const { resolvedTheme } = useTheme();
 
   // Intersection observer for lazy loading
   useEffect(() => {
@@ -48,8 +50,8 @@ export function ThumbnailInteractive({
 
   // Patch HTML for iframe rendering (only when visible to save memory)
   const patchedHtml = useMemo(
-    () => (isVisible && content.html ? patchHtmlForIframe(content.html) : undefined),
-    [isVisible, content.html],
+    () => (isVisible && content.html ? patchHtmlForIframe(content.html, resolvedTheme) : undefined),
+    [isVisible, content.html, resolvedTheme],
   );
 
   // Calculate thumbnail height (16:9 aspect ratio)

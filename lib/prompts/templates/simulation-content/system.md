@@ -114,6 +114,13 @@ To make highlight/annotation work, use consistent IDs for controls:
 - Do not include `<script src="https://cdn.tailwindcss.com">`, `type="text/tailwindcss"`, `@tailwind`, or `@apply`.
 - Use semantic class names and write all styles inside a normal `<style>` tag.
 
+### Theme Support - FOLLOW THE CURRENT APP THEME
+- Read the current theme from `document.documentElement.dataset.widgetTheme` (`light` or `dark`)
+- Define both `:root[data-widget-theme='light']` and `:root[data-widget-theme='dark']` palettes with CSS variables
+- Use those variables for page background, panels, text, borders, controls, and chart/canvas support colors
+- Do not make the widget dark-only
+- For Canvas drawings, centralize theme colors in a function/object and redraw when `widget-theme-change` fires
+
 ### 1. Mobile Layout - NO OVERLAP
 - **Control panel MUST NOT overlap with canvas on mobile**
 - Use one of these mobile-safe layouts:
