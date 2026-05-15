@@ -32,7 +32,7 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
   },
   think: {
     id: 'think',
-    label: '思考',
+    label: '标准',
     description: '擅长解决更难的问题',
     icon: Atom,
     providerId: 'ark',
@@ -41,7 +41,7 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
   },
   expert: {
     id: 'expert',
-    label: '专家',
+    label: '专业',
     description: '研究级智能模型',
     icon: Network,
     providerId: EXPERT_PROVIDER_ID,
