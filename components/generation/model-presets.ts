@@ -30,7 +30,7 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     icon: Zap,
     providerId: GEMINI_PROVIDER_ID,
     modelId: OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
-    thinkingConfig: { mode: 'enabled', effort: 'high' },
+    thinkingConfig: { mode: 'enabled', level: 'high' },
   },
   think: {
     id: 'think',
@@ -39,7 +39,7 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     icon: Atom,
     providerId: GEMINI_PROVIDER_ID,
     modelId: OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
-    thinkingConfig: { mode: 'enabled', effort: 'high' },
+    thinkingConfig: { mode: 'enabled', level: 'high' },
   },
   expert: {
     id: 'expert',
@@ -48,7 +48,7 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     icon: Network,
     providerId: EXPERT_PROVIDER_ID,
     modelId: EXPERT_MODEL_ID,
-    thinkingConfig: { mode: 'enabled', effort: 'high' },
+    thinkingConfig: { mode: 'enabled', level: 'high' },
   },
 };
 

@@ -1,12 +1,11 @@
 /**
  * Unified LLM Call Layer
  *
- * Text generation goes through provider-specific Chat Completions APIs.
+ * Text generation goes through provider-specific APIs.
  */
 
 import { createLogger } from '@/lib/logger';
 import { ARK_CHAT_COMPLETIONS_PATH } from './ark-models';
-import { GEMINI_CHAT_COMPLETIONS_PATH } from './gemini-models';
 import {
   GEMINI_PROVIDER_ID,
   OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
@@ -14,7 +13,7 @@ import {
   OFFICIAL_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
 } from './providers';
 import type { ChatCompletionsModel } from './providers';
-import type { ThinkingConfig, ThinkingEffort } from '@/lib/types/provider';
+import type { ThinkingConfig, ThinkingEffort, ThinkingLevel } from '@/lib/types/provider';
 
 const log = createLogger('LLM');
 
@@ -66,27 +65,44 @@ export interface LLMRetryOptions {
   validate?: (text: string) => boolean;
 }
 
-type ChatTextPart = { type: 'text'; text: string };
-type ChatImagePart = { type: 'image_url'; image_url: { url: string; detail: 'high' } };
-type ChatContentPart = ChatTextPart | ChatImagePart;
-type ChatMessage = {
+type ArkChatTextPart = { type: 'text'; text: string };
+type ArkChatImagePart = { type: 'image_url'; image_url: { url: string; detail: 'high' } };
+type ArkChatContentPart = ArkChatTextPart | ArkChatImagePart;
+type ArkChatMessage = {
   role: 'system' | 'user' | 'assistant';
-  content: string | ChatContentPart[];
+  content: string | ArkChatContentPart[];
 };
 
-interface ChatCompletionsBody {
+interface ArkChatCompletionsBody {
   model: string;
-  messages: ChatMessage[];
+  messages: ArkChatMessage[];
   stream: boolean;
   max_tokens: number;
   thinking?: { type: 'enabled' | 'disabled' };
   reasoning_effort?: Extract<ThinkingEffort, 'minimal' | 'low' | 'medium' | 'high'>;
 }
 
+type GeminiTextPart = { text: string };
+type GeminiInlineDataPart = { inlineData: { mimeType: string; data: string } };
+type GeminiPart = GeminiTextPart | GeminiInlineDataPart;
+type GeminiContent = {
+  role: 'user' | 'model';
+  parts: GeminiPart[];
+};
+
+interface GeminiGenerateContentBody {
+  contents: GeminiContent[];
+  systemInstruction?: { parts: GeminiTextPart[] };
+  generationConfig: {
+    maxOutputTokens: number;
+    thinkingConfig?: { thinkingLevel: ThinkingLevel };
+  };
+}
+
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
 
-function isGeminiOpenAICompatibleProvider(model: ChatCompletionsModel): boolean {
-  return model.providerType === 'gemini-openai-chat-completions';
+function isGeminiNativeProvider(model: ChatCompletionsModel): boolean {
+  return model.providerType === 'gemini-generate-content';
 }
 
 function isArkChatCompletionsProvider(model: ChatCompletionsModel): boolean {
@@ -106,11 +122,12 @@ function isOfficialGeminiReasoningModel(model: ChatCompletionsModel): boolean {
   );
 }
 
-function getChatCompletionsUrl(model: ChatCompletionsModel): string {
-  const path = isGeminiOpenAICompatibleProvider(model)
-    ? GEMINI_CHAT_COMPLETIONS_PATH
-    : ARK_CHAT_COMPLETIONS_PATH;
-  return `${model.baseUrl.replace(/\/$/, '')}${path}`;
+function getTextGenerationUrl(model: ChatCompletionsModel, stream: boolean): string {
+  if (isGeminiNativeProvider(model)) {
+    const action = stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
+    return `${model.baseUrl.replace(/\/$/, '')}/${model.modelId}:${action}`;
+  }
+  return `${model.baseUrl.replace(/\/$/, '')}${ARK_CHAT_COMPLETIONS_PATH}`;
 }
 
 function getMaxOutputTokens(params: LLMGenerateParams): number {
@@ -143,6 +160,18 @@ function getReasoningEffort(
   return 'high';
 }
 
+function getGeminiThinkingLevel(config?: ThinkingConfig): ThinkingLevel {
+  if (
+    config?.level === 'minimal' ||
+    config?.level === 'low' ||
+    config?.level === 'medium' ||
+    config?.level === 'high'
+  ) {
+    return config.level;
+  }
+  return 'high';
+}
+
 function shouldSendOfficialGeminiReasoning(
   model: ChatCompletionsModel,
   config?: ThinkingConfig,
@@ -155,7 +184,7 @@ function shouldSendOfficialGeminiReasoning(
   );
 }
 
-function imageToUrl(part: ImagePart): string {
+function imageToArkUrl(part: ImagePart): string {
   if (part.image.startsWith('http://') || part.image.startsWith('https://')) {
     return part.image;
   }
@@ -166,6 +195,29 @@ function imageToUrl(part: ImagePart): string {
   return `data:${mimeType};base64,${part.image}`;
 }
 
+function imageToGeminiInlineData(part: ImagePart): GeminiInlineDataPart {
+  const dataUriMatch = part.image.match(/^data:([^;]+);base64,(.+)$/);
+  if (dataUriMatch) {
+    return {
+      inlineData: {
+        mimeType: dataUriMatch[1],
+        data: dataUriMatch[2],
+      },
+    };
+  }
+
+  if (part.image.startsWith('http://') || part.image.startsWith('https://')) {
+    throw new Error('Gemini 原生接口只支持内嵌图片数据');
+  }
+
+  return {
+    inlineData: {
+      mimeType: part.mimeType || 'image/png',
+      data: part.image,
+    },
+  };
+}
+
 function contentToPlainText(content: MessageContent): string {
   if (typeof content === 'string') return content;
   return content
@@ -174,24 +226,31 @@ function contentToPlainText(content: MessageContent): string {
     .join('\n');
 }
 
-function contentToChatContent(content: MessageContent): string | ChatContentPart[] {
+function contentToArkChatContent(content: MessageContent): string | ArkChatContentPart[] {
   if (typeof content === 'string') return content;
   return content.map((part) => {
     if (part.type === 'text') {
-      return { type: 'text', text: part.text } satisfies ChatTextPart;
+      return { type: 'text', text: part.text } satisfies ArkChatTextPart;
     }
     return {
       type: 'image_url',
       image_url: {
-        url: imageToUrl(part),
+        url: imageToArkUrl(part),
         detail: 'high',
       },
-    } satisfies ChatImagePart;
+    } satisfies ArkChatImagePart;
   });
 }
 
-function buildMessages(params: LLMGenerateParams): ChatMessage[] {
-  const messages: ChatMessage[] = [];
+function contentToGeminiParts(content: MessageContent): GeminiPart[] {
+  if (typeof content === 'string') return [{ text: content }];
+  return content.map((part) =>
+    part.type === 'text' ? { text: part.text } : imageToGeminiInlineData(part),
+  );
+}
+
+function buildArkMessages(params: LLMGenerateParams): ArkChatMessage[] {
+  const messages: ArkChatMessage[] = [];
 
   if (params.system?.trim()) {
     messages.push({ role: 'system', content: params.system });
@@ -203,7 +262,7 @@ function buildMessages(params: LLMGenerateParams): ChatMessage[] {
       content:
         message.role === 'system'
           ? contentToPlainText(message.content)
-          : contentToChatContent(message.content),
+          : contentToArkChatContent(message.content),
     });
   }
 
@@ -218,14 +277,57 @@ function buildMessages(params: LLMGenerateParams): ChatMessage[] {
   return messages;
 }
 
-function buildChatCompletionsBody(
+function buildGeminiContents(params: LLMGenerateParams): {
+  contents: GeminiContent[];
+  systemInstruction?: { parts: GeminiTextPart[] };
+} {
+  const contents: GeminiContent[] = [];
+  const systemParts: GeminiTextPart[] = [];
+
+  if (params.system?.trim()) {
+    systemParts.push({ text: params.system });
+  }
+
+  for (const message of params.messages ?? []) {
+    if (message.role === 'system') {
+      const text = contentToPlainText(message.content);
+      if (text.trim()) {
+        systemParts.push({ text });
+      }
+      continue;
+    }
+
+    contents.push({
+      role: message.role === 'assistant' ? 'model' : 'user',
+      parts: contentToGeminiParts(message.content),
+    });
+  }
+
+  if (params.prompt !== undefined) {
+    contents.push({
+      role: 'user',
+      parts: [{ text: params.prompt }],
+    });
+  }
+
+  if (contents.length === 0) {
+    throw new Error('LLM request missing input');
+  }
+
+  return {
+    contents,
+    ...(systemParts.length > 0 ? { systemInstruction: { parts: systemParts } } : {}),
+  };
+}
+
+function buildArkChatCompletionsBody(
   params: LLMGenerateParams,
   thinking?: ThinkingConfig,
   stream = false,
-): ChatCompletionsBody {
-  const body: ChatCompletionsBody = {
+): ArkChatCompletionsBody {
+  const body: ArkChatCompletionsBody = {
     model: params.model.modelId,
-    messages: buildMessages(params),
+    messages: buildArkMessages(params),
     stream,
     max_tokens: getMaxOutputTokens(params),
   };
@@ -238,14 +340,28 @@ function buildChatCompletionsBody(
     }
   }
 
-  if (isGeminiOpenAICompatibleProvider(params.model)) {
-    const includeReasoning = shouldSendOfficialGeminiReasoning(params.model, thinking);
-    if (includeReasoning) {
-      body.reasoning_effort = getReasoningEffort(thinking);
-    }
+  return body;
+}
+
+function buildGeminiGenerateContentBody(
+  params: LLMGenerateParams,
+  thinking?: ThinkingConfig,
+): GeminiGenerateContentBody {
+  const content = buildGeminiContents(params);
+  const generationConfig: GeminiGenerateContentBody['generationConfig'] = {
+    maxOutputTokens: getMaxOutputTokens(params),
+  };
+
+  if (shouldSendOfficialGeminiReasoning(params.model, thinking)) {
+    generationConfig.thinkingConfig = {
+      thinkingLevel: getGeminiThinkingLevel(thinking),
+    };
   }
 
-  return body;
+  return {
+    ...content,
+    generationConfig,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -302,27 +418,35 @@ async function readProviderError(response: Response): Promise<string> {
   return text;
 }
 
-async function requestChatCompletions(
+async function requestTextGeneration(
   params: LLMGenerateParams,
   source: string,
   thinking: ThinkingConfig | undefined,
   stream: boolean,
 ): Promise<Response> {
-  const body = buildChatCompletionsBody(params, thinking, stream);
-  let response: Response;
-  try {
-    response = await fetch(getChatCompletionsUrl(params.model), {
-      method: 'POST',
-      headers: {
+  const body = isGeminiNativeProvider(params.model)
+    ? buildGeminiGenerateContentBody(params, thinking)
+    : buildArkChatCompletionsBody(params, thinking, stream);
+  const headers = isGeminiNativeProvider(params.model)
+    ? {
+        'x-goog-api-key': params.model.apiKey,
+        'Content-Type': 'application/json',
+      }
+    : {
         Authorization: `Bearer ${params.model.apiKey}`,
         'Content-Type': 'application/json',
-      },
+      };
+  let response: Response;
+  try {
+    response = await fetch(getTextGenerationUrl(params.model, stream), {
+      method: 'POST',
+      headers,
       body: JSON.stringify(body),
       signal: params.abortSignal,
     });
   } catch (error) {
     throw new LLMTransportError(
-      `Chat Completions request failed [${source}, model=${params.model.modelId}]: ${describeError(error)}`,
+      `LLM request failed [${source}, model=${params.model.modelId}]: ${describeError(error)}`,
       error,
     );
   }
@@ -330,7 +454,7 @@ async function requestChatCompletions(
   if (!response.ok) {
     const message = await readProviderError(response);
     throw new Error(
-      `Chat Completions API failed [${source}, model=${params.model.modelId}, status=${response.status}]: ${message}`,
+      `LLM API failed [${source}, model=${params.model.modelId}, status=${response.status}]: ${message}`,
     );
   }
 
@@ -350,7 +474,7 @@ function extractTextFromContent(content: unknown): string {
     .join('');
 }
 
-function extractTextFromChatCompletion(payload: unknown): string {
+function extractTextFromArkChatCompletion(payload: unknown): string {
   if (!isRecord(payload)) return '';
   const choices = payload.choices;
   if (!Array.isArray(choices)) return '';
@@ -361,6 +485,35 @@ function extractTextFromChatCompletion(payload: unknown): string {
   return extractTextFromContent(message.content);
 }
 
+function extractTextFromGeminiResponse(payload: unknown): string {
+  if (!isRecord(payload)) return '';
+  const candidates = payload.candidates;
+  if (!Array.isArray(candidates)) return '';
+
+  return candidates
+    .map((candidate) => {
+      if (!isRecord(candidate)) return '';
+      const content = candidate.content;
+      if (!isRecord(content)) return '';
+      const parts = content.parts;
+      if (!Array.isArray(parts)) return '';
+
+      return parts
+        .map((part) => {
+          if (!isRecord(part) || part.thought === true) return '';
+          return typeof part.text === 'string' ? part.text : '';
+        })
+        .join('');
+    })
+    .join('');
+}
+
+function extractTextFromProviderResponse(model: ChatCompletionsModel, payload: unknown): string {
+  return isGeminiNativeProvider(model)
+    ? extractTextFromGeminiResponse(payload)
+    : extractTextFromArkChatCompletion(payload);
+}
+
 function getSseData(block: string): string {
   return block
     .split(/\r?\n/)
@@ -369,7 +522,7 @@ function getSseData(block: string): string {
     .join('\n');
 }
 
-function extractTextDelta(eventPayload: unknown): string {
+function extractArkTextDelta(eventPayload: unknown): string {
   if (!isRecord(eventPayload)) return '';
   const choices = eventPayload.choices;
   if (!Array.isArray(choices)) return '';
@@ -384,14 +537,20 @@ function extractTextDelta(eventPayload: unknown): string {
     .join('');
 }
 
-async function* streamChatCompletionsText(
+function extractStreamTextDelta(model: ChatCompletionsModel, payload: unknown): string {
+  return isGeminiNativeProvider(model)
+    ? extractTextFromGeminiResponse(payload)
+    : extractArkTextDelta(payload);
+}
+
+async function* streamTextGeneration(
   params: LLMStreamParams,
   source: string,
   thinking?: ThinkingConfig,
 ): AsyncIterable<string> {
-  const response = await requestChatCompletions(params, source, thinking, true);
+  const response = await requestTextGeneration(params, source, thinking, true);
   if (!response.body) {
-    throw new Error(`Chat Completions API returned an empty stream [${source}]`);
+    throw new Error(`LLM API returned an empty stream [${source}]`);
   }
 
   const reader = response.body.getReader();
@@ -418,7 +577,7 @@ async function* streamChatCompletionsText(
         const data = getSseData(block);
         if (data && data !== '[DONE]') {
           const parsed = JSON.parse(data) as unknown;
-          const delta = extractTextDelta(parsed);
+          const delta = extractStreamTextDelta(params.model, parsed);
           if (delta) yield delta;
         }
 
@@ -431,7 +590,7 @@ async function* streamChatCompletionsText(
     const tail = getSseData(buffer);
     if (tail && tail !== '[DONE]') {
       const parsed = JSON.parse(tail) as unknown;
-      const delta = extractTextDelta(parsed);
+      const delta = extractStreamTextDelta(params.model, parsed);
       if (delta) yield delta;
     }
   } finally {
@@ -453,10 +612,10 @@ export async function callLLM<T extends LLMGenerateParams>(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const response = await requestChatCompletions(params, source, thinking, false);
+      const response = await requestTextGeneration(params, source, thinking, false);
       const payload = (await response.json()) as unknown;
       const result: LLMTextResult = {
-        text: extractTextFromChatCompletion(payload),
+        text: extractTextFromProviderResponse(params.model, payload),
         rawResponse: payload,
       };
 
@@ -487,5 +646,5 @@ export function streamLLM<T extends LLMStreamParams>(
   source: string,
   thinking?: ThinkingConfig,
 ): LLMStreamResult {
-  return { textStream: streamChatCompletionsText(params, source, thinking) };
+  return { textStream: streamTextGeneration(params, source, thinking) };
 }

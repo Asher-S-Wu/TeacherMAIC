@@ -442,14 +442,14 @@
     "close": "关闭",
     "save": "保存",
     "providers": "语言模型",
-    "addProviderDescription": "可在模型列表中切换火山方舟或 Google Gemini",
+    "addProviderDescription": "当前文本模型统一使用 Google Gemini",
     "providerNames": {
       "ark": "火山方舟",
       "gemini": "Google Gemini"
     },
     "providerTypes": {
       "ark-chat-completions": "Chat Completions",
-      "gemini-openai-chat-completions": "Chat Completions"
+      "gemini-generate-content": "Gemini 原生"
     },
     "modelCount": "个模型",
     "modelSingular": "个模型",

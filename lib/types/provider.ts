@@ -15,7 +15,7 @@ export type ProviderId = BuiltInProviderId;
 /**
  * Provider API types
  */
-export type ProviderType = 'ark-chat-completions' | 'gemini-openai-chat-completions';
+export type ProviderType = 'ark-chat-completions' | 'gemini-generate-content';
 
 export type ThinkingControlType =
   | 'none'
@@ -33,7 +33,7 @@ export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
 export type ThinkingRequestAdapter =
   | 'none'
   | 'ark-chat-completions'
-  | 'gemini-openai-chat-completions';
+  | 'gemini-generate-content';
 
 /**
  * Describes a model's thinking/reasoning API control capability.

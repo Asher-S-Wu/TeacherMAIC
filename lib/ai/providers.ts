@@ -65,7 +65,7 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
   gemini: {
     id: 'gemini',
     name: 'Google Gemini',
-    type: 'gemini-openai-chat-completions',
+    type: 'gemini-generate-content',
     defaultBaseUrl: GEMINI_BASE_URL,
     requiresApiKey: true,
     models: [

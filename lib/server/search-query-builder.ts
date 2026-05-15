@@ -5,6 +5,7 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('SearchQueryBuilder');
 const WEB_SEARCH_QUERY_MAX_LENGTH = 350;
+const WEB_SEARCH_DECISION_MAX_ATTEMPTS = 5;
 export const SEARCH_QUERY_REWRITE_EXCERPT_LENGTH = 7000;
 
 interface SearchQueryRewriteResponse {
@@ -66,24 +67,33 @@ export async function decideWebSearch(
     throw new Error('联网搜索判断提示词不存在');
   }
 
-  try {
-    const response = await aiCall(prompts.system, prompts.user);
-    const parsed = parseJsonResponse<WebSearchDecisionResponse>(response);
+  let lastError: unknown;
 
-    if (typeof parsed?.shouldSearch !== 'boolean') {
-      throw new Error('联网搜索判断结果格式不正确');
+  for (let attempt = 1; attempt <= WEB_SEARCH_DECISION_MAX_ATTEMPTS; attempt++) {
+    try {
+      const response = await aiCall(prompts.system, prompts.user);
+      const parsed = parseJsonResponse<WebSearchDecisionResponse>(response);
+
+      if (typeof parsed?.shouldSearch !== 'boolean') {
+        throw new Error('联网搜索判断结果格式不正确');
+      }
+
+      return {
+        shouldSearch: parsed.shouldSearch,
+        reason: normalizeSearchRequirement(parsed.reason || ''),
+        rawRequirementLength: normalizedRequirement.length,
+        hasPdfContext: Boolean(pdfExcerpt),
+      };
+    } catch (error) {
+      lastError = error;
+      log.warn(
+        `Web search decision failed (attempt ${attempt}/${WEB_SEARCH_DECISION_MAX_ATTEMPTS}):`,
+        error,
+      );
     }
-
-    return {
-      shouldSearch: parsed.shouldSearch,
-      reason: normalizeSearchRequirement(parsed.reason || ''),
-      rawRequirementLength: normalizedRequirement.length,
-      hasPdfContext: Boolean(pdfExcerpt),
-    };
-  } catch (error) {
-    log.warn('Web search decision failed:', error);
-    throw new Error('联网搜索智能判断失败');
   }
+
+  throw new Error('联网搜索智能判断失败', { cause: lastError });
 }
 
 export async function buildSearchQuery(

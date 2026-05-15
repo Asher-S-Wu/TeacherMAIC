@@ -9,22 +9,33 @@ export function getModelMetadataKey(providerId: string, modelId: string): string
   return `${providerId}:${modelId}`;
 }
 
-const OFFICIAL_GEMINI_THINKING_CAPABILITY: ThinkingCapability = {
-  control: 'effort',
-  requestAdapter: 'gemini-openai-chat-completions',
+const OFFICIAL_GEMINI_FLASH_THINKING_CAPABILITY: ThinkingCapability = {
+  control: 'level',
+  requestAdapter: 'gemini-generate-content',
   defaultMode: 'enabled',
-  effortValues: ['minimal', 'low', 'medium', 'high'],
-  defaultEffort: 'high',
+  levelValues: ['minimal', 'low', 'medium', 'high'],
+  defaultLevel: 'high',
+  toggleable: true,
+  budgetAdjustable: true,
+  defaultEnabled: true,
+};
+
+const OFFICIAL_GEMINI_PRO_THINKING_CAPABILITY: ThinkingCapability = {
+  control: 'level',
+  requestAdapter: 'gemini-generate-content',
+  defaultMode: 'enabled',
+  levelValues: ['low', 'medium', 'high'],
+  defaultLevel: 'high',
   toggleable: true,
   budgetAdjustable: true,
   defaultEnabled: true,
 };
 
 const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
-  [`gemini:${GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID}`]: OFFICIAL_GEMINI_THINKING_CAPABILITY,
-  [`gemini:${GEMINI_3_FLASH_PREVIEW_MODEL_ID}`]: OFFICIAL_GEMINI_THINKING_CAPABILITY,
+  [`gemini:${GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID}`]: OFFICIAL_GEMINI_FLASH_THINKING_CAPABILITY,
+  [`gemini:${GEMINI_3_FLASH_PREVIEW_MODEL_ID}`]: OFFICIAL_GEMINI_FLASH_THINKING_CAPABILITY,
   [`gemini:${GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID}`]:
-    OFFICIAL_GEMINI_THINKING_CAPABILITY,
+    OFFICIAL_GEMINI_PRO_THINKING_CAPABILITY,
 };
 
 export function getCatalogThinkingCapability(
