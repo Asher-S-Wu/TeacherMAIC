@@ -744,7 +744,7 @@ function HomePage() {
       )}
 
       {/* Footer — flows with content, at the very end */}
-      <div className="mt-auto flex flex-col items-center gap-3 pt-12 pb-4 text-center">
+      <div className="mt-auto flex flex-col items-center gap-3 pt-8 pb-8 text-center">
         <a
           href="https://github.com/THU-MAIC/OpenMAIC"
           target="_blank"
