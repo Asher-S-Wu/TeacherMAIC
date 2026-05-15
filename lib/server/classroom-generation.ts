@@ -29,9 +29,10 @@ import type { Scene, Stage } from '@/lib/types/stage';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import type { ObjectId } from 'mongodb';
 import { AGENT_COLOR_PALETTE, AGENT_DEFAULT_AVATARS } from '@/lib/constants/agent-defaults';
+import { MAX_GENERATION_ATTEMPTS } from '@/lib/generation/retry';
 
 const log = createLogger('Classroom');
-const MAX_AGENT_PROFILE_ATTEMPTS = 3;
+const MAX_AGENT_PROFILE_ATTEMPTS = MAX_GENERATION_ATTEMPTS;
 
 export interface GenerateClassroomInput {
   requirement: string;
@@ -186,11 +187,10 @@ Return a JSON object with this exact structure:
             lastRawText,
             lastError?.message ?? 'The previous response was invalid JSON.',
           );
-    const response = await aiCall(systemPrompt, prompt);
-    const rawText = stripCodeFences(response);
-    lastRawText = rawText;
-
     try {
+      const response = await aiCall(systemPrompt, prompt);
+      const rawText = stripCodeFences(response);
+      lastRawText = rawText;
       parsed = parseAndValidateServerAgentProfiles(rawText);
       if (attempt > 1) {
         log.info(`Agent profiles JSON fixed after retry ${attempt - 1}`);
@@ -203,7 +203,7 @@ Return a JSON object with this exact structure:
       if (attempt < MAX_AGENT_PROFILE_ATTEMPTS) {
         log.warn(message, 'Retrying with correction prompt.');
       } else {
-        log.error(message, rawText.substring(0, 500));
+        log.error(message, lastRawText.substring(0, 500));
       }
     }
   }

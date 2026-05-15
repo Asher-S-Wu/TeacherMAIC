@@ -12,9 +12,10 @@ import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { AGENT_COLOR_PALETTE } from '@/lib/constants/agent-defaults';
+import { MAX_GENERATION_ATTEMPTS } from '@/lib/generation/retry';
 
 const log = createLogger('Agent Profiles API');
-const MAX_AGENT_PROFILE_ATTEMPTS = 3;
+const MAX_AGENT_PROFILE_ATTEMPTS = MAX_GENERATION_ATTEMPTS;
 
 interface RequestBody {
   stageInfo: { name: string; description?: string };
@@ -190,29 +191,28 @@ Return a JSON object with this exact structure:
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= MAX_AGENT_PROFILE_ATTEMPTS; attempt += 1) {
-      const result = await callLLM(
-        {
-          model: languageModel,
-          system: systemPrompt,
-          ...(attempt === 1
-            ? { prompt: userPrompt }
-            : {
-                messages: buildRetryMessages(
-                  userPrompt,
-                  lastRawText,
-                  lastError?.message ?? 'The previous response was invalid JSON.',
-                ),
-              }),
-        },
-        'agent-profiles',
-        undefined,
-        thinkingConfig,
-      );
-
-      const rawText = stripCodeFences(result.text);
-      lastRawText = rawText;
-
       try {
+        const result = await callLLM(
+          {
+            model: languageModel,
+            system: systemPrompt,
+            ...(attempt === 1
+              ? { prompt: userPrompt }
+              : {
+                  messages: buildRetryMessages(
+                    userPrompt,
+                    lastRawText,
+                    lastError?.message ?? 'The previous response was invalid JSON.',
+                  ),
+                }),
+          },
+          'agent-profiles',
+          undefined,
+          thinkingConfig,
+        );
+
+        const rawText = stripCodeFences(result.text);
+        lastRawText = rawText;
         parsed = parseAndValidateAgentProfiles(rawText);
         if (attempt > 1) {
           log.info(`Agent profiles JSON fixed after retry ${attempt - 1}`);
@@ -225,7 +225,7 @@ Return a JSON object with this exact structure:
         if (attempt < MAX_AGENT_PROFILE_ATTEMPTS) {
           log.warn(message, 'Retrying with correction prompt.');
         } else {
-          log.error(message, rawText.substring(0, 500));
+          log.error(message, lastRawText.substring(0, 500));
         }
       }
     }

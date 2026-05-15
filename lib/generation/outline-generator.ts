@@ -15,6 +15,7 @@ import { parseJsonResponse } from './json-repair';
 import { uniquifyMediaElementIds } from './scene-builder';
 import { validateSceneOutline } from './outline-validation';
 import type { AICallFn, GenerationResult, GenerationCallbacks } from './pipeline-types';
+import { generateWithStructuredRetries } from './retry';
 
 /**
  * Generate scene outlines from user requirements
@@ -111,26 +112,34 @@ export async function generateSceneOutlinesFromRequirements(
       totalScenes: 0,
     });
 
-    const response = await aiCall(prompts.system, prompts.user, visionImages);
-    const parsed = parseJsonResponse<{ languageDirective: string; outlines: SceneOutline[] }>(
-      response,
-    );
+    const { languageDirective, outlines: result } = await generateWithStructuredRetries({
+      label: 'Scene outlines',
+      systemPrompt: prompts.system,
+      userPrompt: prompts.user,
+      aiCall,
+      images: visionImages,
+      parse: (response) => {
+        const parsed = parseJsonResponse<{ languageDirective: string; outlines: SceneOutline[] }>(
+          response,
+        );
 
-    if (
-      !parsed ||
-      typeof parsed.languageDirective !== 'string' ||
-      parsed.languageDirective.trim().length === 0 ||
-      !Array.isArray(parsed.outlines)
-    ) {
-      return { success: false, error: 'Failed to parse scene outlines response' };
-    }
+        if (
+          !parsed ||
+          typeof parsed.languageDirective !== 'string' ||
+          parsed.languageDirective.trim().length === 0 ||
+          !Array.isArray(parsed.outlines) ||
+          parsed.outlines.length === 0
+        ) {
+          throw new Error('Failed to parse scene outlines response');
+        }
 
-    const { languageDirective, outlines: rawOutlines } = parsed;
-
-    const validated = rawOutlines.map(validateSceneOutline);
-
-    // Replace sequential gen_img_N/gen_vid_N with globally unique IDs
-    const result = uniquifyMediaElementIds(validated);
+        const validated = parsed.outlines.map(validateSceneOutline);
+        return {
+          languageDirective: parsed.languageDirective,
+          outlines: uniquifyMediaElementIds(validated),
+        };
+      },
+    });
 
     callbacks?.onProgress?.({
       currentStage: 1,

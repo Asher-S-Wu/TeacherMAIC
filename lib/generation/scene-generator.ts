@@ -31,6 +31,7 @@ import { CLASSROOM_GENERATION_CONCURRENCY } from '@/lib/constants/classroom-gene
 import { postProcessInteractiveHtml } from './interactive-post-processor';
 import { parseActionsFromStructuredOutput } from './action-parser';
 import { parseJsonResponse } from './json-repair';
+import { generateWithStructuredRetries } from './retry';
 import {
   buildCourseContext,
   buildLanguageText,
@@ -593,11 +594,29 @@ async function generateSlideContent(
     log.debug(`Vision images: ${visionImages.map((img) => img.id).join(', ')}`);
   }
 
-  const response = await aiCall(prompts.system, prompts.user, visionImages);
-  const generatedData = parseJsonResponse<GeneratedSlideData>(response);
-
-  if (!generatedData || !generatedData.elements || !Array.isArray(generatedData.elements)) {
-    log.error(`Failed to parse AI response for: ${outline.title}`);
+  let generatedData: GeneratedSlideData;
+  try {
+    generatedData = await generateWithStructuredRetries({
+      label: `Slide content "${outline.title}"`,
+      systemPrompt: prompts.system,
+      userPrompt: prompts.user,
+      aiCall,
+      images: visionImages,
+      parse: (response) => {
+        const parsed = parseJsonResponse<GeneratedSlideData>(response);
+        if (
+          !parsed ||
+          !parsed.elements ||
+          !Array.isArray(parsed.elements) ||
+          parsed.elements.length === 0
+        ) {
+          throw new Error('Failed to parse slide content response');
+        }
+        return parsed;
+      },
+    });
+  } catch (error) {
+    log.error(`Failed to generate slide content for: ${outline.title}`, error);
     return null;
   }
 
@@ -690,18 +709,21 @@ async function generateQuizContent(
   }
 
   log.debug(`Generating quiz content for: ${outline.title}`);
-  const response = await aiCall(prompts.system, prompts.user);
-  const generatedQuestions = parseJsonResponse<QuizQuestion[]>(response);
-
-  if (!generatedQuestions || !Array.isArray(generatedQuestions)) {
-    log.error(`Failed to parse AI response for: ${outline.title}`);
-    return null;
-  }
-
-  log.debug(`Got ${generatedQuestions.length} questions for: ${outline.title}`);
-
   try {
-    const questions = generatedQuestions.map(validateQuizQuestion);
+    const questions = await generateWithStructuredRetries({
+      label: `Quiz content "${outline.title}"`,
+      systemPrompt: prompts.system,
+      userPrompt: prompts.user,
+      aiCall,
+      parse: (response) => {
+        const parsed = parseJsonResponse<QuizQuestion[]>(response);
+        if (!parsed || !Array.isArray(parsed) || parsed.length === 0) {
+          throw new Error('Failed to parse quiz content response');
+        }
+        return parsed.map(validateQuizQuestion);
+      },
+    });
+    log.debug(`Got ${questions.length} questions for: ${outline.title}`);
     return { questions };
   } catch (error) {
     log.error(`Invalid quiz content for: ${outline.title}`, error);
@@ -995,11 +1017,23 @@ async function generateWidgetContent(
   }
 
   log.info(`Generating ${widgetType} widget for: ${outline.title}`);
-  const response = await aiCall(prompts.system, prompts.user);
-  const html = extractHtml(response);
-
-  if (!html) {
-    log.error(`Failed to extract HTML from ${widgetType} response for: ${outline.title}`);
+  let html: string;
+  try {
+    html = await generateWithStructuredRetries({
+      label: `${widgetType} widget "${outline.title}"`,
+      systemPrompt: prompts.system,
+      userPrompt: prompts.user,
+      aiCall,
+      parse: (response) => {
+        const extracted = extractHtml(response);
+        if (!extracted) {
+          throw new Error(`Failed to extract HTML from ${widgetType} response`);
+        }
+        return extracted;
+      },
+    });
+  } catch (error) {
+    log.error(`Failed to generate ${widgetType} widget for: ${outline.title}`, error);
     return null;
   }
 
@@ -1061,12 +1095,19 @@ async function generateWidgetTeacherActions(
     throw new Error(`Prompt template not found: ${PROMPT_IDS.WIDGET_TEACHER_ACTIONS}`);
   }
 
-  const response = await aiCall(prompts.system, prompts.user);
-  const parsed = parseJsonResponse<{ actions: TeacherAction[] }>(response);
-  if (!parsed || !Array.isArray(parsed.actions)) {
-    throw new Error(`No widget teacher actions generated for: ${outline.title}`);
-  }
-  return parsed.actions;
+  return generateWithStructuredRetries({
+    label: `Widget teacher actions "${outline.title}"`,
+    systemPrompt: prompts.system,
+    userPrompt: prompts.user,
+    aiCall,
+    parse: (response) => {
+      const parsed = parseJsonResponse<{ actions: TeacherAction[] }>(response);
+      if (!parsed || !Array.isArray(parsed.actions) || parsed.actions.length === 0) {
+        throw new Error(`No widget teacher actions generated for: ${outline.title}`);
+      }
+      return parsed.actions;
+    },
+  });
 }
 
 /**
@@ -1122,15 +1163,23 @@ export async function generateSceneActions(
       throw new Error(`Prompt template not found: ${PROMPT_IDS.SLIDE_ACTIONS}`);
     }
 
-    const response = await aiCall(prompts.system, prompts.user);
-    const actions = parseActionsFromStructuredOutput(response, outline.type);
-
-    if (actions.length > 0) {
-      // Validate and fill in Action IDs
-      return processActions(actions, content.elements, agents);
-    }
-
-    throw new Error(`No slide actions generated for: ${outline.title}`);
+    return generateWithStructuredRetries({
+      label: `Slide actions "${outline.title}"`,
+      systemPrompt: prompts.system,
+      userPrompt: prompts.user,
+      aiCall,
+      parse: (response) => {
+        const actions = parseActionsFromStructuredOutput(response, outline.type);
+        if (actions.length === 0) {
+          throw new Error(`No slide actions generated for: ${outline.title}`);
+        }
+        const processed = processActions(actions, content.elements, agents);
+        if (processed.length === 0) {
+          throw new Error(`All slide actions were invalid for: ${outline.title}`);
+        }
+        return processed;
+      },
+    });
   }
 
   if (outline.type === 'quiz' && 'questions' in content) {
@@ -1151,14 +1200,23 @@ export async function generateSceneActions(
       throw new Error(`Prompt template not found: ${PROMPT_IDS.QUIZ_ACTIONS}`);
     }
 
-    const response = await aiCall(prompts.system, prompts.user);
-    const actions = parseActionsFromStructuredOutput(response, outline.type);
-
-    if (actions.length > 0) {
-      return processActions(actions, [], agents);
-    }
-
-    throw new Error(`No quiz actions generated for: ${outline.title}`);
+    return generateWithStructuredRetries({
+      label: `Quiz actions "${outline.title}"`,
+      systemPrompt: prompts.system,
+      userPrompt: prompts.user,
+      aiCall,
+      parse: (response) => {
+        const actions = parseActionsFromStructuredOutput(response, outline.type);
+        if (actions.length === 0) {
+          throw new Error(`No quiz actions generated for: ${outline.title}`);
+        }
+        const processed = processActions(actions, [], agents);
+        if (processed.length === 0) {
+          throw new Error(`All quiz actions were invalid for: ${outline.title}`);
+        }
+        return processed;
+      },
+    });
   }
 
   if (outline.type === 'interactive' && 'html' in content) {
@@ -1178,14 +1236,23 @@ export async function generateSceneActions(
       throw new Error(`Prompt template not found: ${PROMPT_IDS.INTERACTIVE_ACTIONS}`);
     }
 
-    const response = await aiCall(prompts.system, prompts.user);
-    const actions = parseActionsFromStructuredOutput(response, outline.type);
-
-    if (actions.length > 0) {
-      return processActions(actions, [], agents);
-    }
-
-    throw new Error(`No interactive actions generated for: ${outline.title}`);
+    return generateWithStructuredRetries({
+      label: `Interactive actions "${outline.title}"`,
+      systemPrompt: prompts.system,
+      userPrompt: prompts.user,
+      aiCall,
+      parse: (response) => {
+        const actions = parseActionsFromStructuredOutput(response, outline.type);
+        if (actions.length === 0) {
+          throw new Error(`No interactive actions generated for: ${outline.title}`);
+        }
+        const processed = processActions(actions, [], agents);
+        if (processed.length === 0) {
+          throw new Error(`All interactive actions were invalid for: ${outline.title}`);
+        }
+        return processed;
+      },
+    });
   }
 
   if (outline.type === 'pbl' && 'projectConfig' in content) {
@@ -1206,14 +1273,23 @@ export async function generateSceneActions(
       throw new Error(`Prompt template not found: ${PROMPT_IDS.PBL_ACTIONS}`);
     }
 
-    const response = await aiCall(prompts.system, prompts.user);
-    const actions = parseActionsFromStructuredOutput(response, outline.type);
-
-    if (actions.length > 0) {
-      return processActions(actions, [], agents);
-    }
-
-    throw new Error(`No PBL actions generated for: ${outline.title}`);
+    return generateWithStructuredRetries({
+      label: `PBL actions "${outline.title}"`,
+      systemPrompt: prompts.system,
+      userPrompt: prompts.user,
+      aiCall,
+      parse: (response) => {
+        const actions = parseActionsFromStructuredOutput(response, outline.type);
+        if (actions.length === 0) {
+          throw new Error(`No PBL actions generated for: ${outline.title}`);
+        }
+        const processed = processActions(actions, [], agents);
+        if (processed.length === 0) {
+          throw new Error(`All PBL actions were invalid for: ${outline.title}`);
+        }
+        return processed;
+      },
+    });
   }
 
   throw new Error(`Unsupported scene action generation input: ${outline.title}`);

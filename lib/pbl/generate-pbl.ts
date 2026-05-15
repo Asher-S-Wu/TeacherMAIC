@@ -9,6 +9,10 @@ import type { ChatCompletionsModel } from '@/lib/ai/providers';
 import type { PBLProjectConfig } from './types';
 import { buildPBLSystemPrompt } from './pbl-system-prompt';
 import type { ThinkingConfig } from '@/lib/types/provider';
+import {
+  buildStructuredRetryPrompt,
+  MAX_GENERATION_ATTEMPTS,
+} from '@/lib/generation/retry';
 
 export interface GeneratePBLConfig {
   projectTopic: string;
@@ -148,13 +152,7 @@ export async function generatePBLContent(
   const systemPrompt = buildPBLSystemPrompt(config);
   const issueCount = config.issueCount ?? 3;
 
-  const result = await callLLM(
-    {
-      model,
-      system: `${systemPrompt}
-
-Return ONLY valid JSON. Do not use markdown fences or explanatory text.`,
-      prompt: `Design a complete PBL project configuration for this course.
+  const baseUserPrompt = `Design a complete PBL project configuration for this course.
 
 Project topic: ${config.projectTopic}
 Project description: ${config.projectDescription}
@@ -209,14 +207,50 @@ Create 2-4 selectable student role agents with is_system_agent false and role_di
 For each issue, also create one Question Agent and one Judge Agent in the agents array, both with is_system_agent true.
 The issueboard.issues array must contain exactly ${issueCount} issues.
 Every person_in_charge, participant, question_agent_name, judge_agent_name, and issueboard.agent_ids entry must match an agent name exactly.
-person_in_charge, participants, and issueboard.agent_ids must reference student role agents, not system agents.`,
-    },
-    'pbl-generate',
-    undefined,
-    thinkingConfig,
-  );
+person_in_charge, participants, and issueboard.agent_ids must reference student role agents, not system agents.`;
 
-  const projectConfig = parseProjectConfig(result.text, issueCount);
+  let projectConfig: PBLProjectConfig | null = null;
+  let lastRawText = '';
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt += 1) {
+    try {
+      const result = await callLLM(
+        {
+          model,
+          system: `${systemPrompt}
+
+Return ONLY valid JSON. Do not use markdown fences or explanatory text.`,
+          prompt:
+            attempt === 1
+              ? baseUserPrompt
+              : buildStructuredRetryPrompt(
+                  baseUserPrompt,
+                  lastRawText,
+                  lastError?.message ?? 'The previous response had an invalid PBL structure.',
+                ),
+        },
+        'pbl-generate',
+        undefined,
+        thinkingConfig,
+      );
+
+      lastRawText = result.text;
+      projectConfig = parseProjectConfig(result.text, issueCount);
+      break;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt === MAX_GENERATION_ATTEMPTS) {
+        throw new Error(
+          `PBL generation failed after ${MAX_GENERATION_ATTEMPTS} attempts: ${lastError.message}`,
+        );
+      }
+    }
+  }
+
+  if (!projectConfig) {
+    throw new Error(`PBL generation failed after ${MAX_GENERATION_ATTEMPTS} attempts`);
+  }
 
   callbacks?.onProgress?.('PBL structure generated. Running post-processing...');
 

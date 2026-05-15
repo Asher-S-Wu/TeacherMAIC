@@ -36,6 +36,10 @@ import { createLogger } from '@/lib/logger';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { validateSceneOutline } from '@/lib/generation/outline-validation';
 import { isExpertModelString } from '@/lib/ai/providers';
+import {
+  buildStructuredRetryPrompt,
+  MAX_GENERATION_ATTEMPTS,
+} from '@/lib/generation/retry';
 const log = createLogger('Outlines Stream');
 
 /**
@@ -244,39 +248,45 @@ export async function POST(req: NextRequest) {
           }
         };
 
-        const MAX_STREAM_RETRIES = 2;
-
         try {
           startHeartbeat();
-
-          const streamParams = visionImages?.length
-            ? {
-                model: languageModel,
-                system: prompts.system,
-                messages: [
-                  {
-                    role: 'user' as const,
-                    content: buildVisionUserContent(prompts.user, visionImages),
-                  },
-                ],
-                maxOutputTokens: modelInfo?.outputWindow,
-              }
-            : {
-                model: languageModel,
-                system: prompts.system,
-                prompt: prompts.user,
-                maxOutputTokens: modelInfo?.outputWindow,
-              };
 
           let parsedOutlines: SceneOutline[] = [];
           let languageDirective: string | null = null;
           let lastError: string | undefined;
+          let lastFullText = '';
 
-          for (let attempt = 1; attempt <= MAX_STREAM_RETRIES + 1; attempt++) {
+          for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt++) {
+            let fullText = '';
             try {
+              const userPrompt =
+                attempt === 1
+                  ? prompts.user
+                  : buildStructuredRetryPrompt(
+                      prompts.user,
+                      lastFullText,
+                      lastError ?? 'The previous response had an invalid outline structure.',
+                    );
+              const streamParams = visionImages?.length
+                ? {
+                    model: languageModel,
+                    system: prompts.system,
+                    messages: [
+                      {
+                        role: 'user' as const,
+                        content: buildVisionUserContent(userPrompt, visionImages),
+                      },
+                    ],
+                    maxOutputTokens: modelInfo?.outputWindow,
+                  }
+                : {
+                    model: languageModel,
+                    system: prompts.system,
+                    prompt: userPrompt,
+                    maxOutputTokens: modelInfo?.outputWindow,
+                  };
               const result = streamLLM(streamParams, 'scene-outlines-stream', thinkingConfig);
 
-              let fullText = '';
               parsedOutlines = [];
               languageDirective = null;
 
@@ -319,31 +329,33 @@ export async function POST(req: NextRequest) {
                   : fullText.trim()
                     ? 'LLM response could not be parsed into outlines'
                     : 'LLM returned empty response';
+              lastFullText = fullText;
 
-              if (attempt <= MAX_STREAM_RETRIES) {
+              if (attempt < MAX_GENERATION_ATTEMPTS) {
                 log.warn(
-                  `Empty outlines (attempt ${attempt}/${MAX_STREAM_RETRIES + 1}), retrying...`,
+                  `Empty outlines (attempt ${attempt}/${MAX_GENERATION_ATTEMPTS}), retrying...`,
                 );
                 // Notify client a retry is happening
                 const retryEvent = JSON.stringify({
                   type: 'retry',
                   attempt,
-                  maxAttempts: MAX_STREAM_RETRIES + 1,
+                  maxAttempts: MAX_GENERATION_ATTEMPTS,
                 });
                 controller.enqueue(encoder.encode(`data: ${retryEvent}\n\n`));
               }
             } catch (error) {
               lastError = error instanceof Error ? error.message : String(error);
+              lastFullText = fullText;
 
-              if (attempt <= MAX_STREAM_RETRIES) {
+              if (attempt < MAX_GENERATION_ATTEMPTS) {
                 log.warn(
-                  `Stream error (attempt ${attempt}/${MAX_STREAM_RETRIES + 1}), retrying...`,
+                  `Stream error (attempt ${attempt}/${MAX_GENERATION_ATTEMPTS}), retrying...`,
                   error,
                 );
                 const retryEvent = JSON.stringify({
                   type: 'retry',
                   attempt,
-                  maxAttempts: MAX_STREAM_RETRIES + 1,
+                  maxAttempts: MAX_GENERATION_ATTEMPTS,
                 });
                 controller.enqueue(encoder.encode(`data: ${retryEvent}\n\n`));
                 continue;
@@ -368,7 +380,7 @@ export async function POST(req: NextRequest) {
                 ? 'LLM response missing languageDirective'
                 : lastError || 'Failed to generate outlines';
             log.error(
-              `Outline generation failed after ${MAX_STREAM_RETRIES + 1} attempts: ${finalError}`,
+              `Outline generation failed after ${MAX_GENERATION_ATTEMPTS} attempts: ${finalError}`,
             );
             const errorEvent = JSON.stringify({
               type: 'error',
