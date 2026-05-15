@@ -6,12 +6,12 @@
 
 import { createLogger } from '@/lib/logger';
 import { ARK_CHAT_COMPLETIONS_PATH } from './ark-models';
-import { OPENROUTER_CHAT_COMPLETIONS_PATH } from './openrouter-models';
+import { GEMINI_CHAT_COMPLETIONS_PATH } from './gemini-models';
 import {
-  OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
-  OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
-  OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
-  OPENROUTER_PROVIDER_ID,
+  GEMINI_PROVIDER_ID,
+  OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
+  OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
+  OFFICIAL_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
 } from './providers';
 import type { ChatCompletionsModel } from './providers';
 import type { ThinkingConfig, ThinkingEffort } from '@/lib/types/provider';
@@ -81,35 +81,34 @@ interface ChatCompletionsBody {
   max_tokens: number;
   thinking?: { type: 'enabled' | 'disabled' };
   reasoning_effort?: Extract<ThinkingEffort, 'minimal' | 'low' | 'medium' | 'high'>;
-  reasoning?: { effort: string };
 }
 
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
 
-function isOpenRouterChatCompletionsProvider(model: ChatCompletionsModel): boolean {
-  return model.providerType === 'openrouter-chat-completions';
+function isGeminiOpenAICompatibleProvider(model: ChatCompletionsModel): boolean {
+  return model.providerType === 'gemini-openai-chat-completions';
 }
 
 function isArkChatCompletionsProvider(model: ChatCompletionsModel): boolean {
   return model.providerType === 'ark-chat-completions';
 }
 
-const OPENROUTER_REASONING_MODEL_IDS = new Set([
-  OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
-  OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
-  OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
+const OFFICIAL_GEMINI_REASONING_MODEL_IDS = new Set([
+  OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
+  OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
+  OFFICIAL_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
 ]);
 
-function isOpenRouterReasoningModel(model: ChatCompletionsModel): boolean {
+function isOfficialGeminiReasoningModel(model: ChatCompletionsModel): boolean {
   return (
-    model.providerId === OPENROUTER_PROVIDER_ID &&
-    OPENROUTER_REASONING_MODEL_IDS.has(model.modelId)
+    model.providerId === GEMINI_PROVIDER_ID &&
+    OFFICIAL_GEMINI_REASONING_MODEL_IDS.has(model.modelId)
   );
 }
 
 function getChatCompletionsUrl(model: ChatCompletionsModel): string {
-  const path = isOpenRouterChatCompletionsProvider(model)
-    ? OPENROUTER_CHAT_COMPLETIONS_PATH
+  const path = isGeminiOpenAICompatibleProvider(model)
+    ? GEMINI_CHAT_COMPLETIONS_PATH
     : ARK_CHAT_COMPLETIONS_PATH;
   return `${model.baseUrl.replace(/\/$/, '')}${path}`;
 }
@@ -144,11 +143,11 @@ function getReasoningEffort(
   return 'high';
 }
 
-function shouldSendOpenRouterReasoning(
+function shouldSendOfficialGeminiReasoning(
   model: ChatCompletionsModel,
   config?: ThinkingConfig,
 ): boolean {
-  if (!isOpenRouterReasoningModel(model)) return false;
+  if (!isOfficialGeminiReasoningModel(model)) return false;
   return !(
     config?.mode === 'disabled' ||
     config?.enabled === false ||
@@ -239,13 +238,10 @@ function buildChatCompletionsBody(
     }
   }
 
-  if (isOpenRouterChatCompletionsProvider(params.model)) {
-    const includeReasoning = shouldSendOpenRouterReasoning(params.model, thinking);
-    const forceDisableReasoning = isOpenRouterReasoningModel(params.model) && !includeReasoning;
+  if (isGeminiOpenAICompatibleProvider(params.model)) {
+    const includeReasoning = shouldSendOfficialGeminiReasoning(params.model, thinking);
     if (includeReasoning) {
-      body.reasoning = { effort: getReasoningEffort(thinking) };
-    } else if (forceDisableReasoning) {
-      body.reasoning = { effort: 'none' };
+      body.reasoning_effort = getReasoningEffort(thinking);
     }
   }
 

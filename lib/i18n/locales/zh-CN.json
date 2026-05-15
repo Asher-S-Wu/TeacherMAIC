@@ -442,14 +442,14 @@
     "close": "关闭",
     "save": "保存",
     "providers": "语言模型",
-    "addProviderDescription": "可在模型列表中切换火山方舟或 OpenRouter",
+    "addProviderDescription": "可在模型列表中切换火山方舟或 Google Gemini",
     "providerNames": {
       "ark": "火山方舟",
-      "openrouter": "OpenRouter"
+      "gemini": "Google Gemini"
     },
     "providerTypes": {
       "ark-chat-completions": "Chat Completions",
-      "openrouter-chat-completions": "Chat Completions"
+      "gemini-openai-chat-completions": "Chat Completions"
     },
     "modelCount": "个模型",
     "modelSingular": "个模型",

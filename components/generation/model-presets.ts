@@ -3,9 +3,9 @@ import { Atom, Network, Zap } from 'lucide-react';
 import {
   EXPERT_MODEL_ID,
   EXPERT_PROVIDER_ID,
-  OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
-  OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
-  OPENROUTER_PROVIDER_ID,
+  GEMINI_PROVIDER_ID,
+  OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
+  OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
   isExpertModel,
 } from '@/lib/ai/providers';
 import type { ProviderId, ThinkingConfig } from '@/lib/types/provider';
@@ -28,8 +28,8 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     label: '快速',
     description: '适用于大部分情况',
     icon: Zap,
-    providerId: OPENROUTER_PROVIDER_ID,
-    modelId: OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
+    providerId: GEMINI_PROVIDER_ID,
+    modelId: OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
     thinkingConfig: { mode: 'enabled', effort: 'high' },
   },
   think: {
@@ -37,8 +37,8 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     label: '标准',
     description: '擅长解决更难的问题',
     icon: Atom,
-    providerId: OPENROUTER_PROVIDER_ID,
-    modelId: OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
+    providerId: GEMINI_PROVIDER_ID,
+    modelId: OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
     thinkingConfig: { mode: 'enabled', effort: 'high' },
   },
   expert: {
@@ -65,14 +65,14 @@ export function getCurrentModelPresetId(
 ): ModelPresetId {
   void thinkingConfigs;
   if (
-    providerId === OPENROUTER_PROVIDER_ID &&
-    modelId === OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID
+    providerId === GEMINI_PROVIDER_ID &&
+    modelId === OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID
   ) {
     return 'fast';
   }
   if (
-    providerId === OPENROUTER_PROVIDER_ID &&
-    modelId === OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID
+    providerId === GEMINI_PROVIDER_ID &&
+    modelId === OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID
   ) {
     return 'think';
   }

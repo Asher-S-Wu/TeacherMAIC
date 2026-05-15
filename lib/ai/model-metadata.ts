@@ -3,15 +3,15 @@ import {
   GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
   GEMINI_3_FLASH_PREVIEW_MODEL_ID,
   GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
-} from './openrouter-models';
+} from './gemini-models';
 
 export function getModelMetadataKey(providerId: string, modelId: string): string {
   return `${providerId}:${modelId}`;
 }
 
-const OPENROUTER_GEMINI_THINKING_CAPABILITY: ThinkingCapability = {
+const OFFICIAL_GEMINI_THINKING_CAPABILITY: ThinkingCapability = {
   control: 'effort',
-  requestAdapter: 'openrouter-chat-completions',
+  requestAdapter: 'gemini-openai-chat-completions',
   defaultMode: 'enabled',
   effortValues: ['minimal', 'low', 'medium', 'high'],
   defaultEffort: 'high',
@@ -21,11 +21,10 @@ const OPENROUTER_GEMINI_THINKING_CAPABILITY: ThinkingCapability = {
 };
 
 const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
-  [`openrouter:${GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID}`]:
-    OPENROUTER_GEMINI_THINKING_CAPABILITY,
-  [`openrouter:${GEMINI_3_FLASH_PREVIEW_MODEL_ID}`]: OPENROUTER_GEMINI_THINKING_CAPABILITY,
-  [`openrouter:${GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID}`]:
-    OPENROUTER_GEMINI_THINKING_CAPABILITY,
+  [`gemini:${GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID}`]: OFFICIAL_GEMINI_THINKING_CAPABILITY,
+  [`gemini:${GEMINI_3_FLASH_PREVIEW_MODEL_ID}`]: OFFICIAL_GEMINI_THINKING_CAPABILITY,
+  [`gemini:${GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID}`]:
+    OFFICIAL_GEMINI_THINKING_CAPABILITY,
 };
 
 export function getCatalogThinkingCapability(

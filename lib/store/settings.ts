@@ -688,10 +688,10 @@ export const useSettingsStore = create<SettingsState>()(
                 apiKey: '',
                 isServerConfigured: !!data.providers.ark,
               };
-              newProvidersConfig.openrouter = {
-                ...newProvidersConfig.openrouter,
+              newProvidersConfig.gemini = {
+                ...newProvidersConfig.gemini,
                 apiKey: '',
-                isServerConfigured: !!data.providers.openrouter,
+                isServerConfigured: !!data.providers.gemini,
               };
 
               const defaultAudio = getDefaultAudioConfig();

@@ -5,7 +5,7 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId = 'ark' | 'openrouter';
+export type BuiltInProviderId = 'ark' | 'gemini';
 
 /**
  * Provider ID
@@ -15,7 +15,7 @@ export type ProviderId = BuiltInProviderId;
 /**
  * Provider API types
  */
-export type ProviderType = 'ark-chat-completions' | 'openrouter-chat-completions';
+export type ProviderType = 'ark-chat-completions' | 'gemini-openai-chat-completions';
 
 export type ThinkingControlType =
   | 'none'
@@ -33,7 +33,7 @@ export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
 export type ThinkingRequestAdapter =
   | 'none'
   | 'ark-chat-completions'
-  | 'openrouter-chat-completions';
+  | 'gemini-openai-chat-completions';
 
 /**
  * Describes a model's thinking/reasoning API control capability.

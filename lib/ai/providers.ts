@@ -21,27 +21,27 @@ import {
   GEMINI_3_FLASH_PREVIEW_MODEL_NAME,
   GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
   GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_NAME,
-  OPENROUTER_BASE_URL,
-} from './openrouter-models';
+  GEMINI_BASE_URL,
+} from './gemini-models';
 
-export const OPENROUTER_PROVIDER_ID: BuiltInProviderId = 'openrouter';
-export const OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID =
+export const GEMINI_PROVIDER_ID: BuiltInProviderId = 'gemini';
+export const OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID =
   GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID;
-export const OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_NAME =
+export const OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_NAME =
   GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_NAME;
-export const OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID = GEMINI_3_FLASH_PREVIEW_MODEL_ID;
-export const OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_NAME = GEMINI_3_FLASH_PREVIEW_MODEL_NAME;
-export const OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID =
+export const OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID = GEMINI_3_FLASH_PREVIEW_MODEL_ID;
+export const OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_NAME = GEMINI_3_FLASH_PREVIEW_MODEL_NAME;
+export const OFFICIAL_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID =
   GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID;
-export const OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_NAME =
+export const OFFICIAL_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_NAME =
   GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_NAME;
-export const DEFAULT_PROVIDER_ID: BuiltInProviderId = OPENROUTER_PROVIDER_ID;
-export const DEFAULT_MODEL_ID = OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID;
+export const DEFAULT_PROVIDER_ID: BuiltInProviderId = GEMINI_PROVIDER_ID;
+export const DEFAULT_MODEL_ID = OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID;
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
-export const OPENROUTER_EXPERT_MODEL_STRING = `${OPENROUTER_PROVIDER_ID}:${OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID}`;
-export const EXPERT_PROVIDER_ID = OPENROUTER_PROVIDER_ID;
-export const EXPERT_MODEL_ID = OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID;
-export const EXPERT_MODEL_STRING = OPENROUTER_EXPERT_MODEL_STRING;
+export const OFFICIAL_GEMINI_EXPERT_MODEL_STRING = `${GEMINI_PROVIDER_ID}:${OFFICIAL_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID}`;
+export const EXPERT_PROVIDER_ID = GEMINI_PROVIDER_ID;
+export const EXPERT_MODEL_ID = OFFICIAL_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID;
+export const EXPERT_MODEL_STRING = OFFICIAL_GEMINI_EXPERT_MODEL_STRING;
 
 // Re-export shared provider types.
 export type { ProviderId, ProviderConfig, ModelInfo, ModelConfig };
@@ -62,16 +62,16 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
     icon: '/logos/doubao-color.svg',
     models: [],
   },
-  openrouter: {
-    id: 'openrouter',
-    name: 'OpenRouter',
-    type: 'openrouter-chat-completions',
-    defaultBaseUrl: OPENROUTER_BASE_URL,
+  gemini: {
+    id: 'gemini',
+    name: 'Google Gemini',
+    type: 'gemini-openai-chat-completions',
+    defaultBaseUrl: GEMINI_BASE_URL,
     requiresApiKey: true,
     models: [
       {
-        id: OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
-        name: OPENROUTER_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_NAME,
+        id: OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
+        name: OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_NAME,
         contextWindow: 1048576,
         outputWindow: 65536,
         capabilities: {
@@ -82,8 +82,8 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
         },
       },
       {
-        id: OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
-        name: OPENROUTER_GEMINI_3_FLASH_PREVIEW_MODEL_NAME,
+        id: OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
+        name: OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_NAME,
         contextWindow: 1048576,
         outputWindow: 65536,
         capabilities: {
@@ -94,8 +94,8 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
         },
       },
       {
-        id: OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
-        name: OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_NAME,
+        id: OFFICIAL_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID,
+        name: OFFICIAL_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_NAME,
         contextWindow: 1048576,
         outputWindow: 65536,
         capabilities: {
@@ -205,8 +205,8 @@ export function parseModelString(modelString: string): {
 
 export function isExpertModel(providerId: string, modelId: string): boolean {
   return (
-    providerId === OPENROUTER_PROVIDER_ID &&
-    modelId === OPENROUTER_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID
+    providerId === GEMINI_PROVIDER_ID &&
+    modelId === OFFICIAL_GEMINI_3_1_PRO_PREVIEW_CUSTOM_TOOLS_MODEL_ID
   );
 }
 
