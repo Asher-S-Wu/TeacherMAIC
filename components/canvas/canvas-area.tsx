@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, Wrench } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SceneRenderer } from '@/components/stage/scene-renderer';
 import { SceneProvider } from '@/lib/contexts/scene-context';
@@ -204,22 +204,6 @@ export function CanvasArea({
             </div>
           )}
 
-          {currentScene && !whiteboardOpen && !isPresenting && onApplyVibeEdit && (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onVibeEditOpen?.();
-                setVibeDialogOpen(true);
-              }}
-              className="absolute left-4 top-4 z-[104] flex h-9 w-9 items-center justify-center rounded-lg border border-white/70 bg-white/90 text-slate-500 shadow-sm backdrop-blur transition hover:bg-white hover:text-slate-900 active:scale-95 dark:border-slate-700/80 dark:bg-slate-900/85 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"
-              title="修改这一页"
-              aria-label="修改这一页"
-            >
-              <Wrench className="h-4 w-4" />
-            </button>
-          )}
-
           {/* Play hint — breathing button when idle or paused (slides only) */}
           <AnimatePresence>
             {showPlayHint && (
@@ -284,6 +268,14 @@ export function CanvasArea({
           onNextSlide={onNextSlide}
           onPlayPause={onPlayPause}
           onWhiteboardClose={onWhiteboardClose}
+          onVibeEdit={
+            currentScene && !whiteboardOpen && !isPresenting && onApplyVibeEdit
+              ? () => {
+                  onVibeEditOpen?.();
+                  setVibeDialogOpen(true);
+                }
+              : undefined
+          }
           isPresenting={isPresenting}
           onTogglePresentation={onTogglePresentation}
           showStopDiscussion={showStopDiscussion}

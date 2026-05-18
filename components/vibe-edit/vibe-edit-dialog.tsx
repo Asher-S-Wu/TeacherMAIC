@@ -193,7 +193,7 @@ export function VibeEditDialog({
         <DialogHeader className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Sparkles className="h-4 w-4 text-violet-500" />
-            修改这一页
+            修改当前页
           </DialogTitle>
           <DialogDescription>告诉我你想怎么改，我会先给你看改完的样子。</DialogDescription>
         </DialogHeader>

@@ -15,6 +15,7 @@ import {
   Repeat,
   Maximize2,
   Minimize2,
+  Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStageStore } from '@/lib/store';
@@ -34,6 +35,7 @@ export interface CanvasToolbarProps {
   readonly onNextSlide: () => void;
   readonly onPlayPause: () => void;
   readonly onWhiteboardClose: () => void;
+  readonly onVibeEdit?: () => void;
   readonly showStopDiscussion?: boolean;
   readonly onStopDiscussion?: () => void;
   readonly isPresenting?: boolean;
@@ -93,6 +95,7 @@ export function CanvasToolbar({
   onNextSlide,
   onPlayPause,
   onWhiteboardClose,
+  onVibeEdit,
   showStopDiscussion,
   onStopDiscussion,
   isPresenting,
@@ -391,6 +394,21 @@ export function CanvasToolbar({
               <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-violet-500 dark:bg-violet-400 rounded-full" />
             )}
           </button>
+
+          {/* Vibe edit current page */}
+          {onVibeEdit && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onVibeEdit();
+              }}
+              className={cn(ctrlBtn, 'w-6 h-6', 'text-gray-500 dark:text-gray-400')}
+              title="修改当前页"
+              aria-label="修改当前页"
+            >
+              <Wrench className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
