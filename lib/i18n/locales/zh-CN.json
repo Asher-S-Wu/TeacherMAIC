@@ -179,6 +179,25 @@
     "restored": "已恢复白板内容",
     "elementCount": "{{count}} 个元素"
   },
+  "vibeEdit": {
+    "open": "修改这一页",
+    "title": "修改这一页",
+    "description": "告诉我你想怎么改，我会先给你看改完的样子。",
+    "unavailable": "这一页缺少生成信息，暂时不能这样修改。",
+    "emptyHint": "例如：把这一页改得更适合初学者，少一点字，多一个例子。",
+    "placeholder": "输入你想怎么改这页...",
+    "shortcutHint": "Ctrl + Enter 生成预览",
+    "generate": "生成预览",
+    "generating": "生成中...",
+    "previewWaiting": "还没有新预览",
+    "previewReady": "这是改完后的样子",
+    "previewEmpty": "先在左侧说出你的修改要求，这里会显示改完后的页面。",
+    "previewFailed": "页面预览生成失败",
+    "apply": "应用修改",
+    "applying": "应用中...",
+    "applyFailed": "应用修改失败",
+    "applied": "这一页已更新"
+  },
   "quiz": {
     "title": "随堂测验",
     "subtitle": "检测你的学习成果",

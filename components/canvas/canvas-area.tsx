@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play } from 'lucide-react';
+import { Play, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SceneRenderer } from '@/components/stage/scene-renderer';
 import { SceneProvider } from '@/lib/contexts/scene-context';
@@ -12,6 +12,8 @@ import type { CanvasToolbarProps } from '@/components/canvas/canvas-toolbar';
 import type { Scene, StageMode } from '@/lib/types/stage';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { ClassroomCompletePageConnected } from '@/components/scene-renderers/classroom-complete';
+import { VibeEditDialog } from '@/components/vibe-edit/vibe-edit-dialog';
+import type { SceneOutline } from '@/lib/types/generation';
 
 interface CanvasAreaProps extends CanvasToolbarProps {
   readonly currentScene: Scene | null;
@@ -21,6 +23,8 @@ interface CanvasAreaProps extends CanvasToolbarProps {
   readonly isCourseComplete?: boolean;
   readonly isGenerationFailed?: boolean;
   readonly onRetryGeneration?: () => void;
+  readonly onVibeEditOpen?: () => void;
+  readonly onApplyVibeEdit?: (scene: Scene, outline: SceneOutline) => Promise<void> | void;
 }
 
 export function CanvasArea({
@@ -48,8 +52,11 @@ export function CanvasArea({
   isCourseComplete,
   isGenerationFailed,
   onRetryGeneration,
+  onVibeEditOpen,
+  onApplyVibeEdit,
 }: CanvasAreaProps) {
   const { t } = useI18n();
+  const [vibeDialogOpen, setVibeDialogOpen] = useState(false);
   const showControls = mode === 'playback' && !whiteboardOpen;
   const showPlayHint =
     showControls &&
@@ -199,6 +206,22 @@ export function CanvasArea({
             </div>
           )}
 
+          {currentScene && !whiteboardOpen && !isPresenting && onApplyVibeEdit && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onVibeEditOpen?.();
+                setVibeDialogOpen(true);
+              }}
+              className="absolute left-4 top-4 z-[104] flex h-9 w-9 items-center justify-center rounded-lg border border-white/70 bg-white/90 text-slate-500 shadow-sm backdrop-blur transition hover:bg-white hover:text-slate-900 active:scale-95 dark:border-slate-700/80 dark:bg-slate-900/85 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"
+              title={t('vibeEdit.open')}
+              aria-label={t('vibeEdit.open')}
+            >
+              <Wrench className="h-4 w-4" />
+            </button>
+          )}
+
           {/* Play hint — breathing button when idle or paused (slides only) */}
           <AnimatePresence>
             {showPlayHint && (
@@ -267,6 +290,15 @@ export function CanvasArea({
           onTogglePresentation={onTogglePresentation}
           showStopDiscussion={showStopDiscussion}
           onStopDiscussion={onStopDiscussion}
+        />
+      )}
+
+      {currentScene && onApplyVibeEdit && (
+        <VibeEditDialog
+          open={vibeDialogOpen}
+          scene={currentScene}
+          onOpenChange={setVibeDialogOpen}
+          onApply={onApplyVibeEdit}
         />
       )}
     </div>

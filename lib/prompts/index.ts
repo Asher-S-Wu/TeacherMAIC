@@ -28,6 +28,7 @@ export const PROMPT_IDS = {
   INTERACTIVE_OUTLINES: 'interactive-outlines',
   WEB_SEARCH_DECISION: 'web-search-decision',
   WEB_SEARCH_QUERY_REWRITE: 'web-search-query-rewrite',
+  VIBE_EDIT: 'vibe-edit',
   SLIDE_CONTENT: 'slide-content',
   QUIZ_CONTENT: 'quiz-content',
   SLIDE_ACTIONS: 'slide-actions',

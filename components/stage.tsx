@@ -18,6 +18,8 @@ import { useDiscussionTTS } from '@/lib/hooks/use-discussion-tts';
 import { useWidgetIframeStore } from '@/lib/store/widget-iframe';
 import type { AudioIndicatorState } from '@/components/roundtable/audio-indicator';
 import type { Action, DiscussionAction, SpeechAction } from '@/lib/types/action';
+import type { Scene } from '@/lib/types/stage';
+import type { SceneOutline } from '@/lib/types/generation';
 import { cn } from '@/lib/utils';
 // Playback state persistence removed — refresh always starts from the beginning
 import { ChatArea, type ChatAreaRef } from '@/components/chat/chat-area';
@@ -33,6 +35,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AlertTriangle } from 'lucide-react';
 import { VisuallyHidden } from 'radix-ui';
+import { clearAllForScene } from '@/lib/quiz/persistence';
 
 /**
  * Stage Component
@@ -253,6 +256,33 @@ export function Stage({
 
     resetLiveState();
   }, [chatSessionType, resetLiveState, discussionTTS]);
+
+  const handleVibeEditOpen = useCallback(() => {
+    if (engineRef.current && (engineMode === 'playing' || engineMode === 'live')) {
+      engineRef.current.pause();
+    }
+  }, [engineMode]);
+
+  const handleApplyVibeEdit = useCallback(
+    async (scene: Scene, outline: SceneOutline) => {
+      await chatAreaRef.current?.endActiveSession();
+      doSessionCleanup();
+      engineRef.current?.stop();
+
+      const state = useStageStore.getState();
+      const existingScene = state.getSceneById(scene.id);
+      if (existingScene?.type === 'quiz') {
+        clearAllForScene(existingScene.id);
+      }
+
+      state.updateScene(scene.id, scene);
+      state.setOutlines(
+        state.outlines.map((item) => (item.order === outline.order ? outline : item)),
+      );
+      resetSceneState();
+    },
+    [doSessionCleanup, resetSceneState],
+  );
 
   // Shared stop-discussion handler (used by both Roundtable and Canvas toolbar)
   const handleStopDiscussion = useCallback(async () => {
@@ -1021,6 +1051,8 @@ export function Stage({
                 ? () => onRetryOutline(generatingOutlines[0].id)
                 : undefined
             }
+            onVibeEditOpen={handleVibeEditOpen}
+            onApplyVibeEdit={handleApplyVibeEdit}
           />
         </div>
 
