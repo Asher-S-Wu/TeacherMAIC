@@ -11,7 +11,6 @@ import { useCanvasStore } from '@/lib/store/canvas';
 import { useWhiteboardHistoryStore } from '@/lib/store/whiteboard-history';
 import { createStageAPI } from '@/lib/api/stage-api';
 import { toast } from 'sonner';
-import { useI18n } from '@/lib/hooks/use-i18n';
 
 interface WhiteboardProps {
   readonly isOpen: boolean;
@@ -22,7 +21,6 @@ interface WhiteboardProps {
  * Whiteboard component
  */
 export function Whiteboard({ isOpen, onClose }: WhiteboardProps) {
-  const { t } = useI18n();
   const stage = useStageStore.use.stage();
   const isClearing = useCanvasStore.use.whiteboardClearing();
   const clearingRef = useRef(false);
@@ -59,9 +57,9 @@ export function Whiteboard({ isOpen, onClose }: WhiteboardProps) {
     clearingRef.current = false;
 
     if (result.success) {
-      toast.success(t('whiteboard.clearSuccess'));
+      toast.success('白板已清空');
     } else {
-      toast.error(t('whiteboard.clearError') + result.error);
+      toast.error('清空白板失败：' + result.error);
     }
   };
 
@@ -98,7 +96,7 @@ export function Whiteboard({ isOpen, onClose }: WhiteboardProps) {
                   <PencilLine className="w-4 h-4" />
                 </div>
                 <span className="font-bold text-gray-800 dark:text-gray-200 tracking-tight">
-                  {t('whiteboard.title')}
+                  互动白板
                 </span>
               </div>
 
@@ -114,7 +112,7 @@ export function Whiteboard({ isOpen, onClose }: WhiteboardProps) {
                       onClick={() => canvasRef.current?.resetView()}
                       whileTap={{ scale: 0.9 }}
                       className="p-2 text-gray-400 dark:text-gray-500 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
-                      title={t('whiteboard.resetView')}
+                      title="重置视图"
                     >
                       <RotateCcw className="w-4 h-4" />
                     </motion.button>
@@ -126,7 +124,7 @@ export function Whiteboard({ isOpen, onClose }: WhiteboardProps) {
                   disabled={isClearing || elementCount === 0}
                   whileTap={{ scale: 0.9 }}
                   className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                  title={t('whiteboard.clear')}
+                  title="清空白板"
                 >
                   <motion.div
                     animate={isClearing ? { rotate: [0, -15, 15, -10, 10, 0] } : { rotate: 0 }}
@@ -144,7 +142,7 @@ export function Whiteboard({ isOpen, onClose }: WhiteboardProps) {
                     onClick={() => setHistoryOpen(!historyOpen)}
                     whileTap={{ scale: 0.9 }}
                     className="relative p-2 text-gray-400 dark:text-gray-500 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
-                    title={t('whiteboard.history')}
+                    title="历史记录"
                   >
                     <History className="w-4 h-4" />
                     {snapshotCount > 0 && (
@@ -160,7 +158,7 @@ export function Whiteboard({ isOpen, onClose }: WhiteboardProps) {
                   type="button"
                   onClick={onClose}
                   className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                  title={t('whiteboard.minimize')}
+                  title="最小化白板"
                 >
                   <Minimize2 className="w-5 h-5" />
                 </button>

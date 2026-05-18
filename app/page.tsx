@@ -22,7 +22,6 @@ import {
   X,
   ArrowUpRight,
 } from 'lucide-react';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { createLogger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupInput, InputGroupButton } from '@/components/ui/input-group';
@@ -70,7 +69,6 @@ const initialFormState: FormState = {
 };
 
 function HomePage() {
-  const { t } = useI18n();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [form, setForm] = useState<FormState>(initialFormState);
@@ -176,7 +174,7 @@ function HomePage() {
       setClassrooms((prev) => prev.map((c) => (c.id === id ? { ...c, name: newName } : c)));
     } catch (err) {
       log.error('Failed to rename classroom:', err);
-      toast.error(t('classroom.renameFailed'));
+      toast.error('重命名失败');
     }
   };
 
@@ -233,15 +231,15 @@ function HomePage() {
     if (!currentModelId) {
       showSetupToast(
         <BotOff className="size-4.5 text-amber-600 dark:text-amber-400" />,
-        t('settings.modelNotConfigured'),
-        t('settings.setupNeeded'),
+        '当前模型暂时不可用',
+        '暂不可用',
       );
       setSettingsOpen(true);
       return;
     }
 
     if (!form.requirement.trim()) {
-      setError(t('upload.requirementRequired'));
+      setError('请输入课程需求');
       return;
     }
 
@@ -287,7 +285,7 @@ function HomePage() {
       router.push('/generation-preview');
     } catch (err) {
       log.error('Error preparing generation:', err);
-      setError(err instanceof Error ? err.message : t('upload.generateFailed'));
+      setError(err instanceof Error ? err.message : '生成课堂失败，请重试');
     }
   };
 
@@ -297,9 +295,9 @@ function HomePage() {
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return t('classroom.today');
-    if (diffDays === 1) return t('classroom.yesterday');
-    if (diffDays < 7) return `${diffDays} ${t('classroom.daysAgo')}`;
+    if (diffDays === 0) return '今天';
+    if (diffDays === 1) return '昨天';
+    if (diffDays < 7) return `${diffDays} 天前`;
     return date.toLocaleDateString();
   };
 
@@ -352,7 +350,7 @@ function HomePage() {
                 )}
               >
                 <Sun className="w-4 h-4" />
-                {t('settings.themeOptions.light')}
+                浅色
               </button>
               <button
                 onClick={() => {
@@ -366,7 +364,7 @@ function HomePage() {
                 )}
               >
                 <Moon className="w-4 h-4" />
-                {t('settings.themeOptions.dark')}
+                深色
               </button>
               <button
                 onClick={() => {
@@ -380,7 +378,7 @@ function HomePage() {
                 )}
               >
                 <Monitor className="w-4 h-4" />
-                {t('settings.themeOptions.system')}
+                跟随系统
               </button>
             </div>
           )}
@@ -465,7 +463,7 @@ function HomePage() {
           transition={{ delay: 0.25 }}
           className="text-base text-muted-foreground/60 mb-8"
         >
-          {t('home.slogan')}
+          把课堂资料变成互动学习体验
         </motion.p>
 
         {/* ── Unified input area ── */}
@@ -487,7 +485,7 @@ function HomePage() {
             {/* Textarea */}
             <textarea
               ref={textareaRef}
-              placeholder={t('upload.requirementPlaceholder')}
+              placeholder={'输入你想学的任何内容，例如：\n「从零学 Python，30 分钟写出第一个程序」\n「用白板给我讲解傅里叶变换」\n「阿瓦隆桌游怎么玩」'}
               className="w-full resize-none border-0 bg-transparent px-4 pt-1 pb-2 text-sm leading-relaxed placeholder:text-muted-foreground/40 focus:outline-none min-h-[140px] max-h-[300px]"
               value={form.requirement}
               onChange={(e) => updateForm('requirement', e.target.value)}
@@ -537,7 +535,7 @@ function HomePage() {
                       : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
                   )}
                 >
-                  <span>{t('toolbar.enterClassroom')}</span>
+                  <span>进入课堂</span>
                   <ArrowUp className="size-[14px]" />
                 </button>
               </div>
@@ -567,7 +565,7 @@ function HomePage() {
             className="relative z-0 mt-4 flex items-center gap-1.5 text-sm text-muted-foreground/40 hover:text-foreground/60 transition-colors"
           >
             <Upload className="size-3.5" />
-            <span>{t('import.classroom')}</span>
+            <span>导入课堂</span>
           </button>
         )}
       </motion.div>
@@ -589,7 +587,7 @@ function HomePage() {
                 className="flex items-center gap-2 hover:text-foreground/70 transition-colors cursor-pointer"
               >
                 <Clock className="size-3.5" />
-                {t('classroom.recentClassrooms')}
+                最近学习
                 <span className="text-xs tabular-nums opacity-60">{classrooms.length}</span>
                 <motion.div
                   animate={{ rotate: recentOpen ? 180 : 0 }}
@@ -606,7 +604,7 @@ function HomePage() {
                     key="search-icon"
                     ref={searchButtonRef}
                     type="button"
-                    aria-label={t('classroom.searchAriaLabel')}
+                    aria-label="搜索课程"
                     onClick={() => {
                       setSearchOpen(true);
                       if (!recentOpen) persistRecentOpen(true);
@@ -659,14 +657,14 @@ function HomePage() {
                             setSearchOpen(false);
                           }
                         }}
-                        placeholder={t('classroom.searchPlaceholder')}
-                        aria-label={t('classroom.searchAriaLabel')}
+                        placeholder="搜索课程..."
+                        aria-label="搜索课程"
                         className="h-7 pl-3 placeholder:text-muted-foreground/50"
                       />
                       {searchQuery && (
                         <InputGroupButton
                           size="icon-xs"
-                          aria-label={t('classroom.clearSearch')}
+                          aria-label="清空"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => {
                             setSearchQuery('');
@@ -688,7 +686,7 @@ function HomePage() {
               >
                 <Upload className="size-3" />
                 <span className="overflow-hidden opacity-0 group-hover/import:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-                  {t('import.classroom')}
+                  导入课堂
                 </span>
               </button>
             </div>
@@ -707,7 +705,7 @@ function HomePage() {
               >
                 {searchQuery.trim() && filteredClassrooms.length === 0 ? (
                   <div className="pt-8 pb-2 text-center text-sm text-muted-foreground/60">
-                    {t('classroom.searchEmpty')}
+                    没有找到匹配的课程
                   </div>
                 ) : (
                   <div className="pt-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8">
@@ -772,7 +770,6 @@ function isCustomAvatar(src: string) {
 }
 
 function GreetingBar() {
-  const { t } = useI18n();
   const avatar = useUserProfileStore((s) => s.avatar);
   const nickname = useUserProfileStore((s) => s.nickname);
   const bio = useUserProfileStore((s) => s.bio);
@@ -788,7 +785,7 @@ function GreetingBar() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const displayName = nickname || t('profile.defaultNickname');
+  const displayName = nickname || '同学';
 
   // Click-outside to collapse
   useEffect(() => {
@@ -819,11 +816,11 @@ function GreetingBar() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_AVATAR_SIZE) {
-      toast.error(t('profile.fileTooLarge'));
+      toast.error('图片过大，请选择小于 5MB 的图片');
       return;
     }
     if (!file.type.startsWith('image/')) {
-      toast.error(t('profile.invalidFileType'));
+      toast.error('请选择图片文件');
       return;
     }
     const reader = new FileReader();
@@ -875,13 +872,13 @@ function GreetingBar() {
               <TooltipTrigger asChild>
                 <span className="leading-none select-none flex items-center gap-1">
                   <span className="text-sm font-semibold text-foreground/85 group-hover:text-foreground transition-colors">
-                    {t('home.greetingWithName', { name: displayName })}
+                    {`嗨，${displayName}`}
                   </span>
                   <ChevronDown className="size-3 text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors shrink-0" />
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={4}>
-                {t('profile.editTooltip')}
+                点击编辑个人资料
               </TooltipContent>
             </Tooltip>
           </div>
@@ -949,7 +946,7 @@ function GreetingBar() {
                         }}
                         onBlur={commitName}
                         maxLength={20}
-                        placeholder={t('profile.defaultNickname')}
+                        placeholder="同学"
                         className="flex-1 min-w-0 h-6 bg-transparent border-b border-border/80 text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/40"
                       />
                       <button
@@ -1022,7 +1019,7 @@ function GreetingBar() {
                               : 'border-muted-foreground/30 text-muted-foreground/50 hover:border-muted-foreground/50',
                           )}
                           onClick={() => avatarInputRef.current?.click()}
-                          title={t('profile.uploadAvatar')}
+                          title="上传"
                         >
                           <ImagePlus className="size-3" />
                         </label>
@@ -1035,7 +1032,7 @@ function GreetingBar() {
                 <UITextarea
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  placeholder={t('profile.bioPlaceholder')}
+                  placeholder="介绍一下自己，AI老师会根据你的背景个性化教学..."
                   maxLength={200}
                   rows={2}
                   className="resize-none border-border/40 bg-transparent min-h-[72px] !text-sm !leading-relaxed placeholder:!text-xs placeholder:!leading-relaxed focus-visible:ring-1 focus-visible:ring-border/60"

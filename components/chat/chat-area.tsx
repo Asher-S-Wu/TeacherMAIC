@@ -6,7 +6,6 @@ import type { LectureNoteEntry } from '@/lib/types/chat';
 import type { DiscussionRequest } from '@/components/roundtable';
 import type { Action, SpeechAction, DiscussionAction } from '@/lib/types/action';
 import { cn } from '@/lib/utils';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { useStageStore } from '@/lib/store';
 import { PanelRightClose, BookOpen, MessageSquare } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -85,7 +84,6 @@ export const ChatArea = forwardRef<ChatAreaRef, ChatAreaProps>(
     },
     ref,
   ) => {
-    const { t } = useI18n();
     const scenes = useStageStore((s) => s.scenes);
     const {
       sessions,
@@ -270,11 +268,11 @@ export const ChatArea = forwardRef<ChatAreaRef, ChatAreaProps>(
               <TabsList variant="line" className="h-full flex-1 w-0">
                 <TabsTrigger value="lecture" className="text-xs gap-1 flex-1">
                   <BookOpen className="w-3.5 h-3.5" />
-                  {t('chat.tabs.lecture')}
+                  笔记
                 </TabsTrigger>
                 <TabsTrigger value="chat" className="text-xs gap-1 flex-1 relative">
                   <MessageSquare className="w-3.5 h-3.5" />
-                  {t('chat.tabs.chat')}
+                  对话
                   {/* Amber pulse dot when there's an active chat session and user is on Notes tab */}
                   {hasActiveChatSession && activeTab === 'lecture' && (
                     <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
@@ -309,10 +307,10 @@ export const ChatArea = forwardRef<ChatAreaRef, ChatAreaProps>(
                       <MessageSquare className="w-6 h-6" />
                     </div>
                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                      {t('chat.noConversations')}
+                      暂无对话
                     </p>
                     <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
-                      {t('chat.startConversation')}
+                      输入消息开始对话
                     </p>
                   </div>
                 ) : (

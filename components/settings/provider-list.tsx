@@ -2,7 +2,6 @@
 
 import { Box } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import type { ProviderId, ProviderConfig } from '@/lib/ai/providers';
 import { MONO_LOGO_PROVIDERS } from '@/lib/ai/providers';
 
@@ -23,16 +22,6 @@ export function ProviderList({
   onSelect,
   width,
 }: ProviderListProps) {
-  const { t } = useI18n();
-
-  // Helper function to get translated provider name
-  const getProviderDisplayName = (provider: ProviderConfig) => {
-    const translationKey = `settings.providerNames.${provider.id}`;
-    const translated = t(translationKey);
-    // If translation exists (not equal to key), use it; otherwise fallback to provider.name
-    return translated !== translationKey ? translated : provider.name;
-  };
-
   return (
     <div className="flex-shrink-0 bg-background flex flex-col" style={{ width: width ?? 192 }}>
       <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
@@ -50,7 +39,7 @@ export function ProviderList({
             {provider.icon ? (
               <img
                 src={provider.icon}
-                alt={getProviderDisplayName(provider)}
+                alt={provider.name}
                 className={cn(
                   'w-5 h-5 rounded',
                   MONO_LOGO_PROVIDERS.has(provider.id) && 'dark:invert',
@@ -62,18 +51,15 @@ export function ProviderList({
             ) : (
               <Box className="h-5 w-5 text-muted-foreground" />
             )}
-            <span className="font-medium text-sm flex-1 truncate">
-              {getProviderDisplayName(provider)}
-            </span>
+            <span className="font-medium text-sm flex-1 truncate">{provider.name}</span>
             {provider.isServerConfigured && (
               <span className="text-[10px] px-1 py-0 h-4 leading-4 rounded shrink-0 bg-muted text-muted-foreground">
-                {t('settings.serverConfigured')}
+                可用
               </span>
             )}
           </button>
         ))}
       </div>
-
     </div>
   );
 }

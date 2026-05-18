@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { resolveAgentVoice, getAvailableProvidersWithVoices } from '@/lib/audio/voice-resolver';
@@ -30,6 +29,23 @@ import type { ProviderWithVoices } from '@/lib/audio/voice-resolver';
 function matchesVoiceQuery(value: string | undefined, query: string): boolean {
   return !!value?.toLowerCase().includes(query);
 }
+
+const DEFAULT_AGENT_NAMES: Record<string, string> = {
+  'default-1': 'AI教师',
+  'default-2': 'AI助教',
+  'default-3': '显眼包',
+  'default-4': '好奇宝宝',
+  'default-5': '笔记员',
+  'default-6': '思考者',
+};
+
+const AGENT_ROLE_LABELS: Record<string, string> = {
+  teacher: '教师',
+  assistant: '助教',
+  student: '学生',
+};
+
+const TTS_PREVIEW_TEXT = '你好，这是一段测试语音。';
 
 function getFilteredModelGroups(provider: ProviderWithVoices, query: string) {
   const normalizedQuery = query.trim().toLowerCase();
@@ -65,7 +81,6 @@ function AgentVoicePill({
   availableProviders: ProviderWithVoices[];
   disabled?: boolean;
 }) {
-  const { t } = useI18n();
   const updateAgent = useAgentRegistry((s) => s.updateAgent);
   const resolved = resolveAgentVoice(agent, agentIndex, availableProviders);
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -114,7 +129,7 @@ function AgentVoicePill({
       stopPreview();
       setPreviewingId(key);
 
-      const previewText = t('settings.ttsTestTextDefault');
+      const previewText = TTS_PREVIEW_TEXT;
 
       try {
         const controller = new AbortController();
@@ -143,7 +158,7 @@ function AgentVoicePill({
         setPreviewingId(null);
       }
     },
-    [previewingId, stopPreview, t],
+    [previewingId, stopPreview],
   );
 
   // Cleanup on unmount
@@ -200,8 +215,8 @@ function AgentVoicePill({
               value={voiceQuery}
               onChange={(e) => setVoiceQuery(e.target.value)}
               autoFocus
-              aria-label={t('agentBar.searchVoice')}
-              placeholder={t('agentBar.searchVoice')}
+              aria-label="搜索音色"
+              placeholder="搜索音色"
               className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
             />
           </div>
@@ -209,7 +224,7 @@ function AgentVoicePill({
         <div className="max-h-80 overflow-y-auto p-1">
           {visibleProviderGroups.length === 0 && (
             <div className="px-3 py-6 text-center text-sm text-muted-foreground/60">
-              {t('agentBar.noMatchingVoices')}
+              没有匹配音色
             </div>
           )}
           {visibleProviderGroups.map(({ provider, groups }) =>
@@ -294,7 +309,6 @@ function TeacherVoicePill({
   availableProviders: ProviderWithVoices[];
   disabled?: boolean;
 }) {
-  const { t } = useI18n();
   const ttsProviderId = useSettingsStore((s) => s.ttsProviderId);
   const ttsVoice = useSettingsStore((s) => s.ttsVoice);
   const setTTSProvider = useSettingsStore((s) => s.setTTSProvider);
@@ -345,7 +359,7 @@ function TeacherVoicePill({
       stopPreview();
       setPreviewingId(key);
 
-      const previewText = t('settings.ttsTestTextDefault');
+      const previewText = TTS_PREVIEW_TEXT;
 
       try {
         const controller = new AbortController();
@@ -373,7 +387,7 @@ function TeacherVoicePill({
         setPreviewingId(null);
       }
     },
-    [previewingId, stopPreview, t],
+    [previewingId, stopPreview],
   );
 
   useEffect(() => () => stopPreview(), [stopPreview]);
@@ -429,8 +443,8 @@ function TeacherVoicePill({
               value={voiceQuery}
               onChange={(e) => setVoiceQuery(e.target.value)}
               autoFocus
-              aria-label={t('agentBar.searchVoice')}
-              placeholder={t('agentBar.searchVoice')}
+              aria-label="搜索音色"
+              placeholder="搜索音色"
               className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
             />
           </div>
@@ -438,7 +452,7 @@ function TeacherVoicePill({
         <div className="max-h-80 overflow-y-auto p-1">
           {visibleProviderGroups.length === 0 && (
             <div className="px-3 py-6 text-center text-sm text-muted-foreground/60">
-              {t('agentBar.noMatchingVoices')}
+              没有匹配音色
             </div>
           )}
           {visibleProviderGroups.map(({ provider, groups }) =>
@@ -510,7 +524,6 @@ function TeacherVoicePill({
 }
 
 export function AgentBar() {
-  const { t } = useI18n();
   const { listAgents } = useAgentRegistry();
   const selectedAgentIds = useSettingsStore((s) => s.selectedAgentIds);
   const setSelectedAgentIds = useSettingsStore((s) => s.setSelectedAgentIds);
@@ -576,15 +589,11 @@ export function AgentBar() {
   };
 
   const getAgentName = (agent: { id: string; name: string }) => {
-    const key = `settings.agentNames.${agent.id}`;
-    const translated = t(key);
-    return translated !== key ? translated : agent.name;
+    return DEFAULT_AGENT_NAMES[agent.id] || agent.name;
   };
 
   const getAgentRole = (agent: { role: string }) => {
-    const key = `settings.agentRoles.${agent.role}`;
-    const translated = t(key);
-    return translated !== key ? translated : agent.role;
+    return AGENT_ROLE_LABELS[agent.role] || agent.role;
   };
 
   const avatarRow = (
@@ -704,7 +713,7 @@ export function AgentBar() {
             onClick={() => setOpen(!open)}
           >
             <span className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors hidden sm:block font-medium flex-1 text-left truncate">
-              {open ? t('agentBar.expandedTitle') : t('agentBar.readyToLearn')}
+              {open ? '课堂角色配置' : '准备好一起学习了吗？'}
             </span>
             {avatarRow}
             {open ? (
@@ -716,7 +725,7 @@ export function AgentBar() {
         </TooltipTrigger>
         {!open && (
           <TooltipContent side="bottom" sideOffset={4}>
-            {t('agentBar.configTooltip')}
+            点击配置课堂角色
           </TooltipContent>
         )}
       </Tooltip>
@@ -767,7 +776,7 @@ export function AgentBar() {
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  {t('settings.agentModePreset')}
+                  预设模式
                 </button>
                 <button
                   onClick={() => handleModeChange('auto')}
@@ -779,7 +788,7 @@ export function AgentBar() {
                   )}
                 >
                   <Sparkles className="h-3 w-3" />
-                  {t('settings.agentModeAuto')}
+                  自动生成
                 </button>
               </div>
 
@@ -799,10 +808,10 @@ export function AgentBar() {
                   <div className="flex-1" />
                   <div className="text-center space-y-1">
                     <p className="text-[11px] text-muted-foreground/60">
-                      {t('settings.agentModeAutoDesc')}
+                      AI 将根据课程内容自动生成适合的课堂角色
                     </p>
                     <p className="text-[10px] text-muted-foreground/40">
-                      {t('agentBar.voiceAutoAssign')}
+                      音色将自动分配
                     </p>
                   </div>
                 </div>
@@ -812,7 +821,7 @@ export function AgentBar() {
               <div className="flex items-center gap-1.5 px-2 py-1 mt-1 border-t border-border/30">
                 <MessageSquare className="size-3 text-muted-foreground/40 shrink-0" />
                 <span className="text-[11px] text-muted-foreground/50 flex-1">
-                  {t('settings.maxTurns')}
+                  最大讨论轮数
                 </span>
                 <div className="flex items-center rounded-full bg-muted/50 h-5 shrink-0">
                   <button

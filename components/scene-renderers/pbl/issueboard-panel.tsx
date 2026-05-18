@@ -1,14 +1,12 @@
 'use client';
 
 import type { PBLIssueboard, PBLIssue } from '@/lib/pbl/types';
-import { useI18n } from '@/lib/hooks/use-i18n';
 
 interface IssueboardPanelProps {
   readonly issueboard: PBLIssueboard;
 }
 
 export function IssueboardPanel({ issueboard }: IssueboardPanelProps) {
-  const { t } = useI18n();
   const sortedIssues = [...issueboard.issues].sort((a, b) => a.index - b.index);
 
   const doneCount = sortedIssues.filter((i) => i.is_done).length;
@@ -19,7 +17,7 @@ export function IssueboardPanel({ issueboard }: IssueboardPanelProps) {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-4 py-3 border-b">
-        <h2 className="font-semibold text-sm">{t('pbl.issueboard.title')}</h2>
+        <h2 className="font-semibold text-sm">任务看板</h2>
         <div className="mt-2 flex items-center gap-2">
           <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
             <div
@@ -40,7 +38,7 @@ export function IssueboardPanel({ issueboard }: IssueboardPanelProps) {
         ))}
         {sortedIssues.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            {t('pbl.issueboard.noIssues')}
+            暂无任务
           </p>
         )}
       </div>
@@ -49,7 +47,6 @@ export function IssueboardPanel({ issueboard }: IssueboardPanelProps) {
 }
 
 function IssueCard({ issue }: { issue: PBLIssue }) {
-  const { t } = useI18n();
   const statusColor = issue.is_done
     ? 'border-green-500/50 bg-green-50 dark:bg-green-950/20'
     : issue.is_active
@@ -57,10 +54,10 @@ function IssueCard({ issue }: { issue: PBLIssue }) {
       : 'border-muted';
 
   const statusLabel = issue.is_done
-    ? t('pbl.issueboard.statusDone')
+    ? '已完成'
     : issue.is_active
-      ? t('pbl.issueboard.statusActive')
-      : t('pbl.issueboard.statusPending');
+      ? '进行中'
+      : '待处理';
 
   const statusBadgeColor = issue.is_done
     ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'

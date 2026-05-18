@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { animate, motion, MotionConfig, useReducedMotion } from 'motion/react';
 import { FileText, HelpCircle, Gamepad2, Puzzle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { useStageStore } from '@/lib/store';
 import type { Scene, SceneType } from '@/lib/types/stage';
 import { summarizeScenes } from '@/lib/classroom/complete-summary';
@@ -18,6 +17,19 @@ const SCENE_TYPE_ICONS: Record<SceneType, typeof FileText> = {
 };
 
 const TYPE_ORDER: SceneType[] = ['slide', 'quiz', 'interactive', 'pbl'];
+
+const TRAIL_LABELS: Record<SceneType, string> = {
+  slide: '页',
+  quiz: '小测',
+  interactive: '互动',
+  pbl: '项目',
+};
+
+const ENCOURAGEMENT: Record<'high' | 'mid' | 'low', string> = {
+  high: '太棒了，完美发挥！',
+  mid: '表现不错，继续加油！',
+  low: '万事开头难，回去再练练吧。',
+};
 
 const CONFETTI_COLORS = [
   '#fbbf24',
@@ -306,7 +318,6 @@ interface ClassroomCompletePageProps {
 }
 
 export function ClassroomCompletePage({ scenes, title }: ClassroomCompletePageProps) {
-  const { t } = useI18n();
   const prefersReducedMotion = useReducedMotion();
 
   // Computed once on mount: re-grading on every render would be wasteful and
@@ -342,7 +353,7 @@ export function ClassroomCompletePage({ scenes, title }: ClassroomCompletePagePr
       type,
       count: summary.countsByType[type] ?? 0,
       Icon: SCENE_TYPE_ICONS[type],
-      label: t(`classroomComplete.trailLabels.${type}`),
+      label: TRAIL_LABELS[type],
     }),
   );
 
@@ -350,12 +361,12 @@ export function ClassroomCompletePage({ scenes, title }: ClassroomCompletePagePr
     <MotionConfig reducedMotion={prefersReducedMotion ? 'always' : 'user'}>
       <section
         className="absolute inset-0 z-[105] flex items-center justify-center overflow-auto"
-        aria-label={t('classroomComplete.title')}
+        aria-label="课程完成"
       >
         {/* Single-shot announcement for screen readers — replaces the noisy
             outer aria-live region that used to wrap the live-updating counters. */}
         <span className="sr-only" role="status">
-          {t('classroomComplete.title')}
+          课程完成
         </span>
         {/* Base background */}
         <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:from-gray-900 dark:via-gray-900 dark:to-amber-950/30" />
@@ -422,7 +433,7 @@ export function ClassroomCompletePage({ scenes, title }: ClassroomCompletePagePr
             className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 text-white text-xs font-bold uppercase tracking-wider shadow-lg shadow-amber-500/30"
           >
             <Sparkle className="w-3 h-3" />
-            {t('classroomComplete.title')}
+            课程完成
             <Sparkle className="w-3 h-3" />
           </motion.div>
 
@@ -434,7 +445,7 @@ export function ClassroomCompletePage({ scenes, title }: ClassroomCompletePagePr
             className="text-center space-y-1.5"
           >
             <h2 className="text-3xl md:text-4xl font-black leading-tight bg-gradient-to-br from-amber-700 via-orange-600 to-amber-800 dark:from-amber-200 dark:via-orange-200 dark:to-amber-300 bg-clip-text text-transparent">
-              {title || t('classroomComplete.title')}
+              {title || '课程完成'}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">{dateLabel}</p>
           </motion.div>
@@ -493,13 +504,10 @@ export function ClassroomCompletePage({ scenes, title }: ClassroomCompletePagePr
                 <QuizRing pct={summary.quiz.pct} delay={1.3} />
                 <div className="flex-1 min-w-0">
                   <div className="text-base font-bold text-amber-700 dark:text-amber-300">
-                    {t('classroomComplete.quizScoreLabel', {
-                      correct: summary.quiz.correct,
-                      total: summary.quiz.total,
-                    })}
+                    {`答对 ${summary.quiz.correct} / ${summary.quiz.total}`}
                   </div>
                   <div className="mt-1 text-sm text-amber-700/80 dark:text-amber-300/80">
-                    {t(`classroomComplete.encouragement.${encouragementKey(summary.quiz.pct)}`)}
+                    {ENCOURAGEMENT[encouragementKey(summary.quiz.pct)]}
                   </div>
                 </div>
               </div>

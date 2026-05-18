@@ -20,7 +20,6 @@ import { cn } from '@/lib/utils';
 import type { AudioIndicatorState } from './audio-indicator';
 import { CanvasToolbar } from '@/components/canvas/canvas-toolbar';
 import { useAudioRecorder } from '@/lib/hooks/use-audio-recorder';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { toast } from 'sonner';
 import { useSettingsStore, PLAYBACK_SPEEDS } from '@/lib/store/settings';
 import { ProactiveCard } from '@/components/chat/proactive-card';
@@ -127,6 +126,21 @@ function VoiceWaveformBars({ barClassName }: { readonly barClassName: string }) 
   ));
 }
 
+const AGENT_ROLE_LABELS: Record<'teacher' | 'assistant' | 'student', string> = {
+  teacher: '教师',
+  assistant: '助教',
+  student: '学生',
+};
+
+const DEFAULT_AGENT_DESCRIPTIONS: Record<string, string> = {
+  'default-1': '主讲教师，清晰有条理地讲解知识',
+  'default-2': '辅助讲解，帮助同学理解重点',
+  'default-3': '活跃气氛，用幽默让课堂更有趣',
+  'default-4': '充满好奇心，总爱追问为什么',
+  'default-5': '认真记录，整理课堂重点笔记',
+  'default-6': '深入思考，喜欢探讨问题本质',
+};
+
 export function Roundtable({
   mode: _mode = 'autonomous',
   initialParticipants = [],
@@ -175,7 +189,6 @@ export function Roundtable({
   onPresentationInteractionChange,
   fullscreenContainerRef,
 }: RoundtableProps) {
-  const { t } = useI18n();
   const ttsMuted = useSettingsStore((s) => s.ttsMuted);
   const setTTSMuted = useSettingsStore((s) => s.setTTSMuted);
   const ttsEnabled = useSettingsStore((state) => state.ttsEnabled);
@@ -326,7 +339,7 @@ export function Roundtable({
   const userParticipant = initialParticipants.find((p) => p.role === 'user');
 
   const teacherAvatar = teacherParticipant?.avatar || DEFAULT_TEACHER_AVATAR;
-  const teacherName = teacherParticipant?.name || t('roundtable.teacher');
+  const teacherName = teacherParticipant?.name || '教师';
   const userAvatar = userParticipant?.avatar || DEFAULT_USER_AVATAR;
 
   // Audio recording
@@ -334,7 +347,7 @@ export function Roundtable({
     useAudioRecorder({
       onTranscription: (text) => {
         if (!text.trim()) {
-          toast.info(t('roundtable.noSpeechDetected'));
+          toast.info('未检测到语音，请重试');
           setIsVoiceOpen(false);
           return;
         }
@@ -525,11 +538,11 @@ export function Roundtable({
 
   const bubbleName =
     bubbleRole === 'agent'
-      ? speakingStudent?.name || t('settings.agentRoles.student')
+      ? speakingStudent?.name || '学生'
       : bubbleRole === 'teacher'
         ? teacherName
         : bubbleRole === 'user'
-          ? t('roundtable.you')
+          ? '你'
           : '';
 
   // Stable key based on speaker identity, NOT text content (prevents re-mount flicker)
@@ -714,8 +727,8 @@ export function Roundtable({
             >
               <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block mr-1.5" />
               {endFlashSessionType === 'discussion'
-                ? t('roundtable.discussionEnded')
-                : t('roundtable.qaEnded')}
+                ? '讨论已结束'
+                : '问答已结束'}
             </motion.div>
           )}
         </AnimatePresence>
@@ -746,7 +759,7 @@ export function Roundtable({
                           handleSendMessage();
                         }
                       }}
-                      placeholder={t('roundtable.inputPlaceholder')}
+                      placeholder="输入你的消息..."
                       autoFocus
                       rows={1}
                       className="w-full resize-none bg-transparent border-none focus:ring-0 focus:outline-none outline-none shadow-none ring-0 text-gray-900 dark:text-white text-sm placeholder:text-gray-400 dark:placeholder:text-gray-400 py-0 leading-[40px] max-h-[80px]"
@@ -790,14 +803,12 @@ export function Roundtable({
                     <VoiceWaveformBars barClassName="bg-gradient-to-t from-purple-400 to-indigo-400" />
                   </div>
                   <span className="text-[11px] font-semibold tracking-wider text-purple-600 dark:text-purple-300 uppercase">
-                    {isProcessing ? t('roundtable.processing') : t('roundtable.listening')}
+                    {isProcessing ? '处理中...' : '录音中...'}
                   </span>
                   {/* Mic button */}
                   <button
                     type="button"
-                    aria-label={
-                      isRecording ? t('roundtable.stopRecording') : t('roundtable.startRecording')
-                    }
+                    aria-label={isRecording ? '停止录音' : '开始录音'}
                     className="relative group cursor-pointer bg-transparent border-none p-0"
                     onClick={handleToggleVoice}
                   >
@@ -827,7 +838,7 @@ export function Roundtable({
                   className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/70 dark:bg-black/50 backdrop-blur-xl border border-amber-400/50 dark:border-amber-500/50 shadow-[0_0_16px_rgba(245,158,11,0.2),0_8px_32px_rgba(0,0,0,0.06)] dark:shadow-[0_0_16px_rgba(245,158,11,0.25),0_8px_32px_rgba(0,0,0,0.4)] text-amber-600 dark:text-amber-400 text-sm font-semibold tracking-wide hover:bg-gray-100/80 dark:hover:bg-black/60 hover:border-amber-500/70 dark:hover:border-amber-400/70 hover:shadow-[0_0_24px_rgba(245,158,11,0.25)] dark:hover:shadow-[0_0_24px_rgba(245,158,11,0.35)] transition-all active:scale-95 animate-pulse"
                 >
                   {asrEnabled ? <Mic className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
-                  {t('roundtable.yourTurn')}
+                  轮到你发言了
                 </button>
               </motion.div>
             )}
@@ -853,7 +864,7 @@ export function Roundtable({
                   ))}
                 </div>
                 <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
-                  {t('roundtable.thinking')}
+                  思考中
                 </span>
               </motion.div>
             )}
@@ -948,8 +959,8 @@ export function Roundtable({
                       <button
                         aria-label={
                           asrEnabled
-                            ? t('roundtable.voiceInput')
-                            : t('roundtable.voiceInputDisabled')
+                            ? '语音输入'
+                            : '语音输入已禁用'
                         }
                         onClick={(e) => {
                           e.stopPropagation();
@@ -968,7 +979,7 @@ export function Roundtable({
                         {asrEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
                       </button>
                       <button
-                        aria-label={t('roundtable.textInput')}
+                        aria-label="文字输入"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleToggleInput();
@@ -987,7 +998,7 @@ export function Roundtable({
 
                   <button
                     type="button"
-                    aria-label={t('roundtable.you')}
+                    aria-label="你"
                     className="relative group cursor-pointer shrink-0 bg-transparent border-none p-0"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1013,7 +1024,7 @@ export function Roundtable({
                         )}
                       />
                       <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden relative z-10 text-lg">
-                        <AvatarDisplay src={userAvatar} alt={t('roundtable.you')} />
+                        <AvatarDisplay src={userAvatar} alt="你" />
                       </div>
                     </div>
                   </button>
@@ -1161,7 +1172,7 @@ export function Roundtable({
                                 backgroundColor: teacherConfig?.color || '#8b5cf6',
                               }}
                             >
-                              {t('settings.agentRoles.teacher')}
+                              {AGENT_ROLE_LABELS.teacher}
                             </span>
                           </div>
                         </div>
@@ -1218,8 +1229,8 @@ export function Roundtable({
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block mr-1.5" />
                 {endFlashSessionType === 'discussion'
-                  ? t('roundtable.discussionEnded')
-                  : t('roundtable.qaEnded')}
+                  ? '讨论已结束'
+                  : '问答已结束'}
               </motion.div>
             )}
           </AnimatePresence>
@@ -1261,7 +1272,7 @@ export function Roundtable({
                             handleSendMessage();
                           }
                         }}
-                        placeholder={t('roundtable.inputPlaceholder')}
+                        placeholder="输入你的消息..."
                         autoFocus
                         rows={1}
                         className="w-full resize-none bg-transparent border-none focus:ring-0 focus:outline-none outline-none shadow-none ring-0 text-gray-700 dark:text-gray-200 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 min-h-[40px] max-h-[120px]"
@@ -1312,7 +1323,7 @@ export function Roundtable({
                       animate={{ opacity: 1, x: 0 }}
                       className="text-[10px] font-bold tracking-widest text-purple-600 dark:text-purple-400 uppercase bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-2 py-0.5 rounded-full shadow-sm border border-purple-100/50 dark:border-purple-800/50 mr-1"
                     >
-                      {isProcessing ? t('roundtable.processing') : t('roundtable.listening')}
+                      {isProcessing ? '处理中...' : '录音中...'}
                     </motion.div>
                   </div>
 
@@ -1370,7 +1381,7 @@ export function Roundtable({
                     />
                   </div>
                   <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
-                    {t('roundtable.thinking')}
+                    思考中
                   </span>
                 </motion.div>
               )}
@@ -1514,7 +1525,7 @@ export function Roundtable({
                         : 'text-purple-600/70 dark:text-purple-400/60',
                     )}
                   >
-                    {t('roundtable.yourTurn')}
+                    轮到你发言了
                   </motion.span>
                 </motion.div>
               )}
@@ -1808,12 +1819,8 @@ export function Roundtable({
                     | 'assistant'
                     | 'student'
                     | undefined;
-                  const roleLabel = roleLabelKey ? t(`settings.agentRoles.${roleLabelKey}`) : '';
-                  const i18nDescription = t(`settings.agentDescriptions.${student.id}`);
-                  const description =
-                    i18nDescription !== `settings.agentDescriptions.${student.id}`
-                      ? i18nDescription
-                      : agentConfig?.persona || '';
+                  const roleLabel = roleLabelKey ? AGENT_ROLE_LABELS[roleLabelKey] : '';
+                  const description = DEFAULT_AGENT_DESCRIPTIONS[student.id] || agentConfig?.persona || '';
                   const hasDescription = !!description;
                   const isDiscussionAgent =
                     !!discussionRequest && discussionRequest.agentId === student.id;
@@ -1897,7 +1904,7 @@ export function Roundtable({
                             </div>
                             <div className="min-w-0">
                               <p className="text-sm font-medium truncate">{student.name}</p>
-                              {roleLabel && roleLabel !== `settings.agentRoles.${roleLabelKey}` && (
+                              {roleLabel && (
                                 <span
                                   className="inline-block text-[10px] leading-tight px-1.5 py-0.5 rounded-full text-white mt-0.5"
                                   style={{
@@ -2058,7 +2065,7 @@ export function Roundtable({
                   )}
                 />
                 <div className="w-14 h-14 rounded-full bg-gray-50 dark:bg-gray-800 overflow-hidden relative z-10 shadow-sm border border-gray-50 dark:border-gray-700 text-2xl">
-                  <AvatarDisplay src={userAvatar} alt={t('roundtable.you')} />
+                  <AvatarDisplay src={userAvatar} alt="你" />
                 </div>
                 <div className="absolute top-0 right-0 w-5 h-5 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-md border border-gray-100 dark:border-gray-700 z-20">
                   <div
@@ -2080,7 +2087,7 @@ export function Roundtable({
                     exit={{ opacity: 0, y: 4, scale: 0.9 }}
                     className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 bg-amber-500 text-white text-[9px] font-bold rounded-full shadow-sm z-30"
                   >
-                    {t('roundtable.yourTurn')}
+                    轮到你发言了
                   </motion.div>
                 )}
               </AnimatePresence>

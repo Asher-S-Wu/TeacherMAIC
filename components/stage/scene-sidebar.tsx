@@ -17,7 +17,6 @@ import { cn } from '@/lib/utils';
 import { ThumbnailSlide } from '@/components/slide-renderer/components/ThumbnailSlide';
 import { ThumbnailInteractive } from '@/components/slide-renderer/components/ThumbnailInteractive';
 import { useStageStore, useCanvasStore } from '@/lib/store';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import type { SceneType, SlideContent, InteractiveContent } from '@/lib/types/stage';
 import { PENDING_SCENE_ID } from '@/lib/store/stage';
 
@@ -40,7 +39,6 @@ export function SceneSidebar({
   onRetryOutline,
   isCourseComplete,
 }: SceneSidebarProps) {
-  const { t } = useI18n();
   const router = useRouter();
   const { scenes, currentSceneId, setCurrentSceneId, generatingOutlines, generationStatus } =
     useStageStore();
@@ -128,7 +126,7 @@ export function SceneSidebar({
           <button
             onClick={() => router.push('/')}
             className="flex items-center gap-2 cursor-pointer rounded-lg px-1.5 -mx-1.5 py-1 -my-1 hover:bg-gray-100/80 dark:hover:bg-gray-800/60 active:scale-[0.97] transition-all duration-150"
-            title={t('generation.backToHome')}
+            title="返回首页"
           >
             <div className="flex items-center gap-1.5">
               <div className="flex items-center justify-center w-5 h-5 rounded-md bg-gradient-to-br from-violet-500 to-blue-500 text-white">
@@ -426,7 +424,7 @@ export function SceneSidebar({
                               }}
                               disabled={isRetrying}
                               className="p-1 -ml-1 rounded-md hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-                              title={t('generation.retryScene')}
+                              title="重试生成"
                             >
                               <RefreshCw
                                 className={cn('w-3.5 h-3.5', isRetrying && 'animate-spin')}
@@ -437,8 +435,8 @@ export function SceneSidebar({
                           )}
                           <span>
                             {isRetrying
-                              ? t('generation.retryingScene')
-                              : t('stage.generationFailed')}
+                              ? '正在重新生成...'
+                              : '生成失败'}
                           </span>
                         </div>
                       ) : (
@@ -456,7 +454,7 @@ export function SceneSidebar({
                             )}
                           />
                           <span className="text-[9px] font-medium text-gray-400 dark:text-gray-500 mt-0.5">
-                            {isPaused ? t('stage.paused') : t('stage.generating')}
+                            {isPaused ? '已暂停' : '生成中...'}
                           </span>
                         </>
                       )}
@@ -511,7 +509,7 @@ export function SceneSidebar({
                             : 'text-amber-600 dark:text-amber-400',
                         )}
                       >
-                        {t('stage.courseComplete')}
+                        课程完成
                       </span>
                     </div>
                   </div>

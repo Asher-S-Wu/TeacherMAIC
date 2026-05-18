@@ -5,7 +5,6 @@ import { Paperclip, FileText, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import type { SettingsSection } from '@/lib/types/settings';
 import { MediaPopover } from '@/components/generation/media-popover';
@@ -37,7 +36,6 @@ export function GenerationToolbar({
   onPdfError,
   voiceButton,
 }: GenerationToolbarProps) {
-  const { t } = useI18n();
   const currentProviderId = useSettingsStore((s) => s.providerId);
   const currentModelId = useSettingsStore((s) => s.modelId);
   const thinkingConfigs = useSettingsStore((s) => s.thinkingConfigs);
@@ -54,14 +52,14 @@ export function GenerationToolbar({
     for (const file of Array.from(files)) {
       if (file.type === 'application/pdf') {
         if (file.size > MAX_PDF_SIZE_BYTES) {
-          onPdfError(t('upload.fileTooLarge'));
+          onPdfError('文件过大，请选择小于50MB的PDF文件');
           return;
         }
         nextPdf = file;
         continue;
       }
 
-      onPdfError(t('upload.unsupportedAttachment'));
+      onPdfError('请选择 PDF 文件');
       return;
     }
 
@@ -93,7 +91,7 @@ export function GenerationToolbar({
             </button>
           </TooltipTrigger>
         </ModelSelectorPopover>
-        <TooltipContent>{t('settings.serverManagedModelDesc')}</TooltipContent>
+        <TooltipContent>当前课程会使用这里显示的模型。</TooltipContent>
       </Tooltip>
 
       {/* ── Attachments ── */}
@@ -101,7 +99,7 @@ export function GenerationToolbar({
         <PopoverTrigger asChild>
           <button
             type="button"
-            aria-label={t('toolbar.addAttachment')}
+            aria-label="继续添加文件"
             className={cn(
               attachmentTriggerCls,
               attachmentCount > 0 && 'text-violet-600 dark:text-violet-300',
@@ -148,7 +146,7 @@ export function GenerationToolbar({
                   onClick={() => fileInputRef.current?.click()}
                   className="w-full rounded-lg border border-dashed border-muted-foreground/25 px-3 py-2 text-xs text-muted-foreground hover:border-violet-300 hover:text-foreground"
                 >
-                  {t('toolbar.addAttachment')}
+                  继续添加文件
                 </button>
               </div>
             ) : (
@@ -172,9 +170,9 @@ export function GenerationToolbar({
                 }}
               >
                 <Paperclip className="size-5 text-muted-foreground/50 mb-1.5" />
-                <p className="text-xs font-medium">{t('toolbar.attachmentUpload')}</p>
+                <p className="text-xs font-medium">添加 PDF</p>
                 <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                  {t('upload.attachmentSizeLimit')}
+                  PDF 最大50MB
                 </p>
               </div>
             )}

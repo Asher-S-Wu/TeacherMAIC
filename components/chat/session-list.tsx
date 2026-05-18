@@ -2,7 +2,6 @@
 
 import type { ChatSession, SessionStatus } from '@/lib/types/chat';
 import { cn } from '@/lib/utils';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { ChevronDown, Circle, CheckCircle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChatSessionComponent } from './chat-session';
@@ -22,7 +21,11 @@ const sessionBadgeStyles = {
   lecture: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
 };
 
-// Labels are provided via i18n in the component
+const SESSION_BADGE_LABELS = {
+  qa: 'Q&A',
+  discussion: '讨论',
+  lecture: '授课',
+};
 
 function getStatusIcon(status: SessionStatus) {
   switch (status) {
@@ -46,7 +49,6 @@ export function SessionList({
   onToggleExpand,
   onEndSession,
 }: SessionListProps) {
-  const { t } = useI18n();
   return (
     <>
       {sessions.map((session) => {
@@ -91,7 +93,7 @@ export function SessionList({
                   sessionBadgeStyles[session.type],
                 )}
               >
-                {t(`chat.badge.${session.type}`)}
+                {SESSION_BADGE_LABELS[session.type]}
               </span>
               <span className="flex-1 text-[11px] font-semibold text-gray-700 dark:text-gray-300 truncate">
                 {session.title}

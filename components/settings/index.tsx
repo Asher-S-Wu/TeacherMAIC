@@ -14,7 +14,6 @@ import {
   Volume2,
   Mic,
 } from 'lucide-react';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import {
   MONO_LOGO_PROVIDERS,
@@ -35,10 +34,8 @@ import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
 import type { VideoProviderId } from '@/lib/media/types';
 import { TTSSettings } from './tts-settings';
 import { TTS_PROVIDERS } from '@/lib/audio/constants';
-import type { TTSProviderId } from '@/lib/audio/types';
 import { ASRSettings } from './asr-settings';
 import { ASR_PROVIDERS } from '@/lib/audio/constants';
-import type { ASRProviderId } from '@/lib/audio/types';
 import { WebSearchSettings } from './web-search-settings';
 import { WEB_SEARCH_PROVIDERS } from '@/lib/web-search/constants';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
@@ -52,14 +49,12 @@ function ProviderListColumn<T extends string>({
   selectedId,
   onSelect,
   width,
-  t,
 }: {
   providers: Array<{ id: T; name: string; icon?: string }>;
   configs: Record<string, { isServerConfigured?: boolean }>;
   selectedId: T;
   onSelect: (id: T) => void;
   width: number;
-  t: (key: string) => string;
 }) {
   return (
     <div className="flex-shrink-0 bg-background flex flex-col" style={{ width }}>
@@ -93,7 +88,7 @@ function ProviderListColumn<T extends string>({
             <span className="font-medium text-sm flex-1 truncate">{provider.name}</span>
             {configs[provider.id]?.isServerConfigured && (
               <span className="text-[10px] px-1 py-0 h-4 leading-4 rounded shrink-0 bg-muted text-muted-foreground">
-                {t('settings.serverConfigured')}
+                可用
               </span>
             )}
           </button>
@@ -103,30 +98,6 @@ function ProviderListColumn<T extends string>({
   );
 }
 
-// ─── Helper: get TTS/ASR provider display name ───
-function getTTSProviderName(providerId: TTSProviderId, t: (key: string) => string): string {
-  const names: Record<TTSProviderId, string> = {
-    'ark-tts': t('settings.providerArkTTS'),
-  };
-  return names[providerId];
-}
-
-function getASRProviderName(providerId: ASRProviderId, t: (key: string) => string): string {
-  const names: Record<ASRProviderId, string> = {
-    'ark-asr': t('settings.providerArkASR'),
-  };
-  return names[providerId];
-}
-
-// ─── Image/Video provider name helpers ───
-const IMAGE_PROVIDER_NAMES: Record<ImageProviderId, string> = {
-  'ark-image': 'providerArkImage',
-};
-
-const VIDEO_PROVIDER_NAMES: Record<VideoProviderId, string> = {
-  'ark-video': 'providerArkVideo',
-};
-
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -134,8 +105,6 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsDialogProps) {
-  const { t } = useI18n();
-
   // Get settings from store
   const providerId = useSettingsStore((state) => state.providerId);
   const modelId = useSettingsStore((state) => state.modelId);
@@ -267,7 +236,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   const getHeaderContent = () => {
     switch (activeSection) {
       case 'general':
-        return <h2 className="text-lg font-semibold">{t('settings.systemSettings')}</h2>;
+        return <h2 className="text-lg font-semibold">系统设置</h2>;
       case 'providers':
         if (selectedProvider) {
           return (
@@ -288,14 +257,9 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 <Box className="h-8 w-8 text-muted-foreground" />
               )}
               <div>
-                <h2 className="text-lg font-semibold">
-                  {t(`settings.providerNames.${selectedProvider.id}`) !==
-                  `settings.providerNames.${selectedProvider.id}`
-                    ? t(`settings.providerNames.${selectedProvider.id}`)
-                    : selectedProvider.name}
-                </h2>
+                <h2 className="text-lg font-semibold">{selectedProvider.name}</h2>
                 <p className="text-xs text-muted-foreground">
-                  {getProviderTypeLabel(selectedProvider.type, t)}
+                  {getProviderTypeLabel(selectedProvider.type)}
                 </p>
               </div>
             </>
@@ -361,9 +325,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             ) : (
               <Box className="h-8 w-8 text-muted-foreground" />
             )}
-            <h2 className="text-lg font-semibold">
-              {t(`settings.${IMAGE_PROVIDER_NAMES[selectedImageProviderId]}`) || imgProvider?.name}
-            </h2>
+            <h2 className="text-lg font-semibold">{imgProvider?.name}</h2>
           </>
         );
       }
@@ -384,14 +346,13 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             ) : (
               <Box className="h-8 w-8 text-muted-foreground" />
             )}
-            <h2 className="text-lg font-semibold">
-              {t(`settings.${VIDEO_PROVIDER_NAMES[selectedVideoProviderId]}`) || vidProvider?.name}
-            </h2>
+            <h2 className="text-lg font-semibold">{vidProvider?.name}</h2>
           </>
         );
       }
       case 'tts': {
-        const ttsIcon = TTS_PROVIDERS[ttsProviderId as keyof typeof TTS_PROVIDERS]?.icon;
+        const ttsProvider = TTS_PROVIDERS[ttsProviderId];
+        const ttsIcon = ttsProvider?.icon;
         return (
           <>
             {ttsIcon ? (
@@ -406,12 +367,13 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             ) : (
               <Volume2 className="h-6 w-6 text-muted-foreground" />
             )}
-            <h2 className="text-lg font-semibold">{getTTSProviderName(ttsProviderId, t)}</h2>
+            <h2 className="text-lg font-semibold">{ttsProvider?.name}</h2>
           </>
         );
       }
       case 'asr': {
-        const asrIcon = ASR_PROVIDERS[asrProviderId as keyof typeof ASR_PROVIDERS]?.icon;
+        const asrProvider = ASR_PROVIDERS[asrProviderId];
+        const asrIcon = asrProvider?.icon;
         return (
           <>
             {asrIcon ? (
@@ -426,7 +388,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             ) : (
               <Mic className="h-6 w-6 text-muted-foreground" />
             )}
-            <h2 className="text-lg font-semibold">{getASRProviderName(asrProviderId, t)}</h2>
+            <h2 className="text-lg font-semibold">{asrProvider?.name}</h2>
           </>
         );
       }
@@ -438,8 +400,8 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="h-[85vh] p-0 gap-0 block" showCloseButton={false}>
-        <DialogTitle className="sr-only">{t('settings.title')}</DialogTitle>
-        <DialogDescription className="sr-only">{t('settings.description')}</DialogDescription>
+        <DialogTitle className="sr-only">设置</DialogTitle>
+        <DialogDescription className="sr-only">配置应用程序设置</DialogDescription>
         <div className="flex h-full overflow-hidden">
           {/* Left Sidebar - Navigation */}
           <div className="flex-shrink-0 bg-muted/30 p-3 space-y-1" style={{ width: sidebarWidth }}>
@@ -453,7 +415,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               )}
             >
               <Box className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('settings.providers')}</span>
+              <span className="truncate">语言模型</span>
             </button>
 
             <button
@@ -466,7 +428,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               )}
             >
               <ImageIcon className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('settings.imageSettings')}</span>
+              <span className="truncate">图像生成</span>
             </button>
 
             <button
@@ -479,7 +441,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               )}
             >
               <Film className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('settings.videoSettings')}</span>
+              <span className="truncate">视频生成</span>
             </button>
 
             <button
@@ -492,7 +454,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               )}
             >
               <Volume2 className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('settings.ttsSettings')}</span>
+              <span className="truncate">语音合成</span>
             </button>
 
             <button
@@ -505,7 +467,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               )}
             >
               <Mic className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('settings.asrSettings')}</span>
+              <span className="truncate">语音识别</span>
             </button>
 
             <button
@@ -518,7 +480,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               )}
             >
               <FileText className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('settings.pdfSettings')}</span>
+              <span className="truncate">PDF 解析</span>
             </button>
 
             <button
@@ -531,7 +493,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               )}
             >
               <Search className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('settings.webSearchSettings')}</span>
+              <span className="truncate">网络搜索</span>
             </button>
 
             <button
@@ -544,7 +506,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               )}
             >
               <Settings className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('settings.systemSettings')}</span>
+              <span className="truncate">系统设置</span>
             </button>
           </div>
 
@@ -582,7 +544,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 selectedId={selectedPdfProviderId}
                 onSelect={setSelectedPdfProviderId}
                 width={providerListWidth}
-                t={t}
               />
               <div
                 onMouseDown={(e) => handleResizeStart(e, 'providerList')}
@@ -601,7 +562,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 selectedId={selectedWebSearchProviderId}
                 onSelect={setSelectedWebSearchProviderId}
                 width={providerListWidth}
-                t={t}
               />
               <div
                 onMouseDown={(e) => handleResizeStart(e, 'providerList')}
@@ -617,14 +577,13 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               <ProviderListColumn
                 providers={Object.values(IMAGE_PROVIDERS).map((p) => ({
                   id: p.id,
-                  name: t(`settings.${IMAGE_PROVIDER_NAMES[p.id]}`) || p.name,
+                  name: p.name,
                   icon: p.icon,
                 }))}
                 configs={imageProvidersConfig}
                 selectedId={selectedImageProviderId}
                 onSelect={setSelectedImageProviderId}
                 width={providerListWidth}
-                t={t}
               />
               <div
                 onMouseDown={(e) => handleResizeStart(e, 'providerList')}
@@ -640,14 +599,13 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               <ProviderListColumn
                 providers={Object.values(VIDEO_PROVIDERS).map((p) => ({
                   id: p.id,
-                  name: t(`settings.${VIDEO_PROVIDER_NAMES[p.id]}`) || p.name,
+                  name: p.name,
                   icon: p.icon,
                 }))}
                 configs={videoProvidersConfig}
                 selectedId={selectedVideoProviderId}
                 onSelect={setSelectedVideoProviderId}
                 width={providerListWidth}
-                t={t}
               />
               <div
                 onMouseDown={(e) => handleResizeStart(e, 'providerList')}
@@ -663,14 +621,13 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               <ProviderListColumn
                 providers={Object.values(TTS_PROVIDERS).map((p) => ({
                   id: p.id,
-                  name: getTTSProviderName(p.id, t),
+                  name: p.name,
                   icon: p.icon,
                 }))}
                 configs={ttsProvidersConfig}
                 selectedId={ttsProviderId}
                 onSelect={setTTSProvider}
                 width={providerListWidth}
-                t={t}
               />
               <div
                 onMouseDown={(e) => handleResizeStart(e, 'providerList')}
@@ -686,14 +643,13 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               <ProviderListColumn
                 providers={Object.values(ASR_PROVIDERS).map((p) => ({
                   id: p.id,
-                  name: getASRProviderName(p.id, t),
+                  name: p.name,
                   icon: p.icon,
                 }))}
                 configs={asrProvidersConfig}
                 selectedId={asrProviderId}
                 onSelect={setASRProvider}
                 width={providerListWidth}
-                t={t}
               />
               <div
                 onMouseDown={(e) => handleResizeStart(e, 'providerList')}
@@ -749,10 +705,10 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             {/* Footer */}
             <div className="flex items-center justify-end gap-3 px-5 py-3 border-t bg-muted/30">
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-                {t('settings.close')}
+                关闭
               </Button>
               <Button size="sm" onClick={handleSave}>
-                {t('settings.save')}
+                保存
               </Button>
             </div>
           </div>

@@ -265,12 +265,17 @@ export const useAgentRegistry = create<AgentRegistryState>()(
 /**
  * Convert agents to roundtable participants
  * Maps agent roles to participant roles for the UI
- * @param t - i18n translation function for localized display names
  */
-export function agentsToParticipants(
-  agentIds: string[],
-  t?: (key: string) => string,
-): Participant[] {
+const DEFAULT_AGENT_DISPLAY_NAMES: Record<string, string> = {
+  'default-1': 'AI教师',
+  'default-2': 'AI助教',
+  'default-3': '显眼包',
+  'default-4': '好奇宝宝',
+  'default-5': '笔记员',
+  'default-6': '思考者',
+};
+
+export function agentsToParticipants(agentIds: string[]): Participant[] {
   const registry = useAgentRegistry.getState();
   const participants: Participant[] = [];
   let hasTeacher = false;
@@ -295,10 +300,7 @@ export function agentsToParticipants(
       hasTeacher = true;
     }
 
-    // Use i18n name for default agents, fall back to registry name
-    const i18nName = t?.(`settings.agentNames.${agent.id}`);
-    const displayName =
-      i18nName && i18nName !== `settings.agentNames.${agent.id}` ? i18nName : agent.name;
+    const displayName = DEFAULT_AGENT_DISPLAY_NAMES[agent.id] || agent.name;
 
     participants.push({
       id: agent.id,
@@ -312,7 +314,7 @@ export function agentsToParticipants(
 
   // Always add user participant — use profile store when available
   const userProfile = useUserProfileStore.getState();
-  const userName = userProfile.nickname || t?.('common.you') || 'You';
+  const userName = userProfile.nickname || '你';
   const userAvatar = userProfile.avatar || USER_AVATAR;
 
   participants.push({

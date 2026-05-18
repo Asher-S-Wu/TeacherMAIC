@@ -14,7 +14,6 @@ import { useSettingsStore } from '@/lib/store/settings';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { getAvailableProvidersWithVoices } from '@/lib/audio/voice-resolver';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { cleanupOldImages } from '@/lib/utils/image-storage';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
@@ -34,7 +33,6 @@ const log = createLogger('GenerationPreview');
 
 function GenerationPreviewContent() {
   const router = useRouter();
-  const { t } = useI18n();
   const hasStartedRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -141,7 +139,7 @@ function GenerationPreviewContent() {
 
     if (failed) {
       log.warn('[GenerationPreview] Media generation failed:', failed.error || failed.elementId);
-      throw new Error(t('generation.mediaFailed'));
+      throw new Error('图片或视频生成失败');
     }
 
     const unfinished = mediaElementIds.some((id) => {
@@ -150,7 +148,7 @@ function GenerationPreviewContent() {
     });
 
     if (unfinished) {
-      throw new Error(t('generation.mediaFailed'));
+      throw new Error('图片或视频生成失败');
     }
   };
 
@@ -184,12 +182,12 @@ function GenerationPreviewContent() {
         });
 
         if (!resp.ok) {
-          throw new Error(t('generation.speechFailed'));
+          throw new Error('语音合成失败');
         }
 
         const ttsData = await resp.json();
         if (!ttsData.success || !ttsData.file?.url) {
-          throw new Error(t('generation.speechFailed'));
+          throw new Error('语音合成失败');
         }
 
         action.audioUrl = ttsData.file.url;
@@ -198,7 +196,7 @@ function GenerationPreviewContent() {
           throw err;
         }
         log.warn(`[TTS] Failed for ${audioId}:`, err);
-        throw new Error(t('generation.speechFailed'));
+        throw new Error('语音合成失败');
       }
     }
   };
@@ -264,12 +262,12 @@ function GenerationPreviewContent() {
 
         if (!parseResponse.ok) {
           const errorData = await parseResponse.json();
-          throw new Error(errorData.error || t('generation.pdfParseFailed'));
+          throw new Error(errorData.error || 'PDF 解析失败');
         }
 
         const parseResult = await parseResponse.json();
         if (!parseResult.success || !parseResult.data) {
-          throw new Error(t('generation.pdfParseFailed'));
+          throw new Error('PDF 解析失败');
         }
 
         let pdfText = parseResult.data.text as string;
@@ -322,11 +320,11 @@ function GenerationPreviewContent() {
           Number(parseResult.data.metadata?.originalTextLength) ||
           (parseResult.data.text as string).length;
         if (originalTextLength > MAX_PDF_CONTENT_CHARS) {
-          warnings.push(t('generation.textTruncated', { n: MAX_PDF_CONTENT_CHARS }));
+          warnings.push(`文档文本较长，已截取前 ${MAX_PDF_CONTENT_CHARS} 字符用于生成`);
         }
         if (pdfImages.length > MAX_VISION_IMAGES) {
           warnings.push(
-            t('generation.imageTruncated', { total: pdfImages.length, max: MAX_VISION_IMAGES }),
+            `文档含 ${pdfImages.length} 张图片，超出上限 ${MAX_VISION_IMAGES} 张，多余图片将仅以文字描述传递`,
           );
         }
         if (warnings.length > 0) {
@@ -358,7 +356,7 @@ function GenerationPreviewContent() {
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({ error: 'Web search failed' }));
-          throw new Error(data.error || t('generation.webSearchFailed'));
+          throw new Error(data.error || '网络搜索失败');
         }
 
         const searchData = await res.json();
@@ -425,13 +423,13 @@ function GenerationPreviewContent() {
             .then((res) => {
               if (!res.ok) {
                 return res.json().then((d) => {
-                  reject(new Error(d.error || t('generation.outlineGenerateFailed')));
+                  reject(new Error(d.error || '大纲生成失败，请稍后重试'));
                 });
               }
 
               const reader = res.body?.getReader();
               if (!reader) {
-                reject(new Error(t('generation.streamNotReadable')));
+                reject(new Error('无法读取生成数据流'));
                 return;
               }
 
@@ -457,7 +455,7 @@ function GenerationPreviewContent() {
                         } else if (evt.type === 'retry') {
                           collected.length = 0;
                           setStreamingOutlines([]);
-                          setStatusMessage(t('generation.outlineRetrying'));
+                          setStatusMessage('大纲生成异常，正在重试...');
                         } else if (evt.type === 'done') {
                           directive = evt.languageDirective || directive;
                           resolve({
@@ -484,7 +482,7 @@ function GenerationPreviewContent() {
                           directive || 'Teach in the language that matches the user requirement.',
                       });
                     } else {
-                      reject(new Error(t('generation.outlineEmptyResponse')));
+                      reject(new Error('模型未返回有效的大纲内容，请检查模型配置后重试'));
                     }
                     return;
                   }
@@ -663,7 +661,7 @@ function GenerationPreviewContent() {
       // Move to full scene generation step
       setStatusMessage('');
       if (!outlines || outlines.length === 0) {
-        throw new Error(t('generation.outlineEmptyResponse'));
+        throw new Error('模型未返回有效的大纲内容，请检查模型配置后重试');
       }
 
       const store = useStageStore.getState();
@@ -692,10 +690,7 @@ function GenerationPreviewContent() {
       let completedPages = 0;
       const updateParallelStatus = () => {
         setStatusMessage(
-          t('generation.generatingPagesParallel', {
-            completed: completedPages,
-            total: totalPages,
-          }),
+          `正在最多五路并行生成页面：已完成 ${completedPages}/${totalPages}`,
         );
       };
 
@@ -730,12 +725,12 @@ function GenerationPreviewContent() {
 
           if (!contentResp.ok) {
             const errorData = await contentResp.json().catch(() => ({ error: 'Request failed' }));
-            throw new Error(errorData.error || t('generation.sceneGenerateFailed'));
+            throw new Error(errorData.error || '页面生成失败');
           }
 
           const contentData = await contentResp.json();
           if (!contentData.success || !contentData.content) {
-            throw new Error(contentData.error || t('generation.sceneGenerateFailed'));
+            throw new Error(contentData.error || '页面生成失败');
           }
 
           throwIfAborted(signal);
@@ -762,12 +757,12 @@ function GenerationPreviewContent() {
 
           if (!actionsResp.ok) {
             const errorData = await actionsResp.json().catch(() => ({ error: 'Request failed' }));
-            throw new Error(errorData.error || t('generation.sceneGenerateFailed'));
+            throw new Error(errorData.error || '页面生成失败');
           }
 
           const data = await actionsResp.json();
           if (!data.success || !data.scene) {
-            throw new Error(data.error || t('generation.sceneGenerateFailed'));
+            throw new Error(data.error || '页面生成失败');
           }
 
           const scene = data.scene as Scene;
@@ -788,7 +783,7 @@ function GenerationPreviewContent() {
       const mediaElementIds = getEnabledMediaElementIds(outlines);
       if (mediaElementIds.length > 0) {
         if (actionsStepIdx >= 0) setCurrentStepIndex(actionsStepIdx);
-        setStatusMessage(t('generation.generatingMedia'));
+        setStatusMessage('正在生成图片和视频...');
         await generateMediaForOutlines(outlines, stage.id, signal);
         throwIfAborted(signal);
         ensureMediaGenerationComplete(stage.id, outlines);
@@ -798,14 +793,14 @@ function GenerationPreviewContent() {
         (a, b) => a.order - b.order,
       );
       if (generatedScenes.length !== outlines.length) {
-        throw new Error(t('generation.sceneGenerateFailed'));
+        throw new Error('页面生成失败');
       }
 
       store.setScenes(generatedScenes);
       store.setCurrentSceneId(generatedScenes[0]?.id ?? null);
       store.setGeneratingOutlines([]);
       store.setGenerationStatus('completed');
-      setStatusMessage(t('generation.courseGenerated'));
+      setStatusMessage('课程已生成完成，正在打开课堂...');
       setIsComplete(true);
 
       sessionStorage.removeItem('generationParams');
@@ -863,11 +858,11 @@ function GenerationPreviewContent() {
         <Card className="p-8 max-w-md w-full">
           <div className="text-center space-y-4">
             <AlertCircle className="size-12 text-muted-foreground mx-auto" />
-            <h2 className="text-xl font-semibold">{t('generation.sessionNotFound')}</h2>
-            <p className="text-sm text-muted-foreground">{t('generation.sessionNotFoundDesc')}</p>
+            <h2 className="text-xl font-semibold">未找到生成会话</h2>
+            <p className="text-sm text-muted-foreground">请先填写课程需求开始生成流程。</p>
             <Button onClick={() => router.push('/')} className="w-full">
               <ArrowLeft className="size-4 mr-2" />
-              {t('generation.backToHome')}
+              返回首页
             </Button>
           </div>
         </Card>
@@ -902,7 +897,7 @@ function GenerationPreviewContent() {
       >
         <Button variant="ghost" size="sm" onClick={goBackToHome}>
           <ArrowLeft className="size-4 mr-2" />
-          {t('generation.backToHome')}
+          返回首页
         </Button>
       </motion.div>
 
@@ -985,17 +980,17 @@ function GenerationPreviewContent() {
                   >
                     <h2 className="text-2xl font-bold tracking-tight">
                       {error
-                        ? t('generation.generationFailed')
+                        ? '生成失败'
                         : isComplete
-                          ? t('generation.generationComplete')
-                          : t(activeStep.title)}
+                          ? '生成完成！'
+                          : activeStep.title}
                     </h2>
                     <p className="text-muted-foreground text-base">
                       {error
                         ? error
                         : isComplete
-                          ? statusMessage || t('generation.classroomReady')
-                          : statusMessage || t(activeStep.description)}
+                          ? statusMessage || '你的个性化AI学习环境已成功生成。'
+                          : statusMessage || activeStep.description}
                     </p>
                   </motion.div>
                 </AnimatePresence>
@@ -1071,7 +1066,7 @@ function GenerationPreviewContent() {
                 className="w-full max-w-xs"
               >
                 <Button size="lg" variant="outline" className="w-full h-12" onClick={goBackToHome}>
-                  {t('generation.goBackAndRetry')}
+                  返回重试
                 </Button>
               </motion.div>
             ) : !isComplete ? (
@@ -1081,14 +1076,14 @@ function GenerationPreviewContent() {
                 className="flex items-center gap-3 text-sm text-muted-foreground/50 font-medium uppercase tracking-widest"
               >
                 <Sparkles className="size-3 animate-pulse" />
-                {t('generation.aiWorking')}
+                AI智能体工作中...
                 {generatedAgents.length > 0 && !showAgentReveal && (
                   <button
                     onClick={() => setShowAgentReveal(true)}
                     className="ml-2 flex items-center gap-1.5 rounded-full border border-purple-300/30 bg-purple-500/10 px-3 py-1 text-xs font-medium normal-case tracking-normal text-purple-400 transition-colors hover:bg-purple-500/20 hover:text-purple-300"
                   >
                     <Bot className="size-3" />
-                    {t('generation.viewAgents')}
+                    查看角色
                   </button>
                 )}
               </motion.div>

@@ -20,9 +20,11 @@ export function formatContextWindow(size?: number): string {
   return size.toString();
 }
 
-export function getProviderTypeLabel(type: string, t: (key: string) => string): string {
-  const translationKey = `settings.providerTypes.${type}`;
-  const translated = t(translationKey);
-  // If translation exists (not equal to key), use it; otherwise fallback to type
-  return translated !== translationKey ? translated : type;
+const PROVIDER_TYPE_LABELS: Record<string, string> = {
+  'ark-chat-completions': 'Chat Completions',
+  'gemini-generate-content': 'Gemini 原生',
+};
+
+export function getProviderTypeLabel(type: string): string {
+  return PROVIDER_TYPE_LABELS[type] || type;
 }

@@ -79,10 +79,7 @@
  *      };
  *    }
  *
- * 4. Add i18n translations in lib/i18n.ts
- *    providerTesseractOCR: { zh: 'Tesseract OCR', en: 'Tesseract OCR' }
- *
- * 5. Update features in constants.ts to reflect parser capabilities
+ * 4. Update features in constants.ts to reflect parser capabilities
  *    features: ['text', 'images', 'ocr'] // OCR-capable
  *
  * Provider Implementation Patterns:

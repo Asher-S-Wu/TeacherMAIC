@@ -6,7 +6,6 @@ import type { PBLProjectConfig } from '@/lib/pbl/types';
 import { useStageStore } from '@/lib/store/stage';
 import { PBLRoleSelection } from './pbl/role-selection';
 import { PBLWorkspace } from './pbl/workspace';
-import { useI18n } from '@/lib/hooks/use-i18n';
 
 interface PBLRendererProps {
   readonly content: PBLContent;
@@ -15,8 +14,6 @@ interface PBLRendererProps {
 }
 
 export function PBLRenderer({ content, mode: _mode, sceneId }: PBLRendererProps) {
-  const { t } = useI18n();
-
   const { projectConfig } = content;
   const selectedRole = projectConfig?.selectedRole ?? null;
 
@@ -87,7 +84,7 @@ export function PBLRenderer({ content, mode: _mode, sceneId }: PBLRendererProps)
   if (!projectConfig) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        <p>{t('pbl.invalidProject')}</p>
+        <p>PBL项目数据无效，请重新生成课程</p>
       </div>
     );
   }
@@ -96,7 +93,7 @@ export function PBLRenderer({ content, mode: _mode, sceneId }: PBLRendererProps)
   if (projectConfig.agents.length === 0 && projectConfig.projectInfo.title === '') {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        <p>{t('pbl.emptyProject')}</p>
+        <p>PBL项目尚未生成，请通过课程生成创建</p>
       </div>
     );
   }

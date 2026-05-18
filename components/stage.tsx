@@ -5,7 +5,6 @@ import { useStageStore } from '@/lib/store';
 import { PENDING_SCENE_ID } from '@/lib/store/stage';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { SceneSidebar } from './stage/scene-sidebar';
 import { Header } from './header';
 import { CanvasArea } from '@/components/canvas/canvas-area';
@@ -49,7 +48,6 @@ export function Stage({
 }: {
   onRetryOutline?: (outlineId: string) => Promise<void>;
 }) {
-  const { t } = useI18n();
   const {
     mode,
     getCurrentScene,
@@ -124,8 +122,8 @@ export function Stage({
 
   // Generate participants from selected agents
   const participants = useMemo(
-    () => agentsToParticipants(selectedAgentIds, t),
-    [selectedAgentIds, t],
+    () => agentsToParticipants(selectedAgentIds),
+    [selectedAgentIds],
   );
 
   // Resolved AgentConfig array for hooks that need full agent objects
@@ -1002,7 +1000,7 @@ export function Stage({
           <Header
             currentSceneTitle={
               currentScene?.title ||
-              (isCourseComplete && isPendingScene ? t('stage.courseComplete') : '')
+              (isCourseComplete && isPendingScene ? '课程完成' : '')
             }
           />
         )}
@@ -1265,7 +1263,7 @@ export function Stage({
           className="max-w-sm rounded-2xl p-0 overflow-hidden border-0 shadow-[0_25px_60px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_60px_-12px_rgba(0,0,0,0.5)]"
         >
           <VisuallyHidden.Root>
-            <AlertDialogTitle>{t('stage.confirmSwitchTitle')}</AlertDialogTitle>
+            <AlertDialogTitle>切换页面</AlertDialogTitle>
           </VisuallyHidden.Root>
           {/* Top accent bar */}
           <div className="h-1 bg-gradient-to-r from-amber-400 via-orange-400 to-red-400" />
@@ -1277,23 +1275,23 @@ export function Stage({
             </div>
             {/* Title */}
             <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-1.5">
-              {t('stage.confirmSwitchTitle')}
+              切换页面
             </h3>
             {/* Description */}
             <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-              {t('stage.confirmSwitchMessage')}
+              当前话题正在进行中，切换页面将结束当前话题。确定要切换吗？
             </p>
           </div>
 
           <AlertDialogFooter className="px-6 pb-5 pt-3 flex-row gap-3">
             <AlertDialogCancel onClick={cancelSceneSwitch} className="flex-1 rounded-xl">
-              {t('common.cancel')}
+              取消
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmSceneSwitch}
               className="flex-1 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-md shadow-amber-200/50 dark:shadow-amber-900/30"
             >
-              {t('common.confirm')}
+              确定
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import type { ChatSession, ChatMessageMetadata } from '@/lib/types/chat';
 import type { UIMessage } from 'ai';
 import { cn } from '@/lib/utils';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { AvatarDisplay } from '@/components/ui/avatar-display';
 import { CircleStop } from 'lucide-react';
 import { InlineActionTag } from './inline-action-tag';
@@ -31,6 +30,15 @@ interface ChatSessionProps {
 const AVATARS = {
   teacher: '/avatars/teacher.png',
   user: '/avatars/user.png',
+};
+
+const DEFAULT_AGENT_NAMES: Record<string, string> = {
+  'default-1': 'AI教师',
+  'default-2': 'AI助教',
+  'default-3': '显眼包',
+  'default-4': '好奇宝宝',
+  'default-5': '笔记员',
+  'default-6': '思考者',
 };
 
 /**
@@ -161,7 +169,6 @@ export function ChatSessionComponent({
   activeBubbleId,
   onEndSession,
 }: ChatSessionProps) {
-  const { t } = useI18n();
   const userProfileAvatar = useUserProfileStore((s) => s.avatar);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -214,13 +221,13 @@ export function ChatSessionComponent({
   if (session.messages.length === 0 && !isActive) {
     return (
       <div className="h-20 flex items-center justify-center text-center px-2">
-        <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('chat.noMessages')}</p>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500">暂无消息</p>
       </div>
     );
   }
 
   // Button text based on session type
-  const endButtonText = isDiscussion ? t('chat.stopDiscussion') : t('chat.endQA');
+  const endButtonText = isDiscussion ? '结束讨论' : '结束问答';
 
   return (
     <div className="flex flex-col">
@@ -299,11 +306,10 @@ export function ChatSessionComponent({
                 >
                   {(() => {
                     const agentId = message.metadata?.agentId;
-                    if (agentId) {
-                      const i18nName = t(`settings.agentNames.${agentId}`);
-                      if (i18nName !== `settings.agentNames.${agentId}`) return i18nName;
+                    if (agentId && DEFAULT_AGENT_NAMES[agentId]) {
+                      return DEFAULT_AGENT_NAMES[agentId];
                     }
-                    return message.metadata?.senderName || t('chat.unknown');
+                    return message.metadata?.senderName || '未知';
                   })()}
                 </span>
 
@@ -333,7 +339,7 @@ export function ChatSessionComponent({
               <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent" />
               <span className="flex items-center gap-1 text-[9px] text-gray-400 dark:text-gray-500 font-medium">
                 <CircleStop className="w-2.5 h-2.5" />
-                {t('chat.ended')}
+                已结束
               </span>
               <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent" />
             </motion.div>

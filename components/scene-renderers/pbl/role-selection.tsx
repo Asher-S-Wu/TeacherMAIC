@@ -1,7 +1,6 @@
 'use client';
 
 import type { PBLAgent, PBLProjectInfo } from '@/lib/pbl/types';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { PBLGuideInline } from './guide';
 
 interface PBLRoleSelectionProps {
@@ -11,8 +10,6 @@ interface PBLRoleSelectionProps {
 }
 
 export function PBLRoleSelection({ projectInfo, agents, onSelectRole }: PBLRoleSelectionProps) {
-  const { t } = useI18n();
-
   // Only show non-system development roles
   const selectableAgents = agents.filter(
     (a) => !a.is_system_agent && a.role_division === 'development',
@@ -29,9 +26,9 @@ export function PBLRoleSelection({ projectInfo, agents, onSelectRole }: PBLRoleS
 
         {/* Role Selection */}
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-center">{t('pbl.roleSelection.title')}</h2>
+          <h2 className="text-xl font-semibold text-center">选择你的角色</h2>
           <p className="text-sm text-muted-foreground text-center">
-            {t('pbl.roleSelection.description')}
+            选择一个角色开始项目协作
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

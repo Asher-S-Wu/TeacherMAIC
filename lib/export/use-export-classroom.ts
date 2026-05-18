@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 import { useStageStore } from '@/lib/store/stage';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import {
   CLASSROOM_ZIP_FORMAT_VERSION,
   CLASSROOM_ZIP_EXTENSION,
@@ -22,14 +21,13 @@ const log = createLogger('ExportClassroom');
 
 export function useExportClassroom() {
   const [exporting, setExporting] = useState(false);
-  const { t } = useI18n();
 
   const exportClassroomZip = useCallback(async () => {
     const { stage, scenes } = useStageStore.getState();
     if (!stage?.id || scenes.length === 0) return;
 
     setExporting(true);
-    const toastId = toast.loading(t('export.exporting'));
+    const toastId = toast.loading('正在导出...');
 
     try {
       const JSZip = (await import('jszip')).default;
@@ -155,14 +153,14 @@ export function useExportClassroom() {
       const safeName = latestName.replace(/[\\/:*?"<>|]/g, '_') || 'classroom';
       saveAs(zipBlob, `${safeName}${CLASSROOM_ZIP_EXTENSION}`);
 
-      toast.success(t('export.exportSuccess'), { id: toastId });
+      toast.success('导出成功', { id: toastId });
     } catch (error) {
       log.error('Classroom ZIP export failed:', error);
-      toast.error(t('export.exportFailed'), { id: toastId });
+      toast.error('导出失败', { id: toastId });
     } finally {
       setExporting(false);
     }
-  }, [t]);
+  }, []);
 
   return { exporting, exportClassroomZip };
 }

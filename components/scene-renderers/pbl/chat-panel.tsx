@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowUp } from 'lucide-react';
 import type { PBLChatMessage, PBLIssue } from '@/lib/pbl/types';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { MessageResponse } from '@/components/ai-elements/message';
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { SpeechButton } from '@/components/audio/speech-button';
@@ -23,7 +22,6 @@ export function ChatPanel({
   isLoading,
   onSendMessage,
 }: ChatPanelProps) {
-  const { t } = useI18n();
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -73,10 +71,10 @@ export function ChatPanel({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-4 py-3 border-b">
-        <h2 className="font-semibold text-sm">{t('pbl.chat.title')}</h2>
+        <h2 className="font-semibold text-sm">项目讨论</h2>
         {currentIssue && (
           <p className="text-xs text-muted-foreground mt-0.5">
-            {t('pbl.chat.currentIssue')}: {currentIssue.title}
+            当前任务: {currentIssue.title}
           </p>
         )}
       </div>
@@ -107,7 +105,7 @@ export function ChatPanel({
       {/* Input */}
       <div className="border-t p-3">
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground mb-2">
-          <span>{t('pbl.chat.mentionHint')}</span>
+          <span>使用 @question 提问，@judge 提交评审</span>
         </div>
         <div className="flex gap-2 items-center">
           <textarea
@@ -121,7 +119,7 @@ export function ChatPanel({
             onCompositionEnd={() => {
               composingRef.current = false;
             }}
-            placeholder={t('pbl.chat.placeholder')}
+            placeholder="输入消息..."
             disabled={isLoading}
             rows={1}
             className="flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"

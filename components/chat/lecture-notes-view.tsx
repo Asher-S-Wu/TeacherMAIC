@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react';
 import { BookOpen, MessageSquare, Flashlight, MousePointer2, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import type { LectureNoteEntry } from '@/lib/types/chat';
 
 const ACTION_ICON_ONLY: Record<string, { Icon: typeof Flashlight; style: string }> = {
@@ -30,7 +29,6 @@ interface LectureNotesViewProps {
 }
 
 export function LectureNotesView({ notes, currentSceneId }: LectureNotesViewProps) {
-  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to the current scene note
@@ -50,10 +48,10 @@ export function LectureNotesView({ notes, currentSceneId }: LectureNotesViewProp
           <BookOpen className="w-6 h-6" />
         </div>
         <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-          {t('chat.lectureNotes.empty')}
+          播放课程后，笔记将在此显示
         </p>
         <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
-          {t('chat.lectureNotes.emptyHint')}
+          点击播放按钮开始授课
         </p>
       </div>
     );
@@ -67,7 +65,7 @@ export function LectureNotesView({ notes, currentSceneId }: LectureNotesViewProp
       {notes.map((note, index) => {
         const isCurrent = note.sceneId === currentSceneId;
         const pageNum = index + 1;
-        const pageLabel = t('chat.lectureNotes.pageLabel', { n: pageNum });
+        const pageLabel = `第 ${pageNum} 页`;
 
         return (
           <div
@@ -103,7 +101,7 @@ export function LectureNotesView({ notes, currentSceneId }: LectureNotesViewProp
               </span>
               {isCurrent && (
                 <span className="text-[9px] font-bold px-1.5 py-px rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300">
-                  {t('chat.lectureNotes.currentPage')}
+                  当前页
                 </span>
               )}
             </div>

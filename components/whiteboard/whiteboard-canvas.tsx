@@ -14,7 +14,6 @@ import { useStageStore } from '@/lib/store';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { ScreenElement } from '@/components/slide-renderer/Editor/ScreenElement';
 import type { PPTElement } from '@/lib/types/slides';
-import { useI18n } from '@/lib/hooks/use-i18n';
 
 export type WhiteboardCanvasHandle = {
   resetView: () => void;
@@ -383,7 +382,6 @@ export type WhiteboardCanvasProps = {
 
 export const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, WhiteboardCanvasProps>(
   function WhiteboardCanvas({ onViewModifiedChange }, ref) {
-    const { t } = useI18n();
     const stage = useStageStore.use.stage();
     const isClearing = useCanvasStore.use.whiteboardClearing();
     const containerRef = useRef<HTMLDivElement>(null);
@@ -436,8 +434,8 @@ export const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, WhiteboardCan
           elements={elements}
           isClearing={isClearing}
           onViewModifiedChange={onViewModifiedChange}
-          readyHintText={t('whiteboard.readyHint')}
-          readyText={t('whiteboard.ready')}
+          readyHintText="AI 添加元素后将在此显示"
+          readyText="白板已就绪"
         />
       </div>
     );

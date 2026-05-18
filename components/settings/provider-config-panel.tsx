@@ -2,7 +2,6 @@
 
 import { Label } from '@/components/ui/label';
 import { Check, Zap, Sparkles, Wrench, FileText, Send } from 'lucide-react';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import type { ProviderConfig, ProviderId } from '@/lib/ai/providers';
 import type { ProvidersConfig } from '@/lib/types/settings';
 import { formatContextWindow } from './utils';
@@ -23,7 +22,6 @@ export function ProviderConfigPanel({
   selectedModelId,
   onModelSelect,
 }: ProviderConfigPanelProps) {
-  const { t } = useI18n();
   const models = providersConfig[provider.id]?.models || [];
   const isServerConfigured = providersConfig[provider.id]?.isServerConfigured;
 
@@ -31,13 +29,13 @@ export function ProviderConfigPanel({
     <div className="space-y-6 max-w-3xl">
       {!isServerConfigured && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
-          {t('settings.serverConfigMissingNotice')}
+          此功能暂时不可用，请稍后再试。
         </div>
       )}
 
       <div className="space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <Label className="text-base">{t('settings.models')}</Label>
+          <Label className="text-base">模型</Label>
         </div>
         <div className="space-y-1.5">
           {models.map((model) => {
@@ -63,17 +61,17 @@ export function ProviderConfigPanel({
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         {model.capabilities?.vision && (
-                          <div title={t('settings.capabilities.vision')}>
+                          <div title="视觉">
                             <Sparkles className="h-3 w-3" />
                           </div>
                         )}
                         {model.capabilities?.tools && (
-                          <div title={t('settings.capabilities.tools')}>
+                          <div title="工具">
                             <Wrench className="h-3 w-3" />
                           </div>
                         )}
                         {model.capabilities?.streaming && (
-                          <div title={t('settings.capabilities.streaming')}>
+                          <div title="流式">
                             <Zap className="h-3 w-3" />
                           </div>
                         )}

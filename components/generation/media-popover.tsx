@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
 import { ASR_PROVIDERS, getASRSupportedLanguages } from '@/lib/audio/constants';
 import type { ASRProviderId } from '@/lib/audio/types';
@@ -48,7 +47,6 @@ const TABS: Array<{ id: TabId; icon: LucideIcon; label: string }> = [
 ];
 
 export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: MediaPopoverProps) {
-  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('search');
 
@@ -195,7 +193,7 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
           {activeTab === 'search' && (
             <TabPanel
               icon={Globe2}
-              label={webSearchProvider?.name || t('settings.webSearchSettings')}
+              label={webSearchProvider?.name || '网络搜索'}
               enabled={webSearch}
               onToggle={(enabled) => {
                 if (webSearchAvailable || !enabled) {
@@ -209,13 +207,13 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
                     <img src={webSearchProvider.icon} alt="" className="size-4 rounded-sm" />
                   )}
                   <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                    {webSearchProvider?.name || t('settings.serverManaged')}
+                    {webSearchProvider?.name || '自动'}
                   </span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-muted-foreground/70">
                   {webSearchAvailable
-                    ? t('toolbar.webSearchDesc')
-                    : t('toolbar.webSearchNoProvider')}
+                    ? '生成前智能判断是否需要联网获取资料，让内容更准确'
+                    : '联网搜索暂时不可用，请稍后再试'}
                 </p>
               </div>
             </TabPanel>
@@ -224,7 +222,7 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
           {activeTab === 'image' && (
             <TabPanel
               icon={ImageIcon}
-              label={t('media.imageCapability')}
+              label="图像生成"
               enabled={imageGenerationEnabled}
               onToggle={setImageGenerationEnabled}
             />
@@ -233,7 +231,7 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
           {activeTab === 'video' && (
             <TabPanel
               icon={Video}
-              label={t('media.videoCapability')}
+              label="视频生成"
               enabled={videoGenerationEnabled}
               onToggle={setVideoGenerationEnabled}
             />
@@ -242,7 +240,7 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
           {activeTab === 'tts' && (
             <TabPanel
               icon={Volume2}
-              label={t('media.ttsCapability')}
+              label="语音合成"
               enabled={ttsEnabled}
               onToggle={setTTSEnabled}
             />
@@ -251,7 +249,7 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
           {activeTab === 'asr' && (
             <TabPanel
               icon={Mic}
-              label={t('media.asrCapability')}
+              label="语音识别"
               enabled={asrEnabled}
               onToggle={setASREnabled}
             >
@@ -277,7 +275,7 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
             }}
             className="w-full flex items-center justify-between px-3.5 py-2.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
           >
-            <span>{t('toolbar.advancedSettings')}</span>
+            <span>高级设置</span>
             <ChevronRight className="size-3" />
           </button>
         </div>

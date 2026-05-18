@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { Play, Pause, X } from 'lucide-react';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import type { DiscussionAction } from '@/lib/types/action';
 
 interface ProactiveCardProps {
@@ -47,7 +46,6 @@ export const ProactiveCard = ({
   onListen,
   onTogglePause,
 }: ProactiveCardProps) => {
-  const { t } = useI18n();
   const [progress, setProgress] = useState(100);
   const skippedRef = useRef(false);
   const isPaused = mode === 'paused';
@@ -141,7 +139,7 @@ export const ProactiveCard = ({
             onSkip();
           }}
           className="absolute -top-2 -right-2 w-6 h-6 bg-white dark:bg-gray-800 shadow-md border border-gray-100 dark:border-gray-700 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:scale-110 transition-all z-20 group/close"
-          title={t('proactiveCard.skip')}
+          title="跳过"
         >
           <X className="w-3 h-3 stroke-[2.5]" />
         </button>
@@ -193,7 +191,7 @@ export const ProactiveCard = ({
                   backgroundColor: agentColor ? `${agentColor}18` : 'rgba(217, 119, 6, 0.08)',
                 }}
               >
-                {t('proactiveCard.discussion')}
+                {'讨论'}
               </span>
             </div>
             <span
@@ -217,7 +215,7 @@ export const ProactiveCard = ({
               }}
               className="flex-1 py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 dark:from-amber-500 dark:to-amber-600 dark:hover:from-amber-600 dark:hover:to-amber-700 text-white text-[11px] font-black rounded-lg flex items-center justify-center gap-1.5 transition-all active:scale-[0.97] shadow-sm shadow-amber-200/50 dark:shadow-amber-800/50"
             >
-              <Play className="w-3 h-3 fill-current" /> {t('proactiveCard.join')}
+              <Play className="w-3 h-3 fill-current" /> 加入讨论
             </button>
 
             <button
@@ -230,7 +228,7 @@ export const ProactiveCard = ({
                   ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/50'
                   : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 border-gray-100 dark:border-gray-600'
               }`}
-              title={isPaused ? t('proactiveCard.resume') : t('proactiveCard.pause')}
+              title={isPaused ? '继续' : '暂停'}
             >
               {isPaused ? (
                 <Play className="w-3 h-3 fill-current" />

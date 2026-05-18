@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStageStore } from '@/lib/store';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export interface CanvasToolbarProps {
@@ -109,7 +108,6 @@ export function CanvasToolbar({
   playbackSpeed = 1,
   onCycleSpeed,
 }: CanvasToolbarProps) {
-  const { t } = useI18n();
   const canGoPrev = currentSceneIndex > 0;
   const canGoNext = currentSceneIndex < scenesCount - 1;
   const showPlayPause = !isLiveSession;
@@ -137,7 +135,7 @@ export function CanvasToolbar({
 
   // Effective volume for display
   const effectiveVolume = ttsMuted ? 0 : ttsVolume;
-  const presentationLabel = isPresenting ? t('stage.exitFullscreen') : t('stage.fullscreen');
+  const presentationLabel = isPresenting ? '退出全屏' : '全屏';
 
   return (
     <div className={cn('flex items-center gap-2', className)}>
@@ -266,7 +264,7 @@ export function CanvasToolbar({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  {t('roundtable.speed')}
+                  倍速
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -302,13 +300,13 @@ export function CanvasToolbar({
                 'text-[11px] font-semibold whitespace-nowrap',
                 'hover:bg-red-500/20 dark:hover:bg-red-400/20 active:scale-95 transition-all cursor-pointer',
               )}
-              title={t('roundtable.stopDiscussion')}
+              title="结束讨论"
             >
               <span className="relative flex h-1.5 w-1.5 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
               </span>
-              {t('roundtable.stopDiscussion')}
+              结束讨论
             </button>
           ) : showPlayPause ? (
             <button
@@ -367,7 +365,7 @@ export function CanvasToolbar({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  {autoPlayLecture ? t('roundtable.autoPlayOff') : t('roundtable.autoPlay')}
+                  {autoPlayLecture ? '关闭自动播放' : '自动播放'}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -386,7 +384,7 @@ export function CanvasToolbar({
                 ? 'text-violet-600 dark:text-violet-400'
                 : 'text-gray-500 dark:text-gray-400',
             )}
-            title={whiteboardOpen ? t('whiteboard.minimize') : t('whiteboard.open')}
+            title={whiteboardOpen ? '最小化白板' : '打开白板'}
           >
             <PencilLine className="w-3.5 h-3.5" />
             {!whiteboardOpen && whiteboardElementCount > 0 && (

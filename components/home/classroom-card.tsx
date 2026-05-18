@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Copy, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ThumbnailSlide } from '@/components/slide-renderer/components/ThumbnailSlide';
@@ -34,7 +33,6 @@ export function ClassroomCard({
   onCancelDelete,
   onClick,
 }: ClassroomCardProps) {
-  const { t } = useI18n();
   const thumbRef = useRef<HTMLDivElement>(null);
   const [thumbWidth, setThumbWidth] = useState(0);
   const [editing, setEditing] = useState(false);
@@ -133,20 +131,20 @@ export function ClassroomCard({
               onClick={(e) => e.stopPropagation()}
             >
               <span className="text-sm font-medium text-white/90">
-                {t('classroom.deleteConfirmTitle')}?
+                删除课堂?
               </span>
               <div className="flex gap-2">
                 <button
                   className="px-3.5 py-1 rounded-lg text-sm font-medium bg-white/15 text-white/80 hover:bg-white/25 backdrop-blur-sm transition-colors"
                   onClick={onCancelDelete}
                 >
-                  {t('common.cancel')}
+                  取消
                 </button>
                 <button
                   className="px-3.5 py-1 rounded-lg text-sm font-medium bg-red-500/90 text-white hover:bg-red-500 transition-colors"
                   onClick={onConfirmDelete}
                 >
-                  {t('classroom.delete')}
+                  删除
                 </button>
               </div>
             </motion.div>
@@ -156,7 +154,7 @@ export function ClassroomCard({
 
       <div className="mt-2.5 px-1 flex items-center gap-2">
         <span className="shrink-0 inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/30 px-2 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
-          {classroom.sceneCount} {t('classroom.slides')} · {formatDate(classroom.updatedAt)}
+          {classroom.sceneCount} 页 · {formatDate(classroom.updatedAt)}
         </span>
         {editing ? (
           <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
@@ -170,7 +168,7 @@ export function ClassroomCard({
               }}
               onBlur={commitRename}
               maxLength={100}
-              placeholder={t('classroom.renamePlaceholder')}
+              placeholder="输入课堂名称"
               className="w-full bg-transparent border-b border-violet-400/60 text-[15px] font-medium text-foreground/90 outline-none placeholder:text-muted-foreground/40"
             />
           </div>
@@ -196,7 +194,7 @@ export function ClassroomCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     navigator.clipboard.writeText(classroom.name);
-                    toast.success(t('classroom.nameCopied'));
+                    toast.success('课堂名称已复制');
                   }}
                 >
                   <Copy className="size-3 opacity-60" />

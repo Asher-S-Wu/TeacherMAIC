@@ -12,7 +12,6 @@ import {
   Package,
   Archive,
 } from 'lucide-react';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { useTheme } from '@/lib/hooks/use-theme';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -28,7 +27,6 @@ interface HeaderProps {
 }
 
 export function Header({ currentSceneTitle }: HeaderProps) {
-  const { t } = useI18n();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -79,19 +77,19 @@ export function Header({ currentSceneTitle }: HeaderProps) {
           <button
             onClick={() => router.push('/')}
             className="shrink-0 p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-            title={t('generation.backToHome')}
+            title="返回首页"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex flex-col min-w-0">
             <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400 dark:text-gray-500 mb-0.5">
-              {t('stage.currentScene')}
+              当前场景
             </span>
             <h1
               className="text-xl font-bold text-gray-800 dark:text-gray-200 tracking-tight truncate"
               suppressHydrationWarning
             >
-              {currentSceneTitle || t('common.loading')}
+              {currentSceneTitle || '加载中...'}
             </h1>
           </div>
         </div>
@@ -123,7 +121,7 @@ export function Header({ currentSceneTitle }: HeaderProps) {
                   )}
                 >
                   <Sun className="w-4 h-4" />
-                  {t('settings.themeOptions.light')}
+                  浅色
                 </button>
                 <button
                   onClick={() => {
@@ -137,7 +135,7 @@ export function Header({ currentSceneTitle }: HeaderProps) {
                   )}
                 >
                   <Moon className="w-4 h-4" />
-                  {t('settings.themeOptions.dark')}
+                  深色
                 </button>
                 <button
                   onClick={() => {
@@ -151,7 +149,7 @@ export function Header({ currentSceneTitle }: HeaderProps) {
                   )}
                 >
                   <Monitor className="w-4 h-4" />
-                  {t('settings.themeOptions.system')}
+                  跟随系统
                 </button>
               </div>
             )}
@@ -180,9 +178,9 @@ export function Header({ currentSceneTitle }: HeaderProps) {
             title={
               canExport
                 ? isExporting || isExportingZip
-                  ? t('export.exporting')
-                  : t('export.pptx')
-                : t('share.notReady')
+                  ? '正在导出...'
+                  : '导出 PPTX'
+                : '生成完成后可分享'
             }
             className={cn(
               'shrink-0 p-2 rounded-full transition-all',
@@ -207,7 +205,7 @@ export function Header({ currentSceneTitle }: HeaderProps) {
                 className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2.5"
               >
                 <FileDown className="w-4 h-4 text-gray-400 shrink-0" />
-                <span>{t('export.pptx')}</span>
+                <span>导出 PPTX</span>
               </button>
               <button
                 onClick={() => {
@@ -218,9 +216,9 @@ export function Header({ currentSceneTitle }: HeaderProps) {
               >
                 <Package className="w-4 h-4 text-gray-400 shrink-0" />
                 <div>
-                  <div>{t('export.resourcePack')}</div>
+                  <div>导出教学资源包</div>
                   <div className="text-[11px] text-gray-400 dark:text-gray-500">
-                    {t('export.resourcePackDesc')}
+                    PPTX + 交互式页面
                   </div>
                 </div>
               </button>
@@ -234,9 +232,9 @@ export function Header({ currentSceneTitle }: HeaderProps) {
               >
                 <Archive className="w-4 h-4 text-gray-400 shrink-0" />
                 <div>
-                  <div>{t('export.classroomZip')}</div>
+                  <div>导出课堂 ZIP</div>
                   <div className="text-[11px] text-gray-400 dark:text-gray-500">
-                    {t('export.classroomZipDesc')}
+                    课程结构 + 媒体文件
                   </div>
                 </div>
               </button>

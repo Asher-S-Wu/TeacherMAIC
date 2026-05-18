@@ -10,7 +10,6 @@ import { Whiteboard } from '@/components/whiteboard';
 import { CanvasToolbar } from '@/components/canvas/canvas-toolbar';
 import type { CanvasToolbarProps } from '@/components/canvas/canvas-toolbar';
 import type { Scene, StageMode } from '@/lib/types/stage';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { ClassroomCompletePageConnected } from '@/components/scene-renderers/classroom-complete';
 import { VibeEditDialog } from '@/components/vibe-edit/vibe-edit-dialog';
 import type { SceneOutline } from '@/lib/types/generation';
@@ -55,7 +54,6 @@ export function CanvasArea({
   onVibeEditOpen,
   onApplyVibeEdit,
 }: CanvasAreaProps) {
-  const { t } = useI18n();
   const [vibeDialogOpen, setVibeDialogOpen] = useState(false);
   const showControls = mode === 'playback' && !whiteboardOpen;
   const showPlayHint =
@@ -166,14 +164,14 @@ export function CanvasArea({
                       </svg>
                     </div>
                     <span className="text-sm text-red-500 dark:text-red-400 font-medium">
-                      {t('stage.generationFailed')}
+                      生成失败
                     </span>
                     {onRetryGeneration && (
                       <button
                         onClick={onRetryGeneration}
                         className="mt-1 px-4 py-1.5 text-xs font-medium rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors active:scale-95"
                       >
-                        {t('generation.retryScene')}
+                        重试生成
                       </button>
                     )}
                   </div>
@@ -191,7 +189,7 @@ export function CanvasArea({
                       transition={{ delay: 0.2, duration: 0.3 }}
                       className="text-sm text-gray-400 dark:text-gray-500 font-medium"
                     >
-                      {t('stage.generatingNextPage')}
+                      场景正在生成，请稍候...
                     </motion.span>
                   </div>
                 )}
@@ -215,8 +213,8 @@ export function CanvasArea({
                 setVibeDialogOpen(true);
               }}
               className="absolute left-4 top-4 z-[104] flex h-9 w-9 items-center justify-center rounded-lg border border-white/70 bg-white/90 text-slate-500 shadow-sm backdrop-blur transition hover:bg-white hover:text-slate-900 active:scale-95 dark:border-slate-700/80 dark:bg-slate-900/85 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"
-              title={t('vibeEdit.open')}
-              aria-label={t('vibeEdit.open')}
+              title="修改这一页"
+              aria-label="修改这一页"
             >
               <Wrench className="h-4 w-4" />
             </button>

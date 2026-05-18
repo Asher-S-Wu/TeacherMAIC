@@ -17,7 +17,6 @@ import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useUserProfileStore } from '@/lib/store/user-profile';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { USER_AVATAR } from '@/lib/types/roundtable';
 import { StreamBuffer } from '@/lib/buffer/stream-buffer';
@@ -79,7 +78,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
     options.onSegmentSealed,
     options.shouldHoldAfterReveal,
   ]);
-  const { t } = useI18n();
 
   // Track current stageId for data isolation
   const stageId = useStageStore((s) => s.stage?.id);
@@ -1011,7 +1009,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         role: 'user',
         parts: [{ type: 'text', text: content }],
         metadata: {
-          senderName: t('common.you'),
+          senderName: '你',
           senderAvatar: USER_AVATAR,
           originalRole: 'user',
           createdAt: now,
@@ -1124,7 +1122,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
       createSession,
       endSession,
       runAgentLoopFn,
-      t,
     ],
   );
 
@@ -1244,7 +1241,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- t is stable from i18n context
     [clearLiveSessionAfterError, endSession, runAgentLoopFn],
   );
 
@@ -1303,7 +1299,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
       const messageId = `lecture-msg-${now}`;
 
       const scene = useStageStore.getState().scenes.find((s) => s.id === sceneId);
-      const title = scene?.title || t('chat.lecture');
+      const title = scene?.title || '授课';
 
       const agentConfig = useAgentRegistry.getState().getAgent('default-1');
 
@@ -1313,7 +1309,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         role: 'assistant',
         parts: [],
         metadata: {
-          senderName: agentConfig?.name || t('settings.agentNames.default-1'),
+          senderName: agentConfig?.name || 'AI教师',
           senderAvatar: agentConfig?.avatar,
           originalRole: 'teacher',
           agentId: 'default-1',
@@ -1349,7 +1345,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
       log.info(`[ChatArea] Created lecture session: ${sessionId} for scene ${sceneId}`);
       return sessionId;
     },
-    [sessions, t],
+    [sessions],
   );
 
   /**

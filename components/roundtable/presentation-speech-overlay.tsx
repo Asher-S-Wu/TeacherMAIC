@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Play, Pause, Repeat, Loader2, Volume2, ChevronDown, ChevronUp } from 'lucide-react';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { AvatarDisplay } from '@/components/ui/avatar-display';
 import type { AudioIndicatorState } from '@/components/roundtable/audio-indicator';
 import type { PlaybackView } from '@/lib/playback';
@@ -203,7 +202,6 @@ export function PresentationBubbleCard({
   readonly buttonState?: 'play' | 'bars' | 'restart' | 'none';
   readonly isPaused?: boolean;
 }) {
-  const { t } = useI18n();
   return (
     <div
       aria-live="polite"
@@ -243,10 +241,10 @@ export function PresentationBubbleCard({
             )}
           >
             {bubble.role === 'user'
-              ? t('roundtable.you')
+              ? '你'
               : bubble.role === 'agent'
-                ? t('settings.agentRoles.student')
-                : t('settings.agentRoles.teacher')}
+                ? '学生'
+                : '教师'}
           </div>
           <div className="flex items-center gap-1.5">
             <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
@@ -397,16 +395,14 @@ export function PresentationSpeechOverlay({
   buttonState,
   isPaused,
 }: PresentationSpeechOverlayProps) {
-  const { t } = useI18n();
-
   const bubble = buildPresentationBubbleModel({
     playbackView,
     participants,
     speakingAgentId,
     isTopicPending,
-    fallbackTeacherName: t('roundtable.teacher'),
-    fallbackStudentName: t('settings.agentRoles.student'),
-    fallbackUserName: t('roundtable.you'),
+    fallbackTeacherName: '教师',
+    fallbackStudentName: '学生',
+    fallbackUserName: '你',
     userAvatar,
   });
 

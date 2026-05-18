@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useI18n } from '@/lib/hooks/use-i18n';
 
 interface AgentRevealModalProps {
   agents: Array<{
@@ -42,8 +41,13 @@ const ROLE_ICONS: Record<string, string> = {
   student: '🎓',
 };
 
+const AGENT_ROLE_LABELS: Record<string, string> = {
+  teacher: '教师',
+  assistant: '助教',
+  student: '学生',
+};
+
 export function AgentRevealModal({ agents, open, onClose, onAllRevealed }: AgentRevealModalProps) {
-  const { t } = useI18n();
   const [revealedCount, setRevealedCount] = useState(0);
   const [flipsComplete, setFlipsComplete] = useState(false);
   const allRevealedFiredRef = useRef(false);
@@ -133,7 +137,7 @@ export function AgentRevealModal({ agents, open, onClose, onAllRevealed }: Agent
             transition={{ delay: 0.1, duration: 0.4 }}
           >
             <Sparkles className="mr-2 inline-block size-6 text-amber-500 dark:text-yellow-400" />
-            {t('generation.agentRevealTitle')}
+            你的课堂角色
           </motion.h2>
 
           {/* Cards */}
@@ -260,7 +264,7 @@ export function AgentRevealModal({ agents, open, onClose, onAllRevealed }: Agent
                               }}
                             >
                               <span className="text-[9px]">{roleIcon}</span>
-                              {t(`settings.agentRoles.${agent.role}`)}
+                              {AGENT_ROLE_LABELS[agent.role] || agent.role}
                             </span>
                           </div>
 
@@ -392,7 +396,7 @@ export function AgentRevealModal({ agents, open, onClose, onAllRevealed }: Agent
                 transition={{ delay: 0.3, duration: 0.3 }}
                 onClick={onClose}
               >
-                {t('generation.continue')}
+                继续
               </motion.button>
             )}
           </motion.div>

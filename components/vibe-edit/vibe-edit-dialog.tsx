@@ -16,7 +16,6 @@ import { useSettingsStore } from '@/lib/store/settings';
 import { useUserProfileStore } from '@/lib/store/user-profile';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import {
   Dialog,
   DialogContent,
@@ -36,13 +35,19 @@ interface VibeEditDialogProps {
   readonly onApply: (scene: Scene, outline: SceneOutline) => Promise<void> | void;
 }
 
+const VIBE_TYPE_LABELS: Record<string, string> = {
+  slide: '幻灯片',
+  quiz: '测验',
+  interactive: '互动',
+  pbl: '项目实践',
+};
+
 export function VibeEditDialog({
   open,
   scene,
   onOpenChange,
   onApply,
 }: VibeEditDialogProps) {
-  const { t } = useI18n();
   const outlines = useStageStore((state) => state.outlines);
   const stageLanguageDirective = useStageStore((state) => state.stage?.languageDirective);
   const ttsEnabled = useSettingsStore((state) => state.ttsEnabled);
@@ -129,7 +134,7 @@ export function VibeEditDialog({
 
       if (!response.ok || !data.success) {
         throw new Error(
-          'error' in data && data.error ? data.error : t('vibeEdit.previewFailed'),
+          'error' in data && data.error ? data.error : '页面预览生成失败',
         );
       }
 
@@ -138,7 +143,7 @@ export function VibeEditDialog({
       setWorkingOutline(data.draft.outline);
       setMessages([...nextMessages, { role: 'assistant', content: data.draft.summary }]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('vibeEdit.previewFailed'));
+      toast.error(error instanceof Error ? error.message : '页面预览生成失败');
     } finally {
       setGenerating(false);
     }
@@ -167,16 +172,16 @@ export function VibeEditDialog({
 
       if (!response.ok || !data.success) {
         throw new Error(
-          'error' in data && data.error ? data.error : t('vibeEdit.applyFailed'),
+          'error' in data && data.error ? data.error : '应用修改失败',
         );
       }
 
       await onApply(data.scene, data.outline);
       await useStageStore.getState().saveToStorage();
-      toast.success(t('vibeEdit.applied'));
+      toast.success('这一页已更新');
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('vibeEdit.applyFailed'));
+      toast.error(error instanceof Error ? error.message : '应用修改失败');
     } finally {
       setApplying(false);
     }
@@ -188,9 +193,9 @@ export function VibeEditDialog({
         <DialogHeader className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Sparkles className="h-4 w-4 text-violet-500" />
-            {t('vibeEdit.title')}
+            修改这一页
           </DialogTitle>
-          <DialogDescription>{t('vibeEdit.description')}</DialogDescription>
+          <DialogDescription>告诉我你想怎么改，我会先给你看改完的样子。</DialogDescription>
         </DialogHeader>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(280px,1fr)_minmax(260px,1fr)] lg:grid-cols-[minmax(320px,380px)_minmax(0,1fr)] lg:grid-rows-1">
@@ -198,11 +203,11 @@ export function VibeEditDialog({
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
               {!workingOutline ? (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-5 text-sm leading-relaxed text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-                  {t('vibeEdit.unavailable')}
+                  这一页缺少生成信息，暂时不能这样修改。
                 </div>
               ) : messages.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-5 text-sm leading-relaxed text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-                  {t('vibeEdit.emptyHint')}
+                  例如：把这一页改得更适合初学者，少一点字，多一个例子。
                 </div>
               ) : (
                 messages.map((message, index) => (
@@ -224,7 +229,7 @@ export function VibeEditDialog({
               <Textarea
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder={t('vibeEdit.placeholder')}
+                placeholder="输入你想怎么改这页..."
                 className="min-h-24 resize-none bg-white dark:bg-slate-900"
                 disabled={generating || applying || !workingOutline}
                 onKeyDown={(event) => {
@@ -235,7 +240,7 @@ export function VibeEditDialog({
                 }}
               />
               <div className="mt-3 flex items-center justify-between gap-3">
-                <span className="text-xs text-slate-400">{t('vibeEdit.shortcutHint')}</span>
+                <span className="text-xs text-slate-400">Ctrl + Enter 生成预览</span>
                 <Button
                   onClick={handleGenerate}
                   disabled={!input.trim() || generating || applying || !workingOutline}
@@ -245,7 +250,7 @@ export function VibeEditDialog({
                   ) : (
                     <Send data-icon="inline-start" />
                   )}
-                  {generating ? t('vibeEdit.generating') : t('vibeEdit.generate')}
+                  {generating ? '生成中...' : '生成预览'}
                 </Button>
               </div>
             </div>
@@ -257,14 +262,11 @@ export function VibeEditDialog({
                 {draft?.previewScene.title || scene.title}
               </div>
               <div className="mt-0.5 text-xs text-slate-400">
-                {draft ? t('vibeEdit.previewReady') : t('vibeEdit.previewWaiting')}
+                {draft ? '这是改完后的样子' : '还没有新预览'}
               </div>
               {draft && baseOutline && draft.outline.type !== baseOutline.type && (
                 <div className="mt-1.5 inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-                  {t('vibeEdit.typeChanged', {
-                    from: t(`vibeEdit.typeLabels.${baseOutline.type}`),
-                    to: t(`vibeEdit.typeLabels.${draft.outline.type}`),
-                  })}
+                  {`页面类型：${VIBE_TYPE_LABELS[baseOutline.type] || baseOutline.type} → ${VIBE_TYPE_LABELS[draft.outline.type] || draft.outline.type}`}
                 </div>
               )}
             </div>
@@ -273,7 +275,7 @@ export function VibeEditDialog({
                 <VibePreview scene={draft.previewScene} />
               ) : (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-400">
-                  {t('vibeEdit.previewEmpty')}
+                  先在左侧说出你的修改要求，这里会显示改完后的页面。
                 </div>
               )}
             </div>
@@ -282,11 +284,11 @@ export function VibeEditDialog({
 
         <DialogFooter className="border-t border-slate-200 px-6 py-4 dark:border-slate-800">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={applying}>
-            {t('common.cancel')}
+            取消
           </Button>
           <Button onClick={handleApply} disabled={!draft || generating || applying}>
             {applying && <Loader2 className="animate-spin" />}
-            {applying ? t('vibeEdit.applying') : t('vibeEdit.apply')}
+            {applying ? '应用中...' : '应用修改'}
           </Button>
         </DialogFooter>
       </DialogContent>
