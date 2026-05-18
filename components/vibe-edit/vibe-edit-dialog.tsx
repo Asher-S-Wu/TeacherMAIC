@@ -128,7 +128,9 @@ export function VibeEditDialog({
         | { success: false; error?: string };
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || t('vibeEdit.previewFailed'));
+        throw new Error(
+          'error' in data && data.error ? data.error : t('vibeEdit.previewFailed'),
+        );
       }
 
       setDraft(data.draft);
@@ -163,7 +165,9 @@ export function VibeEditDialog({
         | { success: false; error?: string };
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || t('vibeEdit.applyFailed'));
+        throw new Error(
+          'error' in data && data.error ? data.error : t('vibeEdit.applyFailed'),
+        );
       }
 
       await onApply(data.scene, data.outline);
