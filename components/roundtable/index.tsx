@@ -83,6 +83,7 @@ interface RoundtableProps {
   readonly onPrevSlide?: () => void;
   readonly onNextSlide?: () => void;
   readonly onWhiteboardClose?: () => void;
+  readonly onVibeEdit?: () => void;
   readonly isPresenting?: boolean;
   readonly controlsVisible?: boolean;
   readonly onTogglePresentation?: () => void;
@@ -183,6 +184,7 @@ export function Roundtable({
   onPrevSlide,
   onNextSlide,
   onWhiteboardClose,
+  onVibeEdit,
   isPresenting,
   controlsVisible,
   onTogglePresentation,
@@ -648,6 +650,7 @@ export function Roundtable({
       onNextSlide={onNextSlide ?? (() => {})}
       onPlayPause={onPlayPause ?? (() => {})}
       onWhiteboardClose={onWhiteboardClose ?? (() => {})}
+      onVibeEdit={onVibeEdit}
       isPresenting={isPresenting}
       onTogglePresentation={onTogglePresentation}
       showStopDiscussion={showStopButton}

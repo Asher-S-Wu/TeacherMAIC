@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,8 @@ interface CanvasAreaProps extends CanvasToolbarProps {
   readonly onRetryGeneration?: () => void;
   readonly onVibeEditOpen?: () => void;
   readonly onApplyVibeEdit?: (scene: Scene, outline: SceneOutline) => Promise<void> | void;
+  readonly vibeDialogOpen?: boolean;
+  readonly onVibeDialogChange?: (open: boolean) => void;
 }
 
 export function CanvasArea({
@@ -53,8 +55,9 @@ export function CanvasArea({
   onRetryGeneration,
   onVibeEditOpen,
   onApplyVibeEdit,
+  vibeDialogOpen = false,
+  onVibeDialogChange,
 }: CanvasAreaProps) {
-  const [vibeDialogOpen, setVibeDialogOpen] = useState(false);
   const showControls = mode === 'playback' && !whiteboardOpen;
   const showPlayHint =
     showControls &&
@@ -270,10 +273,7 @@ export function CanvasArea({
           onWhiteboardClose={onWhiteboardClose}
           onVibeEdit={
             currentScene && !whiteboardOpen && !isPresenting && onApplyVibeEdit
-              ? () => {
-                  onVibeEditOpen?.();
-                  setVibeDialogOpen(true);
-                }
+              ? () => onVibeEditOpen?.()
               : undefined
           }
           isPresenting={isPresenting}
@@ -287,7 +287,7 @@ export function CanvasArea({
         <VibeEditDialog
           open={vibeDialogOpen}
           scene={currentScene}
-          onOpenChange={setVibeDialogOpen}
+          onOpenChange={(next) => onVibeDialogChange?.(next)}
           onApply={onApplyVibeEdit}
         />
       )}

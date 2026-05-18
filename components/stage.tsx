@@ -180,6 +180,8 @@ export function Stage({
   const autoStartRef = useRef(false);
   // Discussion buffer-level pause state (distinct from soft-pause which aborts SSE)
   const [isDiscussionPaused, setIsDiscussionPaused] = useState(false);
+  // Vibe-edit dialog (lifted from CanvasArea so toolbar can be hosted by Roundtable too)
+  const [vibeDialogOpen, setVibeDialogOpen] = useState(false);
 
   /**
    * Resume a soft-paused topic: re-call /chat with existing session messages.
@@ -259,6 +261,7 @@ export function Stage({
     if (engineRef.current && (engineMode === 'playing' || engineMode === 'live')) {
       engineRef.current.pause();
     }
+    setVibeDialogOpen(true);
   }, [engineMode]);
 
   const handleApplyVibeEdit = useCallback(
@@ -1051,6 +1054,8 @@ export function Stage({
             }
             onVibeEditOpen={handleVibeEditOpen}
             onApplyVibeEdit={handleApplyVibeEdit}
+            vibeDialogOpen={vibeDialogOpen}
+            onVibeDialogChange={setVibeDialogOpen}
           />
         </div>
 
@@ -1186,6 +1191,7 @@ export function Stage({
               onPrevSlide={handlePreviousScene}
               onNextSlide={handleNextScene}
               onWhiteboardClose={handleWhiteboardToggle}
+              onVibeEdit={currentScene && !whiteboardOpen && !isPresenting ? handleVibeEditOpen : undefined}
               isPresenting={isPresenting}
               controlsVisible={controlsVisible}
               onTogglePresentation={togglePresentation}
