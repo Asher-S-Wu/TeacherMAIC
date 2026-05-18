@@ -15,6 +15,11 @@ import type {
 import { applyModelMetadata } from './model-metadata';
 import { ARK_BASE_URL } from './ark-models';
 import {
+  ANTHROPIC_BASE_URL,
+  CLAUDE_OPUS_4_7_MODEL_ID,
+  CLAUDE_OPUS_4_7_MODEL_NAME,
+} from './anthropic-models';
+import {
   GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
   GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_NAME,
   GEMINI_3_FLASH_PREVIEW_MODEL_ID,
@@ -25,6 +30,9 @@ import {
 } from './gemini-models';
 
 export const GEMINI_PROVIDER_ID: BuiltInProviderId = 'gemini';
+export const ANTHROPIC_PROVIDER_ID: BuiltInProviderId = 'anthropic';
+export const OFFICIAL_CLAUDE_OPUS_4_7_MODEL_ID = CLAUDE_OPUS_4_7_MODEL_ID;
+export const OFFICIAL_CLAUDE_OPUS_4_7_MODEL_NAME = CLAUDE_OPUS_4_7_MODEL_NAME;
 export const OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID =
   GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID;
 export const OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_NAME =
@@ -61,6 +69,27 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
     requiresApiKey: true,
     icon: '/logos/doubao-color.svg',
     models: [],
+  },
+  anthropic: {
+    id: 'anthropic',
+    name: 'Anthropic',
+    type: 'anthropic-messages',
+    defaultBaseUrl: ANTHROPIC_BASE_URL,
+    requiresApiKey: true,
+    models: [
+      {
+        id: CLAUDE_OPUS_4_7_MODEL_ID,
+        name: CLAUDE_OPUS_4_7_MODEL_NAME,
+        contextWindow: 1000000,
+        outputWindow: 128000,
+        capabilities: {
+          streaming: true,
+          tools: true,
+          vision: true,
+          json: true,
+        },
+      },
+    ],
   },
   gemini: {
     id: 'gemini',

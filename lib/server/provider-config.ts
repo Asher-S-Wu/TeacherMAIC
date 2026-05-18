@@ -36,6 +36,7 @@ interface ServerConfig {
 
 const ARK_API_KEY_ENV = 'ARK_API_KEY';
 const GEMINI_API_KEY_ENV = 'GEMINI_API_KEY';
+const DRAGONCODE_API_KEY_ENV = 'DRAGONCODE_API_KEY';
 const XCRAWL_API_KEY_ENV = 'XCRAWL_API_KEY';
 const VOLCENGINE_TTS_API_KEY_ENV = 'VOLCENGINE_TTS_API_KEY';
 const VOLCENGINE_TTS_RESOURCE_ID_ENV = 'VOLCENGINE_TTS_RESOURCE_ID';
@@ -67,9 +68,11 @@ function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
   const result: Record<string, ServerProviderEntry> = {};
   const arkApiKey = process.env[ARK_API_KEY_ENV] || undefined;
   const geminiApiKey = process.env[GEMINI_API_KEY_ENV] || undefined;
+  const dragoncodeApiKey = process.env[DRAGONCODE_API_KEY_ENV] || undefined;
 
   if (arkApiKey) result.ark = { apiKey: arkApiKey };
   if (geminiApiKey) result.gemini = { apiKey: geminiApiKey };
+  if (dragoncodeApiKey) result.anthropic = { apiKey: dragoncodeApiKey };
 
   return result;
 }

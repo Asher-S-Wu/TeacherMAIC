@@ -6,6 +6,7 @@
 
 import { createLogger } from '@/lib/logger';
 import { ARK_CHAT_COMPLETIONS_PATH } from './ark-models';
+import { ANTHROPIC_MESSAGES_PATH, ANTHROPIC_VERSION } from './anthropic-models';
 import {
   GEMINI_PROVIDER_ID,
   OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
@@ -99,6 +100,29 @@ interface GeminiGenerateContentBody {
   };
 }
 
+type AnthropicTextPart = { type: 'text'; text: string };
+type AnthropicImageSource =
+  | { type: 'base64'; media_type: string; data: string }
+  | { type: 'url'; url: string };
+type AnthropicImagePart = { type: 'image'; source: AnthropicImageSource };
+type AnthropicContentPart = AnthropicTextPart | AnthropicImagePart;
+type AnthropicMessage = {
+  role: 'user' | 'assistant';
+  content: string | AnthropicContentPart[];
+};
+
+type AnthropicEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+interface AnthropicMessagesBody {
+  model: string;
+  max_tokens: number;
+  messages: AnthropicMessage[];
+  system?: string;
+  stream?: boolean;
+  thinking?: { type: 'adaptive' };
+  output_config?: { effort: AnthropicEffort };
+}
+
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
 
 function isGeminiNativeProvider(model: ChatCompletionsModel): boolean {
@@ -107,6 +131,10 @@ function isGeminiNativeProvider(model: ChatCompletionsModel): boolean {
 
 function isArkChatCompletionsProvider(model: ChatCompletionsModel): boolean {
   return model.providerType === 'ark-chat-completions';
+}
+
+function isAnthropicMessagesProvider(model: ChatCompletionsModel): boolean {
+  return model.providerType === 'anthropic-messages';
 }
 
 const OFFICIAL_GEMINI_REASONING_MODEL_IDS = new Set([
@@ -126,6 +154,9 @@ function getTextGenerationUrl(model: ChatCompletionsModel, stream: boolean): str
   if (isGeminiNativeProvider(model)) {
     const action = stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
     return `${model.baseUrl.replace(/\/$/, '')}/${model.modelId}:${action}`;
+  }
+  if (isAnthropicMessagesProvider(model)) {
+    return `${model.baseUrl.replace(/\/$/, '')}${ANTHROPIC_MESSAGES_PATH}`;
   }
   return `${model.baseUrl.replace(/\/$/, '')}${ARK_CHAT_COMPLETIONS_PATH}`;
 }
@@ -170,6 +201,26 @@ function getGeminiThinkingLevel(config?: ThinkingConfig): ThinkingLevel {
     return config.level;
   }
   return 'high';
+}
+
+function getAnthropicEffort(config?: ThinkingConfig): AnthropicEffort | undefined {
+  if (
+    config?.mode === 'disabled' ||
+    config?.enabled === false ||
+    config?.effort === 'none'
+  ) {
+    return undefined;
+  }
+  switch (config?.level) {
+    case 'minimal':
+    case 'low':
+      return 'low';
+    case 'medium':
+      return 'medium';
+    case 'high':
+    default:
+      return 'max';
+  }
 }
 
 function shouldSendOfficialGeminiReasoning(
@@ -364,6 +415,107 @@ function buildGeminiGenerateContentBody(
   };
 }
 
+function imageToAnthropicSource(part: ImagePart): AnthropicImageSource {
+  const dataUriMatch = part.image.match(/^data:([^;]+);base64,(.+)$/);
+  if (dataUriMatch) {
+    return {
+      type: 'base64',
+      media_type: dataUriMatch[1],
+      data: dataUriMatch[2],
+    };
+  }
+
+  if (part.image.startsWith('http://') || part.image.startsWith('https://')) {
+    return { type: 'url', url: part.image };
+  }
+
+  return {
+    type: 'base64',
+    media_type: part.mimeType || 'image/png',
+    data: part.image,
+  };
+}
+
+function contentToAnthropicContent(content: MessageContent): string | AnthropicContentPart[] {
+  if (typeof content === 'string') return content;
+  return content.map((part) => {
+    if (part.type === 'text') {
+      return { type: 'text', text: part.text } satisfies AnthropicTextPart;
+    }
+    return {
+      type: 'image',
+      source: imageToAnthropicSource(part),
+    } satisfies AnthropicImagePart;
+  });
+}
+
+function buildAnthropicMessages(params: LLMGenerateParams): {
+  messages: AnthropicMessage[];
+  system?: string;
+} {
+  const messages: AnthropicMessage[] = [];
+  const systemSegments: string[] = [];
+
+  if (params.system?.trim()) {
+    systemSegments.push(params.system);
+  }
+
+  for (const message of params.messages ?? []) {
+    if (message.role === 'system') {
+      const text = contentToPlainText(message.content);
+      if (text.trim()) {
+        systemSegments.push(text);
+      }
+      continue;
+    }
+
+    messages.push({
+      role: message.role,
+      content: contentToAnthropicContent(message.content),
+    });
+  }
+
+  if (params.prompt !== undefined) {
+    messages.push({ role: 'user', content: params.prompt });
+  }
+
+  if (messages.length === 0) {
+    throw new Error('LLM request missing input');
+  }
+
+  return {
+    messages,
+    ...(systemSegments.length > 0 ? { system: systemSegments.join('\n\n') } : {}),
+  };
+}
+
+function buildAnthropicMessagesBody(
+  params: LLMGenerateParams,
+  thinking?: ThinkingConfig,
+  stream = false,
+): AnthropicMessagesBody {
+  const { messages, system } = buildAnthropicMessages(params);
+  const effort = getAnthropicEffort(thinking);
+
+  const body: AnthropicMessagesBody = {
+    model: params.model.modelId,
+    max_tokens: getMaxOutputTokens(params),
+    messages,
+    stream,
+  };
+
+  if (system) {
+    body.system = system;
+  }
+
+  if (effort) {
+    body.thinking = { type: 'adaptive' };
+    body.output_config = { effort };
+  }
+
+  return body;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
@@ -424,18 +576,28 @@ async function requestTextGeneration(
   thinking: ThinkingConfig | undefined,
   stream: boolean,
 ): Promise<Response> {
-  const body = isGeminiNativeProvider(params.model)
-    ? buildGeminiGenerateContentBody(params, thinking)
-    : buildArkChatCompletionsBody(params, thinking, stream);
-  const headers: Record<string, string> = isGeminiNativeProvider(params.model)
-    ? {
-        'x-goog-api-key': params.model.apiKey,
-        'Content-Type': 'application/json',
-      }
-    : {
-        Authorization: `Bearer ${params.model.apiKey}`,
-        'Content-Type': 'application/json',
-      };
+  let body: unknown;
+  let headers: Record<string, string>;
+  if (isGeminiNativeProvider(params.model)) {
+    body = buildGeminiGenerateContentBody(params, thinking);
+    headers = {
+      'x-goog-api-key': params.model.apiKey,
+      'Content-Type': 'application/json',
+    };
+  } else if (isAnthropicMessagesProvider(params.model)) {
+    body = buildAnthropicMessagesBody(params, thinking, stream);
+    headers = {
+      'x-api-key': params.model.apiKey,
+      'anthropic-version': ANTHROPIC_VERSION,
+      'Content-Type': 'application/json',
+    };
+  } else {
+    body = buildArkChatCompletionsBody(params, thinking, stream);
+    headers = {
+      Authorization: `Bearer ${params.model.apiKey}`,
+      'Content-Type': 'application/json',
+    };
+  }
   let response: Response;
   try {
     response = await fetch(getTextGenerationUrl(params.model, stream), {
@@ -508,10 +670,27 @@ function extractTextFromGeminiResponse(payload: unknown): string {
     .join('');
 }
 
+function extractTextFromAnthropicResponse(payload: unknown): string {
+  if (!isRecord(payload)) return '';
+  const content = payload.content;
+  if (!Array.isArray(content)) return '';
+  return content
+    .map((part) => {
+      if (!isRecord(part)) return '';
+      if (part.type !== 'text') return '';
+      return typeof part.text === 'string' ? part.text : '';
+    })
+    .join('');
+}
+
 function extractTextFromProviderResponse(model: ChatCompletionsModel, payload: unknown): string {
-  return isGeminiNativeProvider(model)
-    ? extractTextFromGeminiResponse(payload)
-    : extractTextFromArkChatCompletion(payload);
+  if (isGeminiNativeProvider(model)) {
+    return extractTextFromGeminiResponse(payload);
+  }
+  if (isAnthropicMessagesProvider(model)) {
+    return extractTextFromAnthropicResponse(payload);
+  }
+  return extractTextFromArkChatCompletion(payload);
 }
 
 function getSseData(block: string): string {
@@ -537,10 +716,23 @@ function extractArkTextDelta(eventPayload: unknown): string {
     .join('');
 }
 
+function extractAnthropicStreamTextDelta(eventPayload: unknown): string {
+  if (!isRecord(eventPayload)) return '';
+  if (eventPayload.type !== 'content_block_delta') return '';
+  const delta = eventPayload.delta;
+  if (!isRecord(delta)) return '';
+  if (delta.type !== 'text_delta') return '';
+  return typeof delta.text === 'string' ? delta.text : '';
+}
+
 function extractStreamTextDelta(model: ChatCompletionsModel, payload: unknown): string {
-  return isGeminiNativeProvider(model)
-    ? extractTextFromGeminiResponse(payload)
-    : extractArkTextDelta(payload);
+  if (isGeminiNativeProvider(model)) {
+    return extractTextFromGeminiResponse(payload);
+  }
+  if (isAnthropicMessagesProvider(model)) {
+    return extractAnthropicStreamTextDelta(payload);
+  }
+  return extractArkTextDelta(payload);
 }
 
 async function* streamTextGeneration(

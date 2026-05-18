@@ -1,16 +1,18 @@
-import { Atom, Network, Zap } from 'lucide-react';
+import { Atom, Crown, Network, Zap } from 'lucide-react';
 
 import {
+  ANTHROPIC_PROVIDER_ID,
   EXPERT_MODEL_ID,
   EXPERT_PROVIDER_ID,
   GEMINI_PROVIDER_ID,
+  OFFICIAL_CLAUDE_OPUS_4_7_MODEL_ID,
   OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
   OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
   isExpertModel,
 } from '@/lib/ai/providers';
 import type { ProviderId, ThinkingConfig } from '@/lib/types/provider';
 
-export type ModelPresetId = 'fast' | 'think' | 'expert';
+export type ModelPresetId = 'fast' | 'think' | 'expert' | 'ultimate';
 
 export interface ModelPresetOption {
   id: ModelPresetId;
@@ -50,12 +52,22 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     modelId: EXPERT_MODEL_ID,
     thinkingConfig: { mode: 'enabled', level: 'high' },
   },
+  ultimate: {
+    id: 'ultimate',
+    label: '极致',
+    description: '限时体验旗舰级模型',
+    icon: Crown,
+    providerId: ANTHROPIC_PROVIDER_ID,
+    modelId: OFFICIAL_CLAUDE_OPUS_4_7_MODEL_ID,
+    thinkingConfig: { mode: 'enabled', level: 'high' },
+  },
 };
 
 export const MODEL_PRESET_OPTIONS: ModelPresetOption[] = [
   MODEL_PRESET_BY_ID.fast,
   MODEL_PRESET_BY_ID.think,
   MODEL_PRESET_BY_ID.expert,
+  MODEL_PRESET_BY_ID.ultimate,
 ];
 
 export function getCurrentModelPresetId(
@@ -75,6 +87,13 @@ export function getCurrentModelPresetId(
     modelId === OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID
   ) {
     return 'think';
+  }
+
+  if (
+    providerId === ANTHROPIC_PROVIDER_ID &&
+    modelId === OFFICIAL_CLAUDE_OPUS_4_7_MODEL_ID
+  ) {
+    return 'ultimate';
   }
 
   if (isExpertModel(providerId, modelId)) {
