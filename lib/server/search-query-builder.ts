@@ -44,11 +44,8 @@ function normalizePdfExcerpt(pdfText?: string): string {
   return pdfText.replace(/\s+/g, ' ').trim().slice(0, SEARCH_QUERY_REWRITE_EXCERPT_LENGTH);
 }
 
-function shouldRewriteSearchQuery(
-  normalizedRequirement: string,
-  normalizedPdfExcerpt: string,
-): boolean {
-  return normalizedRequirement.length > 400 || Boolean(normalizedPdfExcerpt);
+function shouldRewriteSearchQuery(normalizedRequirement: string): boolean {
+  return Boolean(normalizedRequirement);
 }
 
 export async function decideWebSearch(
@@ -104,7 +101,7 @@ export async function buildSearchQuery(
   const normalizedRequirement = normalizeSearchRequirement(requirement);
   const pdfExcerpt = normalizePdfExcerpt(pdfText);
   const hasPdfContext = Boolean(pdfExcerpt);
-  const rewriteAttempted = shouldRewriteSearchQuery(normalizedRequirement, pdfExcerpt);
+  const rewriteAttempted = shouldRewriteSearchQuery(normalizedRequirement);
 
   const baseResult = {
     query: normalizedRequirement,
