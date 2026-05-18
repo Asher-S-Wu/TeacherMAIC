@@ -62,36 +62,70 @@ export async function saveClassroomForUser(
     { upsert: true },
   );
 
-  await c.classroomScenes.deleteMany({ userId, stageId });
-  if (scenes.length > 0) {
-    await c.classroomScenes.insertMany(
+  const chats = input.chats || [];
+  const sceneIds = scenes.map((scene) => scene.id);
+  if (sceneIds.length > 0) {
+    await c.classroomScenes.bulkWrite(
       scenes.map((scene) => ({
-        _id: new ObjectId(),
-        userId,
-        stageId,
-        sceneId: scene.id,
-        order: scene.order,
-        scene,
-        createdAt: now,
-        updatedAt: now,
+        updateOne: {
+          filter: { userId, stageId, sceneId: scene.id },
+          update: {
+            $set: {
+              order: scene.order,
+              scene,
+              updatedAt: now,
+            },
+            $setOnInsert: {
+              _id: new ObjectId(),
+              userId,
+              stageId,
+              sceneId: scene.id,
+              createdAt: now,
+            },
+          },
+          upsert: true,
+        },
       })),
     );
+    await c.classroomScenes.deleteMany({
+      userId,
+      stageId,
+      sceneId: { $nin: sceneIds },
+    });
+  } else {
+    await c.classroomScenes.deleteMany({ userId, stageId });
   }
 
-  await c.chatSessions.deleteMany({ userId, stageId });
-  const chats = input.chats || [];
-  if (chats.length > 0) {
-    await c.chatSessions.insertMany(
+  const chatIds = chats.map((session) => session.id);
+  if (chatIds.length > 0) {
+    await c.chatSessions.bulkWrite(
       chats.map((session) => ({
-        _id: new ObjectId(),
-        userId,
-        stageId,
-        sessionId: session.id,
-        session,
-        createdAt: new Date(session.createdAt || Date.now()),
-        updatedAt: new Date(session.updatedAt || Date.now()),
+        updateOne: {
+          filter: { userId, stageId, sessionId: session.id },
+          update: {
+            $set: {
+              session,
+              updatedAt: new Date(session.updatedAt || Date.now()),
+            },
+            $setOnInsert: {
+              _id: new ObjectId(),
+              userId,
+              stageId,
+              sessionId: session.id,
+              createdAt: new Date(session.createdAt || Date.now()),
+            },
+          },
+          upsert: true,
+        },
       })),
     );
+    await c.chatSessions.deleteMany({
+      userId,
+      stageId,
+      sessionId: { $nin: chatIds },
+    });
+  } else {
+    await c.chatSessions.deleteMany({ userId, stageId });
   }
 
   return {
