@@ -106,13 +106,15 @@ export async function createVibeEditDraft(
   }
 
   const scene = adoptSceneIdentity(params.scene, generated);
-  const previewScene = await buildPreviewScene(scene, nextOutline);
+  const previewMediaMap = await generatePreviewMedia(nextOutline.mediaGenerations || []);
+  const previewScene = buildPreviewScene(scene, previewMediaMap);
 
   return {
     summary,
     outline: nextOutline,
     scene,
     previewScene,
+    previewMediaMap,
   };
 }
 
@@ -256,8 +258,7 @@ function adoptSceneIdentity(original: Scene, generated: Scene): Scene {
   };
 }
 
-async function buildPreviewScene(scene: Scene, outline: SceneOutline): Promise<Scene> {
-  const mediaMap = await generatePreviewMedia(outline.mediaGenerations || []);
+function buildPreviewScene(scene: Scene, mediaMap: Record<string, string>): Scene {
   if (scene.content.type !== 'slide' || Object.keys(mediaMap).length === 0) {
     return scene;
   }

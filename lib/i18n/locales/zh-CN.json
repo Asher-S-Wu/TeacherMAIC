@@ -196,7 +196,14 @@
     "apply": "应用修改",
     "applying": "应用中...",
     "applyFailed": "应用修改失败",
-    "applied": "这一页已更新"
+    "applied": "这一页已更新",
+    "typeChanged": "页面类型：{{from}} → {{to}}",
+    "typeLabels": {
+      "slide": "幻灯片",
+      "quiz": "测验",
+      "interactive": "互动",
+      "pbl": "项目实践"
+    }
   },
   "quiz": {
     "title": "随堂测验",

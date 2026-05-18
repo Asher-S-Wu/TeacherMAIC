@@ -12,6 +12,7 @@ export interface VibeEditDraft {
   outline: SceneOutline;
   scene: Scene;
   previewScene: Scene;
+  previewMediaMap: Record<string, string>;
 }
 
 export interface VibeEditPreviewRequest {
@@ -36,6 +37,7 @@ export interface VibeEditApplyRequest {
   sceneId: string;
   outline: SceneOutline;
   scene: Scene;
+  mediaMap: Record<string, string>;
   ttsEnabled: boolean;
 }
 

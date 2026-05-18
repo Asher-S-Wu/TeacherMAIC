@@ -7,8 +7,10 @@
 
 import path from 'path';
 import { createLogger } from '@/lib/logger';
-import type { ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
+import { del } from '@vercel/blob';
 import { saveBufferForUser, saveRemoteFileForUser } from '@/lib/server/file-storage';
+import { getCollections, getMongo } from '@/lib/server/mongodb';
 import { generateImage } from '@/lib/media/image-providers';
 import { generateVideo, normalizeVideoOptions } from '@/lib/media/video-providers';
 import { generateTTS } from '@/lib/audio/tts-providers';
@@ -201,6 +203,107 @@ export function replaceMediaPlaceholders(scenes: Scene[], mediaMap: Record<strin
       }
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Vibe edit media reuse: persist preview-generated media instead of regenerating
+// ---------------------------------------------------------------------------
+
+export interface PersistVibeEditMediaResult {
+  permanentMap: Record<string, string>;
+  savedFileIds: string[];
+}
+
+export async function persistVibeEditMedia(
+  mediaMap: Record<string, string>,
+  classroomId: string,
+  baseUrl: string,
+  userId: ObjectId,
+): Promise<PersistVibeEditMediaResult> {
+  const permanentMap: Record<string, string> = {};
+  const savedFileIds: string[] = [];
+
+  for (const [elementId, src] of Object.entries(mediaMap)) {
+    if (src.startsWith('data:')) {
+      const match = src.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) {
+        throw new Error(`媒体内容格式不正确：${elementId}`);
+      }
+      const contentType = match[1];
+      const buffer = Buffer.from(match[2], 'base64');
+      const ext = contentType.split('/')[1] || 'png';
+      const isVideo = contentType.startsWith('video/');
+      const filename = `${elementId}.${ext}`;
+      const saved = await saveBufferForUser(
+        userId,
+        buffer,
+        filename,
+        contentType,
+        isVideo ? 'video' : 'media',
+        {
+          classroomId,
+          elementId,
+          mediaType: isVideo ? 'video' : 'image',
+        },
+      );
+      permanentMap[elementId] = `${baseUrl}${saved.url}`;
+      savedFileIds.push(saved.id);
+      continue;
+    }
+
+    if (/^https?:\/\//i.test(src)) {
+      const urlExt = path.extname(new URL(src).pathname).replace('.', '').toLowerCase();
+      const videoExts = ['mp4', 'webm', 'mov'];
+      const imageExts = ['png', 'jpg', 'jpeg', 'webp'];
+      const isVideo = videoExts.includes(urlExt);
+      const ext = isVideo
+        ? (videoExts.includes(urlExt) ? urlExt : 'mp4')
+        : (imageExts.includes(urlExt) ? urlExt : 'png');
+      const contentType = isVideo
+        ? `video/${ext === 'mov' ? 'quicktime' : ext}`
+        : ext === 'jpg'
+          ? 'image/jpeg'
+          : `image/${ext}`;
+      const filename = `${elementId}.${ext}`;
+      const saved = await saveRemoteFileForUser(
+        userId,
+        src,
+        filename,
+        contentType,
+        isVideo ? 'video' : 'media',
+        {
+          classroomId,
+          elementId,
+          mediaType: isVideo ? 'video' : 'image',
+        },
+      );
+      permanentMap[elementId] = `${baseUrl}${saved.url}`;
+      savedFileIds.push(saved.id);
+      continue;
+    }
+
+    throw new Error(`媒体地址不识别：${elementId}`);
+  }
+
+  return { permanentMap, savedFileIds };
+}
+
+export async function cleanupVibeEditMedia(savedFileIds: string[]): Promise<void> {
+  if (savedFileIds.length === 0) return;
+  const objectIds = savedFileIds.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id));
+  if (objectIds.length === 0) return;
+
+  const { db } = await getMongo();
+  const c = getCollections(db);
+  const files = await c.accountFiles.find({ _id: { $in: objectIds } }).toArray();
+  if (files.length > 0) {
+    try {
+      await del(files.map((file) => file.url));
+    } catch (error) {
+      log.error('Failed to delete blob files:', error);
+    }
+  }
+  await c.accountFiles.deleteMany({ _id: { $in: objectIds } });
 }
 
 // ---------------------------------------------------------------------------

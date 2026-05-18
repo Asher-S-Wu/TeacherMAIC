@@ -157,6 +157,7 @@ export function VibeEditDialog({
           sceneId: draft.scene.id,
           outline: draft.outline,
           scene: draft.scene,
+          mediaMap: draft.previewMediaMap,
           ttsEnabled,
         }),
       });
@@ -171,6 +172,7 @@ export function VibeEditDialog({
       }
 
       await onApply(data.scene, data.outline);
+      await useStageStore.getState().saveToStorage();
       toast.success(t('vibeEdit.applied'));
       onOpenChange(false);
     } catch (error) {
@@ -257,6 +259,14 @@ export function VibeEditDialog({
               <div className="mt-0.5 text-xs text-slate-400">
                 {draft ? t('vibeEdit.previewReady') : t('vibeEdit.previewWaiting')}
               </div>
+              {draft && baseOutline && draft.outline.type !== baseOutline.type && (
+                <div className="mt-1.5 inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                  {t('vibeEdit.typeChanged', {
+                    from: t(`vibeEdit.typeLabels.${baseOutline.type}`),
+                    to: t(`vibeEdit.typeLabels.${draft.outline.type}`),
+                  })}
+                </div>
+              )}
             </div>
             <div className="min-h-0 flex-1">
               {draft ? (
