@@ -11,7 +11,7 @@ import type { SpeechAction } from '@/lib/types/action';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
-import { CLASSROOM_GENERATION_CONCURRENCY } from '@/lib/constants/classroom-generation';
+import { resolveClassroomGenerationConcurrency } from '@/lib/constants/classroom-generation';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('SceneGenerator');
@@ -283,9 +283,15 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
           !abortRef.current &&
           store.getState().generationEpoch === startEpoch;
 
+        // 根据当前选择的模型决定页面生成的并发数：极致模型走 2 路，其他模型保持 5 路
+        const { providerId: currentProviderId, modelId: currentModelId } = getCurrentModelConfig();
+        const generationConcurrency = resolveClassroomGenerationConcurrency(
+          currentProviderId,
+          currentModelId,
+        );
         await runConcurrentQueue(
           pending,
-          CLASSROOM_GENERATION_CONCURRENCY,
+          generationConcurrency,
           async (outline) => {
             if (!isCurrentRun()) {
               pauseGeneration();

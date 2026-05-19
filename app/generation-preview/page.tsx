@@ -19,7 +19,7 @@ import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
-import { CLASSROOM_GENERATION_CONCURRENCY } from '@/lib/constants/classroom-generation';
+import { formatConcurrencyLabel, resolveClassroomGenerationConcurrency } from '@/lib/constants/classroom-generation';
 import { nanoid } from 'nanoid';
 import type { Stage, Scene } from '@/lib/types/stage';
 import type { SceneOutline, PdfImage } from '@/lib/types/generation';
@@ -688,9 +688,16 @@ function GenerationPreviewContent() {
           : undefined;
 
       let completedPages = 0;
+      // 根据当前选择的模型决定页面生成的并发数：极致模型走 2 路，其他模型保持 5 路
+      const { providerId: currentProviderId, modelId: currentModelId } = getCurrentModelConfig();
+      const generationConcurrency = resolveClassroomGenerationConcurrency(
+        currentProviderId,
+        currentModelId,
+      );
+      const concurrencyLabel = formatConcurrencyLabel(generationConcurrency);
       const updateParallelStatus = () => {
         setStatusMessage(
-          `正在最多五路并行生成页面：已完成 ${completedPages}/${totalPages}`,
+          `正在${concurrencyLabel}并行生成页面：已完成 ${completedPages}/${totalPages}`,
         );
       };
 
@@ -699,7 +706,7 @@ function GenerationPreviewContent() {
 
       await runConcurrentQueue(
         outlines,
-        CLASSROOM_GENERATION_CONCURRENCY,
+        generationConcurrency,
         async (outline) => {
           throwIfAborted(signal);
 

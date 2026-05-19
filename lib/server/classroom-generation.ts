@@ -12,13 +12,16 @@ import type { AICallFn } from '@/lib/generation/pipeline-types';
 import type { AgentInfo } from '@/lib/generation/pipeline-types';
 import { getDefaultAgents } from '@/lib/orchestration/registry/store';
 import { createLogger } from '@/lib/logger';
-import { isExpertModelString, isProviderKeyRequired } from '@/lib/ai/providers';
+import { isExpertModelString, isProviderKeyRequired, parseModelString } from '@/lib/ai/providers';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { resolveModel } from '@/lib/server/resolve-model';
 import { runAgentDrivenWebResearch } from '@/lib/server/web-research';
 import { persistClassroom } from '@/lib/server/classroom-storage';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
-import { CLASSROOM_GENERATION_CONCURRENCY } from '@/lib/constants/classroom-generation';
+import {
+  formatConcurrencyLabel,
+  resolveClassroomGenerationConcurrency,
+} from '@/lib/constants/classroom-generation';
 import {
   generateMediaForClassroom,
   replaceMediaPlaceholders,
@@ -434,15 +437,20 @@ export async function generateClassroom(
   log.info('Stage 2: Generating scene content and actions...');
   let generatedScenes = 0;
 
+  // 根据当前选择的模型决定页面生成的并发数：极致模型走 2 路，其他模型保持 5 路
+  const { modelId: resolvedModelId } = parseModelString(modelString);
+  const generationConcurrency = resolveClassroomGenerationConcurrency(providerId, resolvedModelId);
+  const concurrencyLabel = formatConcurrencyLabel(generationConcurrency);
+
   await options.onProgress?.({
     step: 'generating_scenes',
     progress: 31,
-    message: `正在最多五路并行生成页面：已完成 0/${outlines.length}`,
+    message: `正在${concurrencyLabel}并行生成页面：已完成 0/${outlines.length}`,
     scenesGenerated: generatedScenes,
     totalScenes: outlines.length,
   });
 
-  await runConcurrentQueue(outlines, CLASSROOM_GENERATION_CONCURRENCY, async (outline) => {
+  await runConcurrentQueue(outlines, generationConcurrency, async (outline) => {
     const content = await generateSceneContent(outline, aiCall, {
       agents,
       languageDirective,
@@ -470,7 +478,7 @@ export async function generateClassroom(
         30 + Math.floor((generatedScenes / Math.max(outlines.length, 1)) * 60),
         90,
       ),
-      message: `正在最多五路并行生成页面：已完成 ${generatedScenes}/${outlines.length}`,
+      message: `正在${concurrencyLabel}并行生成页面：已完成 ${generatedScenes}/${outlines.length}`,
       scenesGenerated: generatedScenes,
       totalScenes: outlines.length,
     });
