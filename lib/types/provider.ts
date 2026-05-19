@@ -31,7 +31,7 @@ export type ThinkingControlType =
 
 export type ThinkingMode = 'default' | 'disabled' | 'enabled' | 'auto';
 export type ThinkingEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
-export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
+export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high' | 'max';
 
 export type ThinkingRequestAdapter =
   | 'none'

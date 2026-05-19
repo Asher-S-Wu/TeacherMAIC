@@ -6,7 +6,6 @@ import {
   EXPERT_PROVIDER_ID,
   GEMINI_PROVIDER_ID,
   OFFICIAL_CLAUDE_OPUS_4_7_MODEL_ID,
-  OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
   OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
   isExpertModel,
 } from '@/lib/ai/providers';
@@ -31,8 +30,8 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     description: '适用于大部分情况',
     icon: Zap,
     providerId: GEMINI_PROVIDER_ID,
-    modelId: OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID,
-    thinkingConfig: { mode: 'enabled', level: 'high' },
+    modelId: OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID,
+    thinkingConfig: { mode: 'disabled' },
   },
   think: {
     id: 'think',
@@ -59,7 +58,7 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     icon: Crown,
     providerId: ANTHROPIC_PROVIDER_ID,
     modelId: OFFICIAL_CLAUDE_OPUS_4_7_MODEL_ID,
-    thinkingConfig: { mode: 'enabled', level: 'high' },
+    thinkingConfig: { mode: 'enabled', level: 'max' },
   },
 };
 
@@ -75,18 +74,13 @@ export function getCurrentModelPresetId(
   modelId: string,
   thinkingConfigs: Record<string, ThinkingConfig>,
 ): ModelPresetId {
-  void thinkingConfigs;
-  if (
-    providerId === GEMINI_PROVIDER_ID &&
-    modelId === OFFICIAL_GEMINI_3_1_FLASH_LITE_PREVIEW_MODEL_ID
-  ) {
-    return 'fast';
-  }
+  // “快速”和“标准”共用同一个 Gemini 3 Flash 模型，靠思考开关区分：关闭=快速，启用=标准
   if (
     providerId === GEMINI_PROVIDER_ID &&
     modelId === OFFICIAL_GEMINI_3_FLASH_PREVIEW_MODEL_ID
   ) {
-    return 'think';
+    const thinkingMode = thinkingConfigs[modelId]?.mode;
+    return thinkingMode === 'disabled' ? 'fast' : 'think';
   }
 
   if (

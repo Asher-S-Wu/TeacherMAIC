@@ -111,7 +111,7 @@ type AnthropicMessage = {
   content: string | AnthropicContentPart[];
 };
 
-type AnthropicEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+type AnthropicEffort = 'low' | 'medium' | 'max';
 
 interface AnthropicMessagesBody {
   model: string;
@@ -191,19 +191,13 @@ function getReasoningEffort(
   return 'high';
 }
 
-function getGeminiThinkingLevel(config?: ThinkingConfig): ThinkingLevel {
-  if (
-    config?.level === 'minimal' ||
-    config?.level === 'low' ||
-    config?.level === 'medium' ||
-    config?.level === 'high'
-  ) {
-    return config.level;
-  }
+function getGeminiThinkingLevel(_config?: ThinkingConfig): ThinkingLevel {
+  // 项目里 Gemini 思考档位固定为 high
   return 'high';
 }
 
 function getAnthropicEffort(config?: ThinkingConfig): AnthropicEffort | undefined {
+  // 关闭思考时不下发 effort 字段
   if (
     config?.mode === 'disabled' ||
     config?.enabled === false ||
@@ -211,16 +205,8 @@ function getAnthropicEffort(config?: ThinkingConfig): AnthropicEffort | undefine
   ) {
     return undefined;
   }
-  switch (config?.level) {
-    case 'minimal':
-    case 'low':
-      return 'low';
-    case 'medium':
-      return 'medium';
-    case 'high':
-    default:
-      return 'max';
-  }
+  // 项目里 Anthropic 思考档位固定为 max，启用思考时直接下发
+  return 'max';
 }
 
 function shouldSendOfficialGeminiReasoning(
