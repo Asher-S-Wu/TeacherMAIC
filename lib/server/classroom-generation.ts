@@ -325,6 +325,18 @@ export async function generateClassroom(
       pdfText,
       apiKey: xcrawlApiKey,
       createAiCall: createSearchAiCall,
+      // 把多轮检索的进度桥接到上层 onProgress：每轮开始时刷新一次文案，
+      // progress 限制在 10..14，紧贴下一阶段 generating_outlines 的 15
+      onProgress: (event) => {
+        if (event.phase === 'round_start') {
+          void options.onProgress?.({
+            step: 'researching',
+            progress: 10 + Math.min(event.round, 4),
+            message: `联网检索 第 ${event.round} 轮：${event.query}`,
+            scenesGenerated: 0,
+          });
+        }
+      },
     });
     if (searchResult.skipped) {
       log.info('Skipping web search after smart decision', {

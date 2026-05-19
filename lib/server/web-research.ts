@@ -1,37 +1,76 @@
-import { parseJsonResponse } from '@/lib/generation/json-repair';
-import type { AICallFn } from '@/lib/generation/pipeline-types';
 import { createLogger } from '@/lib/logger';
-import { buildSearchQuery, decideWebSearch } from '@/lib/server/search-query-builder';
-import { scrapeXCrawl, searchXCrawl, type XCrawlScrapedPage, type XCrawlSearchItem } from '@/lib/web-search/xcrawl';
+import type { AICallFn } from '@/lib/generation/pipeline-types';
+import { parseJsonResponse } from '@/lib/generation/json-repair';
+import {
+  buildSearchQuery,
+  decideWebSearch,
+  planNextSearchQuery,
+  assessSearchSufficiency,
+  WEB_SEARCH_MAX_ROUNDS,
+  WEB_SEARCH_QUERY_DIGEST_LIMIT,
+} from '@/lib/server/search-query-builder';
+import {
+  scrapeXCrawl,
+  searchXCrawl,
+  type XCrawlScrapedPage,
+  type XCrawlSearchItem,
+} from '@/lib/web-search/xcrawl';
 import type { WebSearchResult, WebSearchSource } from '@/lib/web-search/types';
 
 const log = createLogger('WebResearch');
-const DEFAULT_SEARCH_LIMIT = 6;
-const DEFAULT_SCRAPE_LIMIT = 3;
+// 多轮检索的默认参数
+const DEFAULT_SEARCH_LIMIT_PER_ROUND = 6;
+const DEFAULT_SCRAPE_PER_ROUND = 2;
+const DEFAULT_MAX_SCRAPE_TOTAL = 8;
+const DEFAULT_MAX_CANDIDATE_POOL = 30;
 const PAGE_MARKDOWN_LIMIT = 6000;
 const SOURCE_CONTENT_LIMIT = 700;
+// 摘要里每条候选/已抓页的最大字符数，避免单条过长撑爆 digest
+const CANDIDATE_LINE_MAX = 220;
+const SCRAPED_LINE_MAX = 320;
 
 type AICallFactory = (operation: string) => AICallFn;
-
-interface UrlSelectionResponse {
-  urls: string[];
-}
 
 interface ResearchSummaryResponse {
   answer: string;
   summary: string;
 }
 
+// 单轮检索快照，用于元数据回传与日志
+export interface WebResearchRound {
+  round: number;
+  query: string;
+  newCandidates: number;
+  scrapedUrls: string[];
+  sufficient: boolean | null;
+  reason: string;
+}
+
+// 多轮检索过程中的进度事件，供调用方桥接到上层进度链路
+export type WebResearchProgressEvent =
+  | { phase: 'round_start'; round: number; query: string }
+  | {
+      phase: 'round_done';
+      round: number;
+      newCandidates: number;
+      scraped: number;
+      sufficient: boolean | null;
+    }
+  | { phase: 'summarizing' };
+
 export interface AgentDrivenWebResearchResult extends WebSearchResult {
   context: string;
   skipped?: boolean;
   reason?: string;
+  rounds?: WebResearchRound[];
+  totalRounds?: number;
 }
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+// URL 归一化：去掉锚点与末尾斜杠，便于跨轮去重
 function normalizeUrlKey(url: string): string {
   try {
     const parsed = new URL(url);
@@ -47,17 +86,28 @@ function truncate(value: string, maxLength: number): string {
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
 }
 
-function formatSearchCandidates(items: XCrawlSearchItem[]): string {
-  return items
-    .map(
-      (item, index) =>
-        `[${index + 1}] ${item.title}\nURL: ${item.url}\n摘要: ${
-          item.description || '无'
-        }`,
-    )
-    .join('\n\n');
+// 把候选池压成给 LLM 看的字符串摘要，受总长度上限保护
+function formatCandidatesDigest(items: XCrawlSearchItem[]): string {
+  if (items.length === 0) return '(empty)';
+  const lines = items.map((item, index) => {
+    const desc = item.description ? ` — ${truncate(item.description, CANDIDATE_LINE_MAX)}` : '';
+    return `[${index + 1}] ${item.title} — ${item.url}${desc}`;
+  });
+  return truncate(lines.join('\n'), WEB_SEARCH_QUERY_DIGEST_LIMIT);
 }
 
+// 把已抓页压成给 LLM 看的字符串摘要
+function formatScrapedDigest(pages: XCrawlScrapedPage[]): string {
+  if (pages.length === 0) return '(empty)';
+  const lines = pages.map((page, index) => {
+    const body = page.summary || page.markdown;
+    const trimmed = truncate(body, SCRAPED_LINE_MAX);
+    return `[${index + 1}] ${page.title} — ${page.finalUrl}\n${trimmed}`;
+  });
+  return truncate(lines.join('\n\n'), WEB_SEARCH_QUERY_DIGEST_LIMIT);
+}
+
+// 给 summarizeResearch 用的完整正文格式（与原实现一致，保留较长截断）
 function formatScrapedPages(pages: XCrawlScrapedPage[]): string {
   return pages
     .map((page, index) => {
@@ -73,12 +123,18 @@ function formatScrapedPages(pages: XCrawlScrapedPage[]): string {
     .join('\n\n');
 }
 
-function buildSources(pages: XCrawlScrapedPage[], candidates: XCrawlSearchItem[]): WebSearchSource[] {
+function buildSources(
+  pages: XCrawlScrapedPage[],
+  candidates: XCrawlSearchItem[],
+): WebSearchSource[] {
   const candidateByUrl = new Map(candidates.map((item) => [normalizeUrlKey(item.url), item]));
 
   return pages.map((page, index) => {
     const candidate = candidateByUrl.get(normalizeUrlKey(page.url));
-    const content = truncate(page.summary || candidate?.description || page.markdown, SOURCE_CONTENT_LIMIT);
+    const content = truncate(
+      page.summary || candidate?.description || page.markdown,
+      SOURCE_CONTENT_LIMIT,
+    );
     return {
       title: page.title || candidate?.title || page.finalUrl,
       url: page.finalUrl,
@@ -96,52 +152,45 @@ function formatResearchContext(summary: string, sources: WebSearchSource[]): str
   return lines.join('\n');
 }
 
-async function selectResearchUrls(params: {
-  requirement: string;
-  searchQuery: string;
-  candidates: XCrawlSearchItem[];
-  maxPages: number;
-  aiCall: AICallFn;
-}): Promise<string[]> {
-  const { requirement, searchQuery, candidates, maxPages, aiCall } = params;
-  if (candidates.length === 0) return [];
-
-  const systemPrompt = `你是课堂生成 Agent 的联网研究规划员。你需要从搜索结果中选择最值得抓取原文的网页。
-只输出 JSON，格式必须是 {"urls":["https://..."]}。
-最多选择 ${maxPages} 个 URL。
-只能选择搜索结果里已经给出的 URL，不能自己编造 URL。
-优先选择权威、信息量高、和课堂需求直接相关的网页。`;
-
-  const userPrompt = `课堂需求:
-${requirement}
-
-搜索词:
-${searchQuery}
-
-搜索结果:
-${formatSearchCandidates(candidates)}`;
-
-  const response = await aiCall(systemPrompt, userPrompt);
-  const parsed = parseJsonResponse<UrlSelectionResponse>(response);
-  if (!parsed || !Array.isArray(parsed.urls)) {
-    throw new Error('联网搜索结果筛选失败');
+// 合并本轮搜索结果到候选池：按 normalizeUrlKey 去重，受候选池上限约束
+function mergeCandidates(
+  pool: XCrawlSearchItem[],
+  incoming: XCrawlSearchItem[],
+  cap: number,
+): { merged: XCrawlSearchItem[]; addedCount: number } {
+  const existingKeys = new Set(pool.map((item) => normalizeUrlKey(item.url)));
+  const merged = [...pool];
+  let addedCount = 0;
+  for (const item of incoming) {
+    if (merged.length >= cap) break;
+    const key = normalizeUrlKey(item.url);
+    if (existingKeys.has(key)) continue;
+    existingKeys.add(key);
+    merged.push(item);
+    addedCount += 1;
   }
+  return { merged, addedCount };
+}
 
-  const candidateByUrl = new Map(candidates.map((item) => [normalizeUrlKey(item.url), item.url]));
-  const selected: string[] = [];
-  for (const url of parsed.urls) {
-    const exactUrl = candidateByUrl.get(normalizeUrlKey(url));
-    if (exactUrl && !selected.includes(exactUrl)) {
-      selected.push(exactUrl);
-    }
-    if (selected.length >= maxPages) break;
+// 规则函数：从本轮新增候选里取前 N 个未抓过的 URL，受总抓页预算约束
+function pickRoundUrls(
+  newCandidates: XCrawlSearchItem[],
+  scrapedKeys: Set<string>,
+  take: number,
+  remainingBudget: number,
+): string[] {
+  if (remainingBudget <= 0 || take <= 0) return [];
+  const sorted = [...newCandidates].sort((a, b) => a.position - b.position);
+  const picked: string[] = [];
+  const limit = Math.min(take, remainingBudget);
+  for (const item of sorted) {
+    if (picked.length >= limit) break;
+    const key = normalizeUrlKey(item.url);
+    if (scrapedKeys.has(key)) continue;
+    scrapedKeys.add(key);
+    picked.push(item.url);
   }
-
-  if (selected.length === 0) {
-    throw new Error('联网搜索结果筛选失败');
-  }
-
-  return selected;
+  return picked;
 }
 
 async function summarizeResearch(params: {
@@ -177,24 +226,34 @@ ${formatScrapedPages(pages)}`;
   return { answer, summary };
 }
 
+// 多轮 XCrawl 联网研究：搜 → 抓 → 评估，必要时换关键词再来一轮
 export async function runAgentDrivenWebResearch(params: {
   requirement: string;
   pdfText?: string;
   apiKey: string;
   createAiCall: AICallFactory;
-  maxSearchResults?: number;
-  maxScrapePages?: number;
+  maxRounds?: number;
+  searchLimitPerRound?: number;
+  scrapePerRound?: number;
+  maxScrapeTotal?: number;
+  maxCandidatePool?: number;
+  onProgress?: (event: WebResearchProgressEvent) => void;
 }): Promise<AgentDrivenWebResearchResult> {
   const {
     requirement,
     pdfText,
     apiKey,
     createAiCall,
-    maxSearchResults = DEFAULT_SEARCH_LIMIT,
-    maxScrapePages = DEFAULT_SCRAPE_LIMIT,
+    maxRounds = WEB_SEARCH_MAX_ROUNDS,
+    searchLimitPerRound = DEFAULT_SEARCH_LIMIT_PER_ROUND,
+    scrapePerRound = DEFAULT_SCRAPE_PER_ROUND,
+    maxScrapeTotal = DEFAULT_MAX_SCRAPE_TOTAL,
+    maxCandidatePool = DEFAULT_MAX_CANDIDATE_POOL,
+    onProgress,
   } = params;
   const startedAt = Date.now();
 
+  // 第一步：是否需要联网（与单轮版本一致）
   const decision = await decideWebSearch(
     requirement,
     pdfText,
@@ -213,49 +272,193 @@ export async function runAgentDrivenWebResearch(params: {
     };
   }
 
-  const searchQuery = await buildSearchQuery(
-    requirement,
-    pdfText,
-    createAiCall('web-search-query-rewrite'),
-  );
+  // 累积状态
+  const previousQueries: string[] = [];
+  let candidatePool: XCrawlSearchItem[] = [];
+  const scrapedPages: XCrawlScrapedPage[] = [];
+  const scrapedKeys = new Set<string>();
+  const rounds: WebResearchRound[] = [];
+  let lastMissingAspects: string[] = [];
 
-  log.info('Running XCrawl research', {
-    hasPdfContext: searchQuery.hasPdfContext,
-    rawRequirementLength: searchQuery.rawRequirementLength,
-    rewriteAttempted: searchQuery.rewriteAttempted,
-    finalQueryLength: searchQuery.finalQueryLength,
-  });
+  for (let round = 1; round <= maxRounds; round++) {
+    // 1. 决定本轮关键词
+    let query: string;
+    if (round === 1) {
+      const initial = await buildSearchQuery(
+        requirement,
+        pdfText,
+        createAiCall('web-search-query-rewrite'),
+      );
+      query = initial.query;
+      log.info('Round 1 initial query built', {
+        hasPdfContext: initial.hasPdfContext,
+        rawRequirementLength: initial.rawRequirementLength,
+        finalQueryLength: initial.finalQueryLength,
+      });
+    } else {
+      const plan = await planNextSearchQuery({
+        requirement,
+        pdfText,
+        previousQueries,
+        candidatesDigest: formatCandidatesDigest(candidatePool),
+        scrapedDigest: formatScrapedDigest(scrapedPages),
+        missingAspects: lastMissingAspects,
+        currentRound: round,
+        maxRounds,
+        aiCall: createAiCall('web-search-query-replan'),
+      });
+      // LLM 给出与历史归一化后重复的关键词 → 视为终止条件，不再继续
+      if (plan.duplicate) {
+        rounds.push({
+          round,
+          query: plan.query,
+          newCandidates: 0,
+          scrapedUrls: [],
+          sufficient: null,
+          reason: '关键词与历史重复',
+        });
+        log.info('Loop ended: duplicate query', { round, query: plan.query });
+        break;
+      }
+      query = plan.query;
+    }
+    previousQueries.push(query);
 
-  const searchResults = await searchXCrawl({
-    query: searchQuery.query,
-    apiKey,
-    limit: maxSearchResults,
-  });
+    onProgress?.({ phase: 'round_start', round, query });
+    log.info('Running search round', { round, query, queryLength: query.length });
 
-  if (searchResults.length === 0) {
+    // 2. 搜索 + 合并候选池
+    const searchItems = await searchXCrawl({
+      query,
+      apiKey,
+      limit: searchLimitPerRound,
+    });
+    const { merged, addedCount } = mergeCandidates(
+      candidatePool,
+      searchItems,
+      maxCandidatePool,
+    );
+    candidatePool = merged;
+
+    // 本轮没有任何新候选 → 终止（继续也只是浪费）
+    if (addedCount === 0) {
+      rounds.push({
+        round,
+        query,
+        newCandidates: 0,
+        scrapedUrls: [],
+        sufficient: null,
+        reason: '本轮无新增候选',
+      });
+      onProgress?.({
+        phase: 'round_done',
+        round,
+        newCandidates: 0,
+        scraped: 0,
+        sufficient: null,
+      });
+      log.info('Loop ended: no new candidates', { round });
+      break;
+    }
+
+    // 3. 抓页：从本轮新增候选里按规则取若干个 URL
+    const remainingBudget = maxScrapeTotal - scrapedPages.length;
+    const newCandidatesOnly = searchItems.filter((item) => {
+      const key = normalizeUrlKey(item.url);
+      return !scrapedKeys.has(key);
+    });
+    const toScrape = pickRoundUrls(
+      newCandidatesOnly,
+      scrapedKeys,
+      scrapePerRound,
+      remainingBudget,
+    );
+    const newPages: XCrawlScrapedPage[] = [];
+    if (toScrape.length > 0) {
+      const fetched = await Promise.all(toScrape.map((url) => scrapeXCrawl({ url, apiKey })));
+      for (const page of fetched) {
+        scrapedPages.push(page);
+        scrapedKeys.add(normalizeUrlKey(page.finalUrl));
+        newPages.push(page);
+      }
+    }
+
+    // 4. 充足性判定：最后一轮跳过（节省一次 LLM 调用），无抓页也跳过
+    let sufficient: boolean | null = null;
+    let reasonText = '';
+
+    if (round >= maxRounds) {
+      reasonText = '达到最大轮数';
+    } else if (scrapedPages.length === 0) {
+      reasonText = '尚无抓取正文，进入下一轮';
+    } else {
+      const assess = await assessSearchSufficiency({
+        requirement,
+        pdfText,
+        candidatesDigest: formatCandidatesDigest(candidatePool),
+        scrapedDigest: formatScrapedDigest(scrapedPages),
+        currentRound: round,
+        maxRounds,
+        aiCall: createAiCall('web-search-sufficiency'),
+      });
+      sufficient = assess.sufficient;
+      reasonText = assess.reason;
+      lastMissingAspects = assess.missingAspects;
+    }
+
+    rounds.push({
+      round,
+      query,
+      newCandidates: addedCount,
+      scrapedUrls: newPages.map((p) => p.finalUrl),
+      sufficient,
+      reason: reasonText,
+    });
+    onProgress?.({
+      phase: 'round_done',
+      round,
+      newCandidates: addedCount,
+      scraped: newPages.length,
+      sufficient,
+    });
+    log.info('Round done', {
+      round,
+      newCandidates: addedCount,
+      scraped: newPages.length,
+      sufficient,
+      reason: reasonText,
+    });
+
+    if (sufficient === true) break;
+    if (round >= maxRounds) break;
+    if (scrapedPages.length >= maxScrapeTotal) {
+      // 抓页预算已用完，再搜也无法抓新页 → 退出去汇总
+      log.info('Loop ended: scrape budget exhausted', { round });
+      break;
+    }
+  }
+
+  // 5. 汇总
+  const lastQuery = previousQueries[previousQueries.length - 1] || requirement;
+
+  if (scrapedPages.length === 0) {
     return {
       answer: '',
       sources: [],
       context: '',
-      query: searchQuery.query,
+      query: lastQuery,
       responseTime: (Date.now() - startedAt) / 1000,
+      rounds,
+      totalRounds: rounds.length,
     };
   }
 
-  const selectedUrls = await selectResearchUrls({
-    requirement,
-    searchQuery: searchQuery.query,
-    candidates: searchResults,
-    maxPages: maxScrapePages,
-    aiCall: createAiCall('web-search-result-selection'),
-  });
-
-  const pages = await Promise.all(selectedUrls.map((url) => scrapeXCrawl({ url, apiKey })));
-  const sources = buildSources(pages, searchResults);
+  onProgress?.({ phase: 'summarizing' });
+  const sources = buildSources(scrapedPages, candidatePool);
   const summary = await summarizeResearch({
     requirement,
-    searchQuery: searchQuery.query,
-    pages,
+    searchQuery: lastQuery,
+    pages: scrapedPages,
     aiCall: createAiCall('web-search-research-summary'),
   });
 
@@ -263,7 +466,9 @@ export async function runAgentDrivenWebResearch(params: {
     answer: summary.answer,
     sources,
     context: formatResearchContext(summary.summary, sources),
-    query: searchQuery.query,
+    query: lastQuery,
     responseTime: (Date.now() - startedAt) / 1000,
+    rounds,
+    totalRounds: rounds.length,
   };
 }

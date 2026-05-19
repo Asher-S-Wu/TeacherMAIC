@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
 
     const { model: languageModel, thinkingConfig } = await resolveModelFromRequest(req, body);
     const createAiCall = (operation: string): AICallFn => async (systemPrompt, userPrompt) => {
+      // 多轮检索里的关键词改写与充足性判定 token 需求小，汇总单独放宽
       const maxOutputTokens = operation === 'web-search-research-summary' ? 1600 : 256;
       const result = await callLLM(
         {
@@ -84,6 +85,8 @@ export async function POST(req: NextRequest) {
       responseTime: result.responseTime,
       skipped: result.skipped,
       reason: result.reason,
+      rounds: result.rounds,
+      totalRounds: result.totalRounds,
     });
   } catch (err) {
     log.error(`Web search failed [query="${query?.substring(0, 60) ?? 'unknown'}"]:`, err);

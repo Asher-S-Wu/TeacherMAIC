@@ -10,6 +10,8 @@ export type PromptId =
   | 'interactive-outlines'
   | 'web-search-decision'
   | 'web-search-query-rewrite'
+  | 'web-search-query-replan'
+  | 'web-search-sufficiency'
   | 'vibe-edit'
   | 'slide-content'
   | 'quiz-content'
