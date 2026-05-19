@@ -826,3 +826,20 @@ export function streamLLM<T extends LLMStreamParams>(
 ): LLMStreamResult {
   return { textStream: streamTextGeneration(params, source, thinking) };
 }
+
+/**
+ * 调用流式模型接口，并把增量文本拼成完整结果。
+ * 用在仍需要一次性解析完整 JSON/HTML 的生成链路，避免非流式请求等待响应头超时。
+ */
+export async function collectStreamLLMText<T extends LLMStreamParams>(
+  params: T,
+  source: string,
+  thinking?: ThinkingConfig,
+): Promise<string> {
+  const result = streamLLM(params, source, thinking);
+  let text = '';
+  for await (const chunk of result.textStream) {
+    text += chunk;
+  }
+  return text;
+}

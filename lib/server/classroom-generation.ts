@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid';
-import { callLLM } from '@/lib/ai/llm';
+import { collectStreamLLMText } from '@/lib/ai/llm';
 import { createStageAPI } from '@/lib/api/stage-api';
 import type { StageStore } from '@/lib/api/stage-api-types';
 import { generateSceneOutlinesFromRequirements } from '@/lib/generation/outline-generator';
@@ -265,7 +265,8 @@ export async function generateClassroom(
   }
 
   const aiCall: AICallFn = async (systemPrompt, userPrompt, _images) => {
-    const result = await callLLM(
+    // 后台课堂生成需要完整文本再解析；底层走流式，避免等待响应头超时。
+    return collectStreamLLMText(
       {
         model: languageModel,
         messages: [
@@ -275,10 +276,8 @@ export async function generateClassroom(
         maxOutputTokens: modelInfo?.outputWindow,
       },
       'generate-classroom',
-      undefined,
       thinkingConfig,
     );
-    return result.text;
   };
 
   const createSearchAiCall = (operation: string): AICallFn => async (
@@ -287,7 +286,8 @@ export async function generateClassroom(
     _images,
   ) => {
     const maxOutputTokens = operation === 'web-search-research-summary' ? 1600 : 256;
-    const result = await callLLM(
+    // 后台联网搜索中的模型步骤也走流式，返回值仍是完整文本。
+    return collectStreamLLMText(
       {
         model: languageModel,
         messages: [
@@ -297,10 +297,8 @@ export async function generateClassroom(
         maxOutputTokens,
       },
       operation,
-      undefined,
       thinkingConfig,
     );
-    return result.text;
   };
 
   const requirements: UserRequirements = {

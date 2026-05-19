@@ -4,7 +4,7 @@
  * Core generation engine that designs a complete PBL project as JSON.
  */
 
-import { callLLM } from '@/lib/ai/llm';
+import { collectStreamLLMText } from '@/lib/ai/llm';
 import type { ChatCompletionsModel } from '@/lib/ai/providers';
 import type { PBLProjectConfig } from './types';
 import { buildPBLSystemPrompt } from './pbl-system-prompt';
@@ -215,7 +215,8 @@ person_in_charge, participants, and issueboard.agent_ids must reference student 
 
   for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt += 1) {
     try {
-      const result = await callLLM(
+      // PBL 主结构需要完整 JSON 后再校验；底层走流式，避免长时间等待响应头。
+      const responseText = await collectStreamLLMText(
         {
           model,
           system: `${systemPrompt}
@@ -231,12 +232,11 @@ Return ONLY valid JSON. Do not use markdown fences or explanatory text.`,
                 ),
         },
         'pbl-generate',
-        undefined,
         thinkingConfig,
       );
 
-      lastRawText = result.text;
-      projectConfig = parseProjectConfig(result.text, issueCount);
+      lastRawText = responseText;
+      projectConfig = parseProjectConfig(responseText, issueCount);
       break;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
@@ -315,18 +315,17 @@ Generate a welcome message for the student working on this issue. The message sh
 
 Format the questions as a numbered list.`;
 
-  const questionResult = await callLLM(
+  // 首个问题引导也走流式，最终仍保存完整文本。
+  const generatedQuestions = await collectStreamLLMText(
     {
       model,
       system: questionAgent.system_prompt,
       prompt: context,
     },
     'pbl-post-process',
-    undefined,
     thinkingConfig,
   );
 
-  const generatedQuestions = questionResult.text;
   firstIssue.generated_questions = generatedQuestions;
 
   config.chat.messages.push({

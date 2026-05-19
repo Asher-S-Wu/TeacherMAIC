@@ -7,7 +7,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { callLLM } from '@/lib/ai/llm';
+import { callLLM, collectStreamLLMText, type LLMGenerateParams } from '@/lib/ai/llm';
 import {
   generateSceneContent,
   buildVisionUserContent,
@@ -15,39 +15,144 @@ import {
 import type { AgentInfo } from '@/lib/generation/generation-pipeline';
 import type { SceneOutline, PdfImage, ImageMapping } from '@/lib/types/generation';
 import { createLogger } from '@/lib/logger';
-import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { apiError, apiSuccess, createSseResponse } from '@/lib/server/api-response';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { requireCurrentUser } from '@/lib/server/auth';
 import { loadImageMappingForUser } from '@/lib/server/file-storage';
 
 const log = createLogger('Scene Content API');
 
+type SceneContentRequestBody = {
+  outline: SceneOutline;
+  allOutlines: SceneOutline[];
+  pdfImages?: PdfImage[];
+  stageInfo: {
+    name: string;
+    description?: string;
+    style?: string;
+  };
+  stageId: string;
+  agents?: AgentInfo[];
+  languageDirective?: string;
+  stream?: boolean;
+};
+
+type SceneContentValue = Exclude<Awaited<ReturnType<typeof generateSceneContent>>, null>;
+
+/**
+ * 执行页面内容生成；useStreamingModel 为 true 时，上游模型请求走流式模式。
+ */
+async function runSceneContentGeneration(
+  req: NextRequest,
+  body: SceneContentRequestBody,
+  useStreamingModel: boolean,
+  user: Awaited<ReturnType<typeof requireCurrentUser>>,
+): Promise<{ content: SceneContentValue; effectiveOutline: SceneOutline; modelString: string }> {
+  const {
+    outline: rawOutline,
+    pdfImages,
+    agents,
+    languageDirective,
+  } = body;
+
+  const outline: SceneOutline = { ...rawOutline };
+
+  // ── 从请求体里解析当前使用的模型配置 ──
+  const {
+    model: languageModel,
+    modelInfo,
+    modelString,
+    thinkingConfig,
+  } = await resolveModelFromRequest(req, body);
+
+  // 判断当前模型是否支持图片输入。
+  const hasVision = !!modelInfo?.capabilities?.vision;
+
+  // 统一封装模型调用，流式和非流式只在这里分叉。
+  const aiCall = async (
+    systemPrompt: string,
+    userPrompt: string,
+    images?: Array<{ id: string; src: string }>,
+  ): Promise<string> => {
+    const params: LLMGenerateParams =
+      images?.length && hasVision
+        ? {
+            model: languageModel,
+            system: systemPrompt,
+            messages: [
+              {
+                role: 'user' as const,
+                content: buildVisionUserContent(userPrompt, images),
+              },
+            ],
+            maxOutputTokens: modelInfo?.outputWindow,
+          }
+        : {
+            model: languageModel,
+            system: systemPrompt,
+            prompt: userPrompt,
+            maxOutputTokens: modelInfo?.outputWindow,
+          };
+
+    if (useStreamingModel) {
+      return collectStreamLLMText(params, 'scene-content', thinkingConfig);
+    }
+
+    const result = await callLLM(params, 'scene-content', undefined, thinkingConfig);
+    return result.text;
+  };
+
+  const effectiveOutline = outline;
+
+  // ── 只取分配给当前页面的图片，避免把无关图片塞进提示词 ──
+  let assignedImages: PdfImage[] | undefined;
+  if (
+    pdfImages &&
+    pdfImages.length > 0 &&
+    effectiveOutline.suggestedImageIds &&
+    effectiveOutline.suggestedImageIds.length > 0
+  ) {
+    const suggestedIds = new Set(effectiveOutline.suggestedImageIds);
+    assignedImages = pdfImages.filter((img) => suggestedIds.has(img.id));
+  }
+  const imageMapping = hasVision ? await loadImageMappingForUser(assignedImages, user) : {};
+
+  // ── 图片/视频生成由前端并行处理，这里只保留占位 ID ──
+  // 内容生成器会收到 gen_img_1、gen_vid_1 这类占位符。
+  // resolveImageIds() 会把这些占位符原样保留在元素里。
+  const generatedMediaMapping: ImageMapping = {};
+
+  // ── 生成当前页面内容 ──
+  log.info(
+    `Generating content: "${effectiveOutline.title}" (${effectiveOutline.type}) [model=${modelString}]`,
+  );
+
+  const content = await generateSceneContent(effectiveOutline, aiCall, {
+    assignedImages,
+    imageMapping,
+    languageModel: effectiveOutline.type === 'pbl' ? languageModel : undefined,
+    visionEnabled: hasVision,
+    generatedMediaMapping,
+    agents,
+    languageDirective,
+    thinkingConfig,
+  });
+
+  if (!content) {
+    throw new Error(`Failed to generate content: ${effectiveOutline.title}`);
+  }
+
+  log.info(`Content generated successfully: "${effectiveOutline.title}"`);
+
+  return { content, effectiveOutline, modelString };
+}
+
 export async function POST(req: NextRequest) {
   let outlineTitle: string | undefined;
   let resolvedModelString: string | undefined;
   try {
-    const body = await req.json();
-    const {
-      outline: rawOutline,
-      allOutlines,
-      pdfImages,
-      stageInfo: _stageInfo,
-      stageId,
-      agents,
-      languageDirective,
-    } = body as {
-      outline: SceneOutline;
-      allOutlines: SceneOutline[];
-      pdfImages?: PdfImage[];
-      stageInfo: {
-        name: string;
-        description?: string;
-        style?: string;
-      };
-      stageId: string;
-      agents?: AgentInfo[];
-      languageDirective?: string;
-    };
+    const body = (await req.json()) as SceneContentRequestBody;
+    const { outline: rawOutline, allOutlines, stageId } = body;
 
     // Validate required fields
     if (!rawOutline) {
@@ -64,108 +169,39 @@ export async function POST(req: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'stageId is required');
     }
 
-    const outline: SceneOutline = { ...rawOutline };
-
-    // ── Model resolution from request headers/body ──
-    const {
-      model: languageModel,
-      modelInfo,
-      modelString,
-      thinkingConfig,
-    } = await resolveModelFromRequest(req, body);
     outlineTitle = rawOutline?.title;
-    resolvedModelString = modelString;
-
-    // Detect vision capability
-    const hasVision = !!modelInfo?.capabilities?.vision;
     const user = await requireCurrentUser();
 
-    // Vision-aware AI call function
-    const aiCall = async (
-      systemPrompt: string,
-      userPrompt: string,
-      images?: Array<{ id: string; src: string }>,
-    ): Promise<string> => {
-      if (images?.length && hasVision) {
-        const result = await callLLM(
-          {
-            model: languageModel,
-            system: systemPrompt,
-            messages: [
-              {
-                role: 'user' as const,
-                content: buildVisionUserContent(userPrompt, images),
-              },
-            ],
-            maxOutputTokens: modelInfo?.outputWindow,
-          },
-          'scene-content',
-          undefined,
-          thinkingConfig,
-        );
-        return result.text;
-      }
-      const result = await callLLM(
-        {
-          model: languageModel,
-          system: systemPrompt,
-          prompt: userPrompt,
-          maxOutputTokens: modelInfo?.outputWindow,
-        },
-        'scene-content',
-        undefined,
-        thinkingConfig,
-      );
-      return result.text;
-    };
-
-    const effectiveOutline = outline;
-
-    // ── Filter images assigned to this outline ──
-    let assignedImages: PdfImage[] | undefined;
-    if (
-      pdfImages &&
-      pdfImages.length > 0 &&
-      effectiveOutline.suggestedImageIds &&
-      effectiveOutline.suggestedImageIds.length > 0
-    ) {
-      const suggestedIds = new Set(effectiveOutline.suggestedImageIds);
-      assignedImages = pdfImages.filter((img) => suggestedIds.has(img.id));
+    if (body.stream) {
+      return createSseResponse(async (send) => {
+        try {
+          const { content, effectiveOutline, modelString } = await runSceneContentGeneration(
+            req,
+            body,
+            true,
+            user,
+          );
+          send('done', { success: true, content, effectiveOutline });
+          resolvedModelString = modelString;
+        } catch (error) {
+          log.error(
+            `Scene content stream failed [scene="${outlineTitle ?? 'unknown'}", model=${resolvedModelString ?? 'unknown'}]:`,
+            error,
+          );
+          send('error', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
     }
-    const imageMapping = hasVision ? await loadImageMappingForUser(assignedImages, user) : {};
 
-    // ── Media generation is handled client-side in parallel (media-orchestrator.ts) ──
-    // The content generator receives placeholder IDs (gen_img_1, gen_vid_1) as-is.
-    // resolveImageIds() in generation-pipeline.ts will keep these placeholders in elements.
-    const generatedMediaMapping: ImageMapping = {};
-
-    // ── Generate content ──
-    log.info(
-      `Generating content: "${effectiveOutline.title}" (${effectiveOutline.type}) [model=${modelString}]`,
+    const { content, effectiveOutline, modelString } = await runSceneContentGeneration(
+      req,
+      body,
+      false,
+      user,
     );
-
-    const content = await generateSceneContent(effectiveOutline, aiCall, {
-      assignedImages,
-      imageMapping,
-      languageModel: effectiveOutline.type === 'pbl' ? languageModel : undefined,
-      visionEnabled: hasVision,
-      generatedMediaMapping,
-      agents,
-      languageDirective,
-      thinkingConfig,
-    });
-
-    if (!content) {
-      log.error(`Failed to generate content for: "${effectiveOutline.title}"`);
-
-      return apiError(
-        'GENERATION_FAILED',
-        500,
-        `Failed to generate content: ${effectiveOutline.title}`,
-      );
-    }
-
-    log.info(`Content generated successfully: "${effectiveOutline.title}"`);
+    resolvedModelString = modelString;
 
     return apiSuccess({ content, effectiveOutline });
   } catch (error) {

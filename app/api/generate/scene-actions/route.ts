@@ -7,7 +7,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { callLLM } from '@/lib/ai/llm';
+import { callLLM, collectStreamLLMText, type LLMGenerateParams } from '@/lib/ai/llm';
 import {
   generateSceneActions,
   buildCompleteScene,
@@ -24,39 +24,138 @@ import type {
 } from '@/lib/types/generation';
 import type { SpeechAction } from '@/lib/types/action';
 import { createLogger } from '@/lib/logger';
-import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { apiError, apiSuccess, createSseResponse } from '@/lib/server/api-response';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 
 const log = createLogger('Scene Actions API');
+
+type SceneActionsRequestBody = {
+  outline: SceneOutline;
+  allOutlines: SceneOutline[];
+  content:
+    | GeneratedSlideContent
+    | GeneratedQuizContent
+    | GeneratedInteractiveContent
+    | GeneratedPBLContent;
+  stageId: string;
+  agents?: AgentInfo[];
+  previousSpeeches?: string[];
+  userProfile?: string;
+  languageDirective?: string;
+  stream?: boolean;
+};
+
+/**
+ * 执行动作生成；useStreamingModel 为 true 时，上游模型请求走流式模式。
+ */
+async function runSceneActionsGeneration(
+  req: NextRequest,
+  body: SceneActionsRequestBody,
+  useStreamingModel: boolean,
+) {
+  const {
+    outline,
+    allOutlines,
+    content,
+    stageId,
+    agents,
+    previousSpeeches: incomingPreviousSpeeches,
+    userProfile,
+    languageDirective,
+  } = body;
+
+  // ── 从请求体里解析当前使用的模型配置 ──
+  const {
+    model: languageModel,
+    modelInfo,
+    modelString,
+    thinkingConfig,
+  } = await resolveModelFromRequest(req, body);
+
+  // 判断当前模型是否支持图片输入。
+  const hasVision = !!modelInfo?.capabilities?.vision;
+
+  // 统一封装模型调用，流式和非流式只在这里分叉。
+  const aiCall = async (
+    systemPrompt: string,
+    userPrompt: string,
+    images?: Array<{ id: string; src: string }>,
+  ): Promise<string> => {
+    const params: LLMGenerateParams =
+      images?.length && hasVision
+        ? {
+            model: languageModel,
+            system: systemPrompt,
+            messages: [
+              {
+                role: 'user' as const,
+                content: buildVisionUserContent(userPrompt, images),
+              },
+            ],
+            maxOutputTokens: modelInfo?.outputWindow,
+          }
+        : {
+            model: languageModel,
+            system: systemPrompt,
+            prompt: userPrompt,
+            maxOutputTokens: modelInfo?.outputWindow,
+          };
+
+    if (useStreamingModel) {
+      return collectStreamLLMText(params, 'scene-actions', thinkingConfig);
+    }
+
+    const result = await callLLM(params, 'scene-actions', undefined, thinkingConfig);
+    return result.text;
+  };
+
+  // ── 组装跨页面上下文，让讲解动作知道当前是第几页 ──
+  const allTitles = allOutlines.map((o) => o.title);
+  const pageIndex = allOutlines.findIndex((o) => o.id === outline.id);
+  const ctx: SceneGenerationContext = {
+    pageIndex: (pageIndex >= 0 ? pageIndex : 0) + 1,
+    totalPages: allOutlines.length,
+    allTitles,
+    previousSpeeches: incomingPreviousSpeeches ?? [],
+  };
+
+  // ── 生成当前页面的讲解动作 ──
+  log.info(`Generating actions: "${outline.title}" (${outline.type}) [model=${modelString}]`);
+
+  const actions = await generateSceneActions(outline, content, aiCall, {
+    ctx,
+    agents,
+    userProfile,
+    languageDirective,
+  });
+
+  log.info(`Generated ${actions.length} actions for: "${outline.title}"`);
+
+  // ── 把页面内容和讲解动作合成完整场景 ──
+  const scene = buildCompleteScene(outline, content, actions, stageId);
+
+  if (!scene) {
+    throw new Error(`Failed to build scene: ${outline.title}`);
+  }
+
+  // ── 提取本页讲解文本，供后续页面保持表达连贯 ──
+  const outputPreviousSpeeches = (scene.actions || [])
+    .filter((a): a is SpeechAction => a.type === 'speech')
+    .map((a) => a.text);
+
+  log.info(
+    `Scene assembled successfully: "${outline.title}" — ${scene.actions?.length ?? 0} actions`,
+  );
+
+  return { scene, previousSpeeches: outputPreviousSpeeches, modelString };
+}
 
 export async function POST(req: NextRequest) {
   let outlineTitle: string | undefined;
   let resolvedModelString: string | undefined;
   try {
-    const body = await req.json();
-    const {
-      outline,
-      allOutlines,
-      content,
-      stageId,
-      agents,
-      previousSpeeches: incomingPreviousSpeeches,
-      userProfile,
-      languageDirective,
-    } = body as {
-      outline: SceneOutline;
-      allOutlines: SceneOutline[];
-      content:
-        | GeneratedSlideContent
-        | GeneratedQuizContent
-        | GeneratedInteractiveContent
-        | GeneratedPBLContent;
-      stageId: string;
-      agents?: AgentInfo[];
-      previousSpeeches?: string[];
-      userProfile?: string;
-      languageDirective?: string;
-    };
+    const body = (await req.json()) as SceneActionsRequestBody;
+    const { outline, allOutlines, content, stageId } = body;
 
     // Validate required fields
     if (!outline) {
@@ -76,99 +175,38 @@ export async function POST(req: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'stageId is required');
     }
 
-    // ── Model resolution from request headers/body ──
-    const {
-      model: languageModel,
-      modelInfo,
-      modelString,
-      thinkingConfig,
-    } = await resolveModelFromRequest(req, body);
     outlineTitle = outline?.title;
-    resolvedModelString = modelString;
 
-    // Detect vision capability
-    const hasVision = !!modelInfo?.capabilities?.vision;
-
-    // AI call function (actions typically don't use vision, but kept for consistency)
-    const aiCall = async (
-      systemPrompt: string,
-      userPrompt: string,
-      images?: Array<{ id: string; src: string }>,
-    ): Promise<string> => {
-      if (images?.length && hasVision) {
-        const result = await callLLM(
-          {
-            model: languageModel,
-            system: systemPrompt,
-            messages: [
-              {
-                role: 'user' as const,
-                content: buildVisionUserContent(userPrompt, images),
-              },
-            ],
-            maxOutputTokens: modelInfo?.outputWindow,
-          },
-          'scene-actions',
-          undefined,
-          thinkingConfig,
-        );
-        return result.text;
-      }
-      const result = await callLLM(
-        {
-          model: languageModel,
-          system: systemPrompt,
-          prompt: userPrompt,
-          maxOutputTokens: modelInfo?.outputWindow,
-        },
-        'scene-actions',
-        undefined,
-        thinkingConfig,
-      );
-      return result.text;
-    };
-
-    // ── Build cross-scene context ──
-    const allTitles = allOutlines.map((o) => o.title);
-    const pageIndex = allOutlines.findIndex((o) => o.id === outline.id);
-    const ctx: SceneGenerationContext = {
-      pageIndex: (pageIndex >= 0 ? pageIndex : 0) + 1,
-      totalPages: allOutlines.length,
-      allTitles,
-      previousSpeeches: incomingPreviousSpeeches ?? [],
-    };
-
-    // ── Generate actions ──
-    log.info(`Generating actions: "${outline.title}" (${outline.type}) [model=${modelString}]`);
-
-    const actions = await generateSceneActions(outline, content, aiCall, {
-      ctx,
-      agents,
-      userProfile,
-      languageDirective,
-    });
-
-    log.info(`Generated ${actions.length} actions for: "${outline.title}"`);
-
-    // ── Build complete scene ──
-    const scene = buildCompleteScene(outline, content, actions, stageId);
-
-    if (!scene) {
-      log.error(`Failed to build scene: "${outline.title}"`);
-
-      return apiError('GENERATION_FAILED', 500, `Failed to build scene: ${outline.title}`);
+    if (body.stream) {
+      return createSseResponse(async (send) => {
+        try {
+          const { scene, previousSpeeches, modelString } = await runSceneActionsGeneration(
+            req,
+            body,
+            true,
+          );
+          send('done', { success: true, scene, previousSpeeches });
+          resolvedModelString = modelString;
+        } catch (error) {
+          log.error(
+            `Scene actions stream failed [scene="${outlineTitle ?? 'unknown'}", model=${resolvedModelString ?? 'unknown'}]:`,
+            error,
+          );
+          send('error', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
     }
 
-    // ── Extract speeches for cross-scene coherence ──
-    const outputPreviousSpeeches = (scene.actions || [])
-      .filter((a): a is SpeechAction => a.type === 'speech')
-      .map((a) => a.text);
-
-    log.info(
-      `Scene assembled successfully: "${outline.title}" — ${scene.actions?.length ?? 0} actions`,
+    const { scene, previousSpeeches, modelString } = await runSceneActionsGeneration(
+      req,
+      body,
+      false,
     );
+    resolvedModelString = modelString;
 
-    return apiSuccess({ scene, previousSpeeches: outputPreviousSpeeches });
+    return apiSuccess({ scene, previousSpeeches });
   } catch (error) {
     log.error(
       `Scene actions generation failed [scene="${outlineTitle ?? 'unknown'}", model=${resolvedModelString ?? 'unknown'}]:`,

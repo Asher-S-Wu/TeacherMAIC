@@ -6,7 +6,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { callLLM } from '@/lib/ai/llm';
+import { collectStreamLLMText } from '@/lib/ai/llm';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
     const createAiCall = (operation: string): AICallFn => async (systemPrompt, userPrompt) => {
       // 多轮检索里的关键词改写与充足性判定 token 需求小，汇总单独放宽
       const maxOutputTokens = operation === 'web-search-research-summary' ? 1600 : 256;
-      const result = await callLLM(
+      // 联网搜索仍返回完整 JSON 给前端；内部模型步骤走流式，避免请求头等待超时。
+      return collectStreamLLMText(
         {
           model: languageModel,
           messages: [
@@ -60,10 +61,8 @@ export async function POST(req: NextRequest) {
           maxOutputTokens,
         },
         operation,
-        undefined,
         thinkingConfig,
       );
-      return result.text;
     };
     log.info('Running XCrawl web research API request', {
       hasPdfContext: Boolean(boundedPdfText),

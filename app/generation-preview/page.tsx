@@ -113,6 +113,83 @@ function GenerationPreviewContent() {
     }
   };
 
+  /**
+   * 读取生成接口的 SSE 响应；heartbeat 只负责保活，done 才返回最终业务数据。
+   */
+  const readSseDone = async <T extends { error?: string }>(
+    response: Response,
+    fallbackError: string,
+  ): Promise<T> => {
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('无法读取生成数据流');
+    }
+
+    const decoder = new TextDecoder();
+    let sseBuffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (value) {
+          sseBuffer += decoder.decode(value, { stream: !done });
+        }
+        if (done) {
+          sseBuffer += decoder.decode();
+        }
+
+        const blocks = sseBuffer.split('\n\n');
+        sseBuffer = blocks.pop() || '';
+
+        for (const block of blocks) {
+          const dataLine = block
+            .split('\n')
+            .find((line) => line.startsWith('data: '));
+          if (!dataLine) continue;
+
+          const event = JSON.parse(dataLine.slice(6)) as T & { type?: string };
+          if (event.type === 'heartbeat') continue;
+          if (event.type === 'error') {
+            throw new Error(event.error || fallbackError);
+          }
+          if (event.type === 'done') {
+            return event;
+          }
+        }
+
+        if (done) break;
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    throw new Error(fallbackError);
+  };
+
+  /**
+   * 发送长耗时生成请求，并等待服务端通过 SSE 返回 done 事件。
+   */
+  const fetchSseDone = async <T extends { error?: string }>(
+    url: string,
+    body: Record<string, unknown>,
+    signal: AbortSignal,
+    fallbackError: string,
+  ): Promise<T> => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify(body),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: fallbackError }));
+      throw new Error(errorData.error || fallbackError);
+    }
+
+    return readSseDone<T>(response, fallbackError);
+  };
+
   const getEnabledMediaElementIds = (outlines: SceneOutline[]) => {
     const settings = useSettingsStore.getState();
     const ids = new Set<string>();
@@ -713,29 +790,26 @@ function GenerationPreviewContent() {
           store.setCurrentGeneratingOrder(outline.order);
           if (contentStepIdx >= 0) setCurrentStepIndex(contentStepIdx);
 
-          const contentResp = await fetch('/api/generate/scene-content', {
-            method: 'POST',
-            headers: getApiHeaders(),
-            body: JSON.stringify(
-              withThinkingConfig({
-                outline,
-                allOutlines: outlines,
-                pdfImages: currentSession.pdfImages,
-                stageInfo,
-                stageId: stage.id,
-                agents,
-                languageDirective,
-              }),
-            ),
+          const contentData = await fetchSseDone<{
+            success: boolean;
+            content?: unknown;
+            effectiveOutline?: SceneOutline;
+            error?: string;
+          }>(
+            '/api/generate/scene-content',
+            withThinkingConfig({
+              outline,
+              allOutlines: outlines,
+              pdfImages: currentSession.pdfImages,
+              stageInfo,
+              stageId: stage.id,
+              agents,
+              languageDirective,
+              stream: true,
+            }),
             signal,
-          });
-
-          if (!contentResp.ok) {
-            const errorData = await contentResp.json().catch(() => ({ error: 'Request failed' }));
-            throw new Error(errorData.error || '页面生成失败');
-          }
-
-          const contentData = await contentResp.json();
+            '页面生成失败',
+          );
           if (!contentData.success || !contentData.content) {
             throw new Error(contentData.error || '页面生成失败');
           }
@@ -744,30 +818,27 @@ function GenerationPreviewContent() {
           if (actionsStepIdx >= 0) setCurrentStepIndex(actionsStepIdx);
           updateParallelStatus();
 
-          const actionsResp = await fetch('/api/generate/scene-actions', {
-            method: 'POST',
-            headers: getApiHeaders(),
-            body: JSON.stringify(
-              withThinkingConfig({
-                outline: contentData.effectiveOutline || outline,
-                allOutlines: outlines,
-                content: contentData.content,
-                stageId: stage.id,
-                agents,
-                previousSpeeches: [],
-                userProfile,
-                languageDirective,
-              }),
-            ),
+          const data = await fetchSseDone<{
+            success: boolean;
+            scene?: Scene;
+            previousSpeeches?: string[];
+            error?: string;
+          }>(
+            '/api/generate/scene-actions',
+            withThinkingConfig({
+              outline: contentData.effectiveOutline || outline,
+              allOutlines: outlines,
+              content: contentData.content,
+              stageId: stage.id,
+              agents,
+              previousSpeeches: [],
+              userProfile,
+              languageDirective,
+              stream: true,
+            }),
             signal,
-          });
-
-          if (!actionsResp.ok) {
-            const errorData = await actionsResp.json().catch(() => ({ error: 'Request failed' }));
-            throw new Error(errorData.error || '页面生成失败');
-          }
-
-          const data = await actionsResp.json();
+            '页面生成失败',
+          );
           if (!data.success || !data.scene) {
             throw new Error(data.error || '页面生成失败');
           }

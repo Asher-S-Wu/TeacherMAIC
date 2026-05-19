@@ -7,7 +7,7 @@
 
 import { NextRequest } from 'next/server';
 import { nanoid } from 'nanoid';
-import { callLLM } from '@/lib/ai/llm';
+import { collectStreamLLMText } from '@/lib/ai/llm';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
@@ -192,7 +192,8 @@ Return a JSON object with this exact structure:
 
     for (let attempt = 1; attempt <= MAX_AGENT_PROFILE_ATTEMPTS; attempt += 1) {
       try {
-        const result = await callLLM(
+        // 角色生成返回完整 JSON 后再解析；底层走流式，避免长时间等响应头。
+        const responseText = await collectStreamLLMText(
           {
             model: languageModel,
             system: systemPrompt,
@@ -207,11 +208,10 @@ Return a JSON object with this exact structure:
                 }),
           },
           'agent-profiles',
-          undefined,
           thinkingConfig,
         );
 
-        const rawText = stripCodeFences(result.text);
+        const rawText = stripCodeFences(responseText);
         lastRawText = rawText;
         parsed = parseAndValidateAgentProfiles(rawText);
         if (attempt > 1) {
