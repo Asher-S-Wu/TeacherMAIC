@@ -196,17 +196,9 @@ function getGeminiThinkingLevel(_config?: ThinkingConfig): ThinkingLevel {
   return 'high';
 }
 
-function getAnthropicEffort(config?: ThinkingConfig): AnthropicEffort | undefined {
-  // 关闭思考时不下发 effort 字段
-  if (
-    config?.mode === 'disabled' ||
-    config?.enabled === false ||
-    config?.effort === 'none'
-  ) {
-    return undefined;
-  }
-  // 项目里 Anthropic 思考档位固定为 max，启用思考时直接下发
-  return 'max';
+function getAnthropicEffort(_config?: ThinkingConfig): AnthropicEffort | undefined {
+  // 极致模型已关闭思考：不下发 Anthropic 的 thinking 和 output_config 字段
+  return undefined;
 }
 
 function shouldSendOfficialGeminiReasoning(

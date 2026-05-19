@@ -58,7 +58,7 @@ export const MODEL_PRESET_BY_ID: Record<ModelPresetId, ModelPresetOption> = {
     icon: Crown,
     providerId: ANTHROPIC_PROVIDER_ID,
     modelId: OFFICIAL_CLAUDE_OPUS_4_7_MODEL_ID,
-    thinkingConfig: { mode: 'enabled', level: 'max' },
+    thinkingConfig: { mode: 'disabled' },
   },
 };
 
