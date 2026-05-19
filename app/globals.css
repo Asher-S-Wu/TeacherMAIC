@@ -215,19 +215,9 @@
     @apply border-border outline-ring/50;
   }
   html {
-    font-size: 125%;
-    /* Always render the vertical scrollbar so layout doesn't horizontally
-       shift when content grows/shrinks across the viewport-height threshold
-       (e.g. expanding/collapsing recent classrooms). scrollbar-gutter:
-       stable doesn't cover every browser/config combo we see, so fall back
-       to forcing overflow-y: scroll as well. */
+    /* 始终显示纵向滚动条占位，避免内容增减时页面发生横向位移 */
     scrollbar-gutter: stable;
     overflow-y: scroll;
-  }
-  @media (max-width: 768px) {
-    html {
-      font-size: 100%;
-    }
   }
   body {
     @apply bg-background text-foreground;

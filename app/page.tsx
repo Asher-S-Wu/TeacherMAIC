@@ -428,7 +428,7 @@ function HomePage() {
         transition={{ duration: 0.6, ease: 'easeOut' }}
         className={cn(
           'relative z-20 w-full max-w-[960px] flex flex-col items-center',
-          classrooms.length === 0 ? 'justify-center min-h-[calc(100dvh-8rem)]' : 'mt-[10vh]',
+          classrooms.length === 0 ? 'flex-1 justify-center' : 'mt-[10vh]',
         )}
       >
         {/* ── Logo ── */}
