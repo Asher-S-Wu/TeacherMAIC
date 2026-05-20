@@ -154,7 +154,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
       );
       return;
     }
-    const scenes = [...get().scenes, scene];
+    const scenes = [...get().scenes, scene].sort((a, b) => a.order - b.order);
     // Remove the matching outline from generatingOutlines (match by order)
     const generatingOutlines = get().generatingOutlines.filter((o) => o.order !== scene.order);
     // Auto-switch from pending page to the newly generated scene
