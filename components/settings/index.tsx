@@ -107,7 +107,6 @@ interface SettingsDialogProps {
 export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsDialogProps) {
   // Get settings from store
   const providerId = useSettingsStore((state) => state.providerId);
-  const modelId = useSettingsStore((state) => state.modelId);
   const providersConfig = useSettingsStore((state) => state.providersConfig);
   const pdfProviderId = useSettingsStore((state) => state.pdfProviderId);
   const pdfProvidersConfig = useSettingsStore((state) => state.pdfProvidersConfig);
@@ -125,7 +124,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   // Store actions
   const setTTSProvider = useSettingsStore((state) => state.setTTSProvider);
   const setASRProvider = useSettingsStore((state) => state.setASRProvider);
-  const setModel = useSettingsStore((state) => state.setModel);
 
   // Navigation
   const [activeSection, setActiveSection] = useState<SettingsSection>('providers');
@@ -680,9 +678,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 <ProviderConfigPanel
                   provider={selectedProvider}
                   providersConfig={providersConfig}
-                  selectedProviderId={providerId}
-                  selectedModelId={modelId}
-                  onModelSelect={setModel}
                 />
               )}
 

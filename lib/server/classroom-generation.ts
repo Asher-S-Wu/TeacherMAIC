@@ -12,15 +12,15 @@ import type { AICallFn } from '@/lib/generation/pipeline-types';
 import type { AgentInfo } from '@/lib/generation/pipeline-types';
 import { getDefaultAgents } from '@/lib/orchestration/registry/store';
 import { createLogger } from '@/lib/logger';
-import { isExpertModelString, isProviderKeyRequired, parseModelString } from '@/lib/ai/providers';
+import { isProviderKeyRequired } from '@/lib/ai/providers';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { resolveModel } from '@/lib/server/resolve-model';
 import { runAgentDrivenWebResearch } from '@/lib/server/web-research';
 import { persistClassroom } from '@/lib/server/classroom-storage';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
 import {
+  CLASSROOM_GENERATION_CONCURRENCY,
   formatConcurrencyLabel,
-  resolveClassroomGenerationConcurrency,
 } from '@/lib/constants/classroom-generation';
 import {
   generateMediaForClassroom,
@@ -29,7 +29,6 @@ import {
 } from '@/lib/server/classroom-media-generation';
 import type { UserRequirements } from '@/lib/types/generation';
 import type { Scene, Stage } from '@/lib/types/stage';
-import type { ThinkingConfig } from '@/lib/types/provider';
 import type { ObjectId } from 'mongodb';
 import { AGENT_COLOR_PALETTE, AGENT_DEFAULT_AVATARS } from '@/lib/constants/agent-defaults';
 import { MAX_GENERATION_ATTEMPTS } from '@/lib/generation/retry';
@@ -45,8 +44,6 @@ export interface GenerateClassroomInput {
   enableVideoGeneration?: boolean;
   enableTTS?: boolean;
   agentMode?: 'default' | 'generate';
-  modelString?: string;
-  thinkingConfig?: ThinkingConfig;
 }
 
 export type ClassroomGenerationStep =
@@ -249,11 +246,8 @@ export async function generateClassroom(
     providerId,
     apiKey,
     thinkingConfig,
-  } = await resolveModel({
-    modelString: input.modelString,
-    thinkingConfig: input.thinkingConfig,
-  });
-  const interactiveMode = isExpertModelString(modelString);
+  } = await resolveModel();
+  const interactiveMode = false;
   log.info(`Using server-configured model: ${modelString}`);
 
   // Fail fast if the resolved provider has no API key configured
@@ -435,9 +429,7 @@ export async function generateClassroom(
   log.info('Stage 2: Generating scene content and actions...');
   let generatedScenes = 0;
 
-  // 根据当前选择的模型决定页面生成的并发数：极致模型走 2 路，其他模型保持 5 路
-  const { modelId: resolvedModelId } = parseModelString(modelString);
-  const generationConcurrency = resolveClassroomGenerationConcurrency(providerId, resolvedModelId);
+  const generationConcurrency = CLASSROOM_GENERATION_CONCURRENCY;
   const concurrencyLabel = formatConcurrencyLabel(generationConcurrency);
 
   await options.onProgress?.({

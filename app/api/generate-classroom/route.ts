@@ -28,8 +28,6 @@ export async function POST(req: NextRequest) {
         : {}),
       ...(rawBody.enableTTS != null ? { enableTTS: rawBody.enableTTS } : {}),
       ...(rawBody.agentMode ? { agentMode: rawBody.agentMode } : {}),
-      ...(rawBody.modelString ? { modelString: rawBody.modelString } : {}),
-      ...(rawBody.thinkingConfig ? { thinkingConfig: rawBody.thinkingConfig } : {}),
     };
     const { requirement } = body;
 

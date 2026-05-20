@@ -11,13 +11,11 @@ import type {
 import type { DiscussionRequest } from '@/components/roundtable';
 import type { Action, SpotlightAction, DiscussionAction } from '@/lib/types/action';
 import type { UIMessage } from 'ai';
-import type { ThinkingConfig } from '@/lib/types/provider';
 import { useStageStore } from '@/lib/store';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useUserProfileStore } from '@/lib/store/user-profile';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
-import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { USER_AVATAR } from '@/lib/types/roundtable';
 import { StreamBuffer } from '@/lib/buffer/stream-buffer';
 import type { AgentStartItem, ActionItem } from '@/lib/buffer/stream-buffer';
@@ -445,8 +443,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
           [key: string]: unknown;
         };
         userProfile?: { nickname?: string; bio?: string };
-        thinkingConfig?: ThinkingConfig;
-        modelString?: string;
       },
       controller: AbortController,
       sessionType: SessionType,
@@ -479,8 +475,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         {
           config: requestTemplate.config,
           userProfile: requestTemplate.userProfile,
-          thinkingConfig: requestTemplate.thinkingConfig,
-          modelString: requestTemplate.modelString,
         },
         {
           getStoreState: (): AgentLoopStoreState => {
@@ -866,7 +860,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         log.info(`[ChatArea] Resuming session: ${sessionId}`);
 
         const userProfileState = useUserProfileStore.getState();
-        const { modelString, thinkingConfig } = getCurrentModelConfig();
 
         const agentIds =
           useSettingsStore.getState().selectedAgentIds?.length > 0
@@ -892,8 +885,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
               nickname: userProfileState.nickname || undefined,
               bio: userProfileState.bio || undefined,
             },
-            thinkingConfig,
-            modelString,
           },
           controller,
           session.type,
@@ -1067,7 +1058,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         );
 
         const userProfileState = useUserProfileStore.getState();
-        const { modelString, thinkingConfig } = getCurrentModelConfig();
 
         await runAgentLoopFn(
           sessionId!,
@@ -1088,8 +1078,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
               nickname: userProfileState.nickname || undefined,
               bio: userProfileState.bio || undefined,
             },
-            thinkingConfig,
-            modelString,
           },
           controller,
           sessionType,
@@ -1190,7 +1178,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
 
       try {
         const userProfileState = useUserProfileStore.getState();
-        const { modelString, thinkingConfig } = getCurrentModelConfig();
 
         await runAgentLoopFn(
           sessionId,
@@ -1214,8 +1201,6 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
               nickname: userProfileState.nickname || undefined,
               bio: userProfileState.bio || undefined,
             },
-            thinkingConfig,
-            modelString,
           },
           controller,
           'discussion',

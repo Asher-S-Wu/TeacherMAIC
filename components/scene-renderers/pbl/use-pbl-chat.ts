@@ -7,16 +7,11 @@
 import { useState, useCallback } from 'react';
 import type { PBLProjectConfig, PBLChatMessage, PBLAgent, PBLIssue } from '@/lib/pbl/types';
 import { createLogger } from '@/lib/logger';
-import { getCurrentModelConfig } from '@/lib/utils/model-config';
 
 const log = createLogger('PBLChat');
 
 function withModelConfig<T extends Record<string, unknown>>(body: T): T {
-  const { modelString } = getCurrentModelConfig();
-  return {
-    ...body,
-    modelString,
-  } as T;
+  return body;
 }
 
 interface UsePBLChatOptions {

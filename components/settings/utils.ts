@@ -21,7 +21,6 @@ export function formatContextWindow(size?: number): string {
 }
 
 const PROVIDER_TYPE_LABELS: Record<string, string> = {
-  'ark-chat-completions': 'Chat Completions',
   'gemini-generate-content': 'Gemini 原生',
 };
 

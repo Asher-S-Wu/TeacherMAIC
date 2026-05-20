@@ -11,7 +11,6 @@
  */
 
 import type { StatelessEvent, DirectorState } from '@/lib/types/chat';
-import type { ThinkingConfig } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('AgentLoop');
@@ -36,8 +35,6 @@ export interface AgentLoopRequest {
     [key: string]: unknown;
   };
   userProfile?: { nickname?: string; bio?: string };
-  thinkingConfig?: ThinkingConfig;
-  modelString?: string;
 }
 
 /** Per-iteration outcome extracted from the done event */
@@ -126,8 +123,6 @@ export async function runAgentLoop(
       config: request.config,
       directorState,
       userProfile: request.userProfile,
-      thinkingConfig: request.thinkingConfig,
-      modelString: request.modelString,
     };
 
     // Fetch

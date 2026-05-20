@@ -6,7 +6,6 @@
  */
 
 import type { UIMessage } from 'ai';
-import type { ThinkingConfig } from './provider';
 
 // Session Types
 export type SessionType = 'qa' | 'discussion' | 'lecture';
@@ -273,10 +272,6 @@ export interface StatelessChatRequest {
     nickname?: string;
     bio?: string;
   };
-  /** UI-selected per-model thinking config. */
-  thinkingConfig?: ThinkingConfig;
-  /** UI-selected model string, e.g. "gemini:gemini-3.1-flash-lite-preview". */
-  modelString?: string;
 }
 
 /**

@@ -15,7 +15,6 @@ import { useStageStore } from '@/lib/store/stage';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useUserProfileStore } from '@/lib/store/user-profile';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
-import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import {
   Dialog,
   DialogContent,
@@ -109,7 +108,6 @@ export function VibeEditDialog({
     setGenerating(true);
 
     try {
-      const { modelString } = getCurrentModelConfig();
       const response = await fetch('/api/vibe-edit/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,7 +123,6 @@ export function VibeEditDialog({
           languageDirective: stageLanguageDirective,
           allowImageGeneration: imageGenerationEnabled,
           allowVideoGeneration: videoGenerationEnabled,
-          modelString,
         }),
       });
       const data = (await response.json()) as

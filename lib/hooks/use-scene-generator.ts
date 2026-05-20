@@ -2,7 +2,6 @@
 
 import { useCallback, useRef } from 'react';
 import { useStageStore } from '@/lib/store/stage';
-import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { useSettingsStore } from '@/lib/store/settings';
 import type { SceneOutline, PdfImage } from '@/lib/types/generation';
 import type { AgentInfo } from '@/lib/generation/generation-pipeline';
@@ -11,7 +10,7 @@ import type { SpeechAction } from '@/lib/types/action';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
-import { resolveClassroomGenerationConcurrency } from '@/lib/constants/classroom-generation';
+import { CLASSROOM_GENERATION_CONCURRENCY } from '@/lib/constants/classroom-generation';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('SceneGenerator');
@@ -42,12 +41,7 @@ function getApiHeaders(): HeadersInit {
 }
 
 function withThinkingConfig<T extends Record<string, unknown>>(body: T): T {
-  const { modelString, thinkingConfig } = getCurrentModelConfig();
-  return {
-    ...body,
-    modelString,
-    ...(thinkingConfig ? { thinkingConfig } : {}),
-  } as T;
+  return body;
 }
 
 /**
@@ -336,12 +330,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
           !abortRef.current &&
           store.getState().generationEpoch === startEpoch;
 
-        // 根据当前选择的模型决定页面生成的并发数：极致模型走 2 路，其他模型保持 5 路
-        const { providerId: currentProviderId, modelId: currentModelId } = getCurrentModelConfig();
-        const generationConcurrency = resolveClassroomGenerationConcurrency(
-          currentProviderId,
-          currentModelId,
-        );
+        const generationConcurrency = CLASSROOM_GENERATION_CONCURRENCY;
         await runConcurrentQueue(
           pending,
           generationConcurrency,

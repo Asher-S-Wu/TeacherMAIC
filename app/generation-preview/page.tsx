@@ -15,11 +15,10 @@ import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { getAvailableProvidersWithVoices } from '@/lib/audio/voice-resolver';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
 import { cleanupOldImages } from '@/lib/utils/image-storage';
-import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
-import { formatConcurrencyLabel, resolveClassroomGenerationConcurrency } from '@/lib/constants/classroom-generation';
+import { CLASSROOM_GENERATION_CONCURRENCY, formatConcurrencyLabel } from '@/lib/constants/classroom-generation';
 import { nanoid } from 'nanoid';
 import type { Stage, Scene } from '@/lib/types/stage';
 import type { SceneOutline, PdfImage } from '@/lib/types/generation';
@@ -99,12 +98,7 @@ function GenerationPreviewContent() {
   };
 
   const withThinkingConfig = <T extends Record<string, unknown>>(body: T) => {
-    const { modelString, thinkingConfig } = getCurrentModelConfig();
-    return {
-      ...body,
-      modelString,
-      ...(thinkingConfig ? { thinkingConfig } : {}),
-    };
+    return body;
   };
 
   const throwIfAborted = (signal: AbortSignal) => {
@@ -300,7 +294,7 @@ function GenerationPreviewContent() {
     // Use a local mutable copy so we can update it after PDF parsing
     let currentSession = session;
     let generatedStageId: string | null = null;
-    const interactiveMode = getCurrentModelConfig().isExpert;
+    const interactiveMode = false;
     currentSession = {
       ...currentSession,
       requirements: {
@@ -765,12 +759,7 @@ function GenerationPreviewContent() {
           : undefined;
 
       let completedPages = 0;
-      // 根据当前选择的模型决定页面生成的并发数：极致模型走 2 路，其他模型保持 5 路
-      const { providerId: currentProviderId, modelId: currentModelId } = getCurrentModelConfig();
-      const generationConcurrency = resolveClassroomGenerationConcurrency(
-        currentProviderId,
-        currentModelId,
-      );
+      const generationConcurrency = CLASSROOM_GENERATION_CONCURRENCY;
       const concurrencyLabel = formatConcurrencyLabel(generationConcurrency);
       const updateParallelStatus = () => {
         setStatusMessage(

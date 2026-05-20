@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createLogger } from '@/lib/logger';
-import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import type { QuizQuestion } from '@/lib/types/stage';
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { SpeechButton } from '@/components/audio/speech-button';
@@ -54,7 +53,6 @@ async function gradeShortAnswerQuestion(
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    const { modelString } = getCurrentModelConfig();
 
     const res = await fetch('/api/quiz-grade', {
       method: 'POST',
@@ -65,7 +63,6 @@ async function gradeShortAnswerQuestion(
         points: pts,
         commentPrompt: q.commentPrompt,
         language,
-        modelString,
       }),
     });
 

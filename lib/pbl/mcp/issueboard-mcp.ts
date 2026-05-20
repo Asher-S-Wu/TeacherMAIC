@@ -2,7 +2,7 @@
  * Issueboard MCP - Manages issues and workflow during PBL generation.
  *
  * Migrated from PBL-Nano. Key changes:
- * - No Anthropic SDK dependency (initialize_question_agent removed)
+ * - Question agent setup no longer depends on a provider-specific SDK
  * - Question agent initialization is handled by generate-pbl.ts post-processing
  * - Operates directly on a shared PBLProjectConfig
  */

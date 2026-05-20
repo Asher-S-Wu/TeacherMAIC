@@ -438,14 +438,14 @@ export const useSettingsStore = create<SettingsState>()(
         ...defaultWebSearchConfig,
 
         // Actions
-        setModel: (providerId, modelId) => set({ providerId, modelId }),
+        setModel: () => set({ providerId: DEFAULT_PROVIDER_ID, modelId: DEFAULT_MODEL_ID }),
 
-        setModelWithThinkingConfig: (providerId, modelId, config) =>
+        setModelWithThinkingConfig: (_providerId, _modelId, config) =>
           set((state) => {
-            const key = getThinkingConfigKey(providerId, modelId);
+            const key = getThinkingConfigKey(DEFAULT_PROVIDER_ID, DEFAULT_MODEL_ID);
             return {
-              providerId,
-              modelId,
+              providerId: DEFAULT_PROVIDER_ID,
+              modelId: DEFAULT_MODEL_ID,
               thinkingConfigs: {
                 ...state.thinkingConfigs,
                 [key]: config,
@@ -683,11 +683,6 @@ export const useSettingsStore = create<SettingsState>()(
 
             set((state) => {
               const newProvidersConfig = getDefaultProvidersConfig();
-              newProvidersConfig.ark = {
-                ...newProvidersConfig.ark,
-                apiKey: '',
-                isServerConfigured: !!data.providers.ark,
-              };
               newProvidersConfig.gemini = {
                 ...newProvidersConfig.gemini,
                 apiKey: '',
@@ -778,11 +773,6 @@ export const useSettingsStore = create<SettingsState>()(
               const ttsEnabled =
                 state.ttsEnabled && !!newTTSConfig['ark-tts'].isServerConfigured;
 
-              const selectedProvider = newProvidersConfig[state.providerId];
-              const selectedModelIsAvailable = selectedProvider?.models.some(
-                (model) => model.id === state.modelId,
-              );
-
               return {
                 providersConfig: newProvidersConfig,
                 thinkingConfigs: pruneThinkingConfigs(state.thinkingConfigs, newProvidersConfig),
@@ -792,12 +782,8 @@ export const useSettingsStore = create<SettingsState>()(
                 imageProvidersConfig: newImageConfig,
                 videoProvidersConfig: newVideoConfig,
                 webSearchProvidersConfig: newWebSearchConfig,
-                providerId:
-                  selectedProvider && selectedModelIsAvailable
-                    ? state.providerId
-                    : DEFAULT_PROVIDER_ID,
-                modelId:
-                  selectedProvider && selectedModelIsAvailable ? state.modelId : DEFAULT_MODEL_ID,
+                providerId: DEFAULT_PROVIDER_ID,
+                modelId: DEFAULT_MODEL_ID,
                 ttsProviderId: 'ark-tts' as TTSProviderId,
                 ttsVoice,
                 ttsEnabled,
@@ -833,15 +819,6 @@ export const useSettingsStore = create<SettingsState>()(
         const ttsVoice = isValidTTSVoice('ark-tts', persisted.ttsVoice)
           ? persisted.ttsVoice
           : DEFAULT_TTS_VOICES['ark-tts'];
-        const persistedProviderId = persisted.providerId;
-        const persistedModelId = persisted.modelId;
-        const selectedProvider =
-          persistedProviderId && currentState.providersConfig[persistedProviderId];
-        const selectedModelIsAvailable =
-          !!selectedProvider &&
-          !!persistedModelId &&
-          selectedProvider.models.some((model) => model.id === persistedModelId);
-
         return {
           ...merged,
           providersConfig: currentState.providersConfig,
@@ -851,8 +828,8 @@ export const useSettingsStore = create<SettingsState>()(
           imageProvidersConfig: currentState.imageProvidersConfig,
           videoProvidersConfig: currentState.videoProvidersConfig,
           webSearchProvidersConfig: currentState.webSearchProvidersConfig,
-          providerId: selectedModelIsAvailable ? persistedProviderId : DEFAULT_PROVIDER_ID,
-          modelId: selectedModelIsAvailable ? persistedModelId : DEFAULT_MODEL_ID,
+          providerId: DEFAULT_PROVIDER_ID,
+          modelId: DEFAULT_MODEL_ID,
           ttsProviderId: 'ark-tts' as TTSProviderId,
           ttsVoice,
           asrProviderId: 'ark-asr' as ASRProviderId,

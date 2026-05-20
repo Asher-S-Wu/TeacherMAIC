@@ -19,7 +19,6 @@ import type { StatelessChatRequest, StatelessEvent } from '@/lib/types/chat';
 import { apiError } from '@/lib/server/api-response';
 import { createLogger } from '@/lib/logger';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
-import type { ThinkingConfig } from '@/lib/types/provider';
 const log = createLogger('Chat API');
 
 /**
@@ -107,13 +106,11 @@ export async function POST(req: NextRequest) {
       try {
         startHeartbeat();
 
-        const thinkingConfig: ThinkingConfig | undefined = body.thinkingConfig;
-
         const generator = statelessGenerate(
           body,
           signal,
           languageModel,
-          thinkingConfig,
+          undefined,
         );
 
         for await (const event of generator) {

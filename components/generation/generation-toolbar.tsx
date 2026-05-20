@@ -5,7 +5,6 @@ import { Paperclip, FileText, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { useSettingsStore } from '@/lib/store/settings';
 import type { SettingsSection } from '@/lib/types/settings';
 import { MediaPopover } from '@/components/generation/media-popover';
 import { ModelSelectorPopover } from '@/components/generation/model-selector-popover';
@@ -36,15 +35,12 @@ export function GenerationToolbar({
   onPdfError,
   voiceButton,
 }: GenerationToolbarProps) {
-  const currentProviderId = useSettingsStore((s) => s.providerId);
-  const currentModelId = useSettingsStore((s) => s.modelId);
-  const thinkingConfigs = useSettingsStore((s) => s.thinkingConfigs);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const attachmentCount = pdfFile ? 1 : 0;
 
-  const currentPreset = getCurrentModelPreset(currentProviderId, currentModelId, thinkingConfigs);
+  const currentPreset = getCurrentModelPreset();
 
   const handleFileSelect = (files: FileList | File[]) => {
     let nextPdf = pdfFile;

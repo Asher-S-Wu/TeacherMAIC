@@ -5,7 +5,7 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId = 'ark' | 'gemini' | 'anthropic';
+export type BuiltInProviderId = 'gemini';
 
 /**
  * Provider ID
@@ -16,9 +16,7 @@ export type ProviderId = BuiltInProviderId;
  * Provider API types
  */
 export type ProviderType =
-  | 'ark-chat-completions'
-  | 'gemini-generate-content'
-  | 'anthropic-messages';
+  | 'gemini-generate-content';
 
 export type ThinkingControlType =
   | 'none'
@@ -35,9 +33,7 @@ export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high' | 'max';
 
 export type ThinkingRequestAdapter =
   | 'none'
-  | 'ark-chat-completions'
-  | 'gemini-generate-content'
-  | 'anthropic-messages';
+  | 'gemini-generate-content';
 
 /**
  * Describes a model's thinking/reasoning API control capability.

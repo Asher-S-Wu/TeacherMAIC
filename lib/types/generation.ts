@@ -50,7 +50,7 @@ export interface UserRequirements {
   userNickname?: string; // Student nickname for personalization
   userBio?: string; // Student background for personalization
   webSearch?: boolean; // Enable web search for richer context
-  interactiveMode?: boolean; // Deep interaction is enabled only for the expert model.
+  interactiveMode?: boolean;
 }
 
 // ==================== Stage 1 Output: Scene Outlines (Simplified) ====================

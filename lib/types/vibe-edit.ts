@@ -25,7 +25,6 @@ export interface VibeEditPreviewRequest {
   languageDirective?: string;
   allowImageGeneration: boolean;
   allowVideoGeneration: boolean;
-  modelString?: string;
 }
 
 export interface VibeEditPreviewResponse {
