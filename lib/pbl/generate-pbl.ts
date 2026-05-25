@@ -333,7 +333,7 @@ Format the questions as a numbered list.`;
   config.chat.messages.push({
     id: `msg_welcome_${Date.now()}`,
     agent_name: firstIssue.question_agent_name,
-    message: generatedQuestions,
+    message: generatedQuestionsResult.text,
     timestamp: Date.now(),
     read_by: [],
   });
