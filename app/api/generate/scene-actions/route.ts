@@ -7,7 +7,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { callLLM, collectStreamLLMText, type LLMGenerateParams } from '@/lib/ai/llm';
+import { callLLM, type LLMGenerateParams } from '@/lib/ai/llm';
 import {
   generateSceneActions,
   buildCompleteScene,
@@ -24,7 +24,7 @@ import type {
 } from '@/lib/types/generation';
 import type { SpeechAction } from '@/lib/types/action';
 import { createLogger } from '@/lib/logger';
-import { apiError, apiSuccess, createSseResponse } from '@/lib/server/api-response';
+import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 
 const log = createLogger('Scene Actions API');
@@ -42,16 +42,14 @@ type SceneActionsRequestBody = {
   previousSpeeches?: string[];
   userProfile?: string;
   languageDirective?: string;
-  stream?: boolean;
 };
 
 /**
- * 执行动作生成；useStreamingModel 为 true 时，上游模型请求走流式模式。
+ * 执行动作生成。
  */
 async function runSceneActionsGeneration(
   req: NextRequest,
   body: SceneActionsRequestBody,
-  useStreamingModel: boolean,
 ) {
   const {
     outline,
@@ -75,7 +73,7 @@ async function runSceneActionsGeneration(
   // 判断当前模型是否支持图片输入。
   const hasVision = !!modelInfo?.capabilities?.vision;
 
-  // 统一封装模型调用，流式和非流式只在这里分叉。
+  // 统一封装模型调用，页面动作生成使用普通非流式请求。
   const aiCall = async (
     systemPrompt: string,
     userPrompt: string,
@@ -100,10 +98,6 @@ async function runSceneActionsGeneration(
             prompt: userPrompt,
             maxOutputTokens: modelInfo?.outputWindow,
           };
-
-    if (useStreamingModel) {
-      return collectStreamLLMText(params, 'scene-actions', thinkingConfig);
-    }
 
     const result = await callLLM(params, 'scene-actions', undefined, thinkingConfig);
     return result.text;
@@ -177,32 +171,9 @@ export async function POST(req: NextRequest) {
 
     outlineTitle = outline?.title;
 
-    if (body.stream) {
-      return createSseResponse(async (send) => {
-        try {
-          const { scene, previousSpeeches, modelString } = await runSceneActionsGeneration(
-            req,
-            body,
-            true,
-          );
-          send('done', { success: true, scene, previousSpeeches });
-          resolvedModelString = modelString;
-        } catch (error) {
-          log.error(
-            `Scene actions stream failed [scene="${outlineTitle ?? 'unknown'}", model=${resolvedModelString ?? 'unknown'}]:`,
-            error,
-          );
-          send('error', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      });
-    }
-
     const { scene, previousSpeeches, modelString } = await runSceneActionsGeneration(
       req,
       body,
-      false,
     );
     resolvedModelString = modelString;
 

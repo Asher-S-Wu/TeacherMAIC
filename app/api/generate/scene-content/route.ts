@@ -7,7 +7,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { callLLM, collectStreamLLMText, type LLMGenerateParams } from '@/lib/ai/llm';
+import { callLLM, type LLMGenerateParams } from '@/lib/ai/llm';
 import {
   generateSceneContent,
   buildVisionUserContent,
@@ -15,7 +15,7 @@ import {
 import type { AgentInfo } from '@/lib/generation/generation-pipeline';
 import type { SceneOutline, PdfImage, ImageMapping } from '@/lib/types/generation';
 import { createLogger } from '@/lib/logger';
-import { apiError, apiSuccess, createSseResponse } from '@/lib/server/api-response';
+import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { requireCurrentUser } from '@/lib/server/auth';
 import { loadImageMappingForUser } from '@/lib/server/file-storage';
@@ -34,18 +34,16 @@ type SceneContentRequestBody = {
   stageId: string;
   agents?: AgentInfo[];
   languageDirective?: string;
-  stream?: boolean;
 };
 
 type SceneContentValue = Exclude<Awaited<ReturnType<typeof generateSceneContent>>, null>;
 
 /**
- * 执行页面内容生成；useStreamingModel 为 true 时，上游模型请求走流式模式。
+ * 执行页面内容生成。
  */
 async function runSceneContentGeneration(
   req: NextRequest,
   body: SceneContentRequestBody,
-  useStreamingModel: boolean,
   user: Awaited<ReturnType<typeof requireCurrentUser>>,
 ): Promise<{ content: SceneContentValue; effectiveOutline: SceneOutline; modelString: string }> {
   const {
@@ -68,7 +66,7 @@ async function runSceneContentGeneration(
   // 判断当前模型是否支持图片输入。
   const hasVision = !!modelInfo?.capabilities?.vision;
 
-  // 统一封装模型调用，流式和非流式只在这里分叉。
+  // 统一封装模型调用，页面内容生成使用普通非流式请求。
   const aiCall = async (
     systemPrompt: string,
     userPrompt: string,
@@ -93,10 +91,6 @@ async function runSceneContentGeneration(
             prompt: userPrompt,
             maxOutputTokens: modelInfo?.outputWindow,
           };
-
-    if (useStreamingModel) {
-      return collectStreamLLMText(params, 'scene-content', thinkingConfig);
-    }
 
     const result = await callLLM(params, 'scene-content', undefined, thinkingConfig);
     return result.text;
@@ -172,33 +166,9 @@ export async function POST(req: NextRequest) {
     outlineTitle = rawOutline?.title;
     const user = await requireCurrentUser();
 
-    if (body.stream) {
-      return createSseResponse(async (send) => {
-        try {
-          const { content, effectiveOutline, modelString } = await runSceneContentGeneration(
-            req,
-            body,
-            true,
-            user,
-          );
-          send('done', { success: true, content, effectiveOutline });
-          resolvedModelString = modelString;
-        } catch (error) {
-          log.error(
-            `Scene content stream failed [scene="${outlineTitle ?? 'unknown'}", model=${resolvedModelString ?? 'unknown'}]:`,
-            error,
-          );
-          send('error', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      });
-    }
-
     const { content, effectiveOutline, modelString } = await runSceneContentGeneration(
       req,
       body,
-      false,
       user,
     );
     resolvedModelString = modelString;

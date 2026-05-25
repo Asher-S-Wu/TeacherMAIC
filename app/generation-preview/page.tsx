@@ -108,66 +108,13 @@ function GenerationPreviewContent() {
   };
 
   /**
-   * 读取生成接口的 SSE 响应；heartbeat 只负责保活，done 才返回最终业务数据。
+   * 发送页面生成请求，并读取普通 JSON 响应。
    */
-  const readSseDone = async <T extends { error?: string }>(
-    response: Response,
-    fallbackError: string,
-  ): Promise<T> => {
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('无法读取生成数据流');
-    }
-
-    const decoder = new TextDecoder();
-    let sseBuffer = '';
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (value) {
-          sseBuffer += decoder.decode(value, { stream: !done });
-        }
-        if (done) {
-          sseBuffer += decoder.decode();
-        }
-
-        const blocks = sseBuffer.split('\n\n');
-        sseBuffer = blocks.pop() || '';
-
-        for (const block of blocks) {
-          const dataLine = block
-            .split('\n')
-            .find((line) => line.startsWith('data: '));
-          if (!dataLine) continue;
-
-          const event = JSON.parse(dataLine.slice(6)) as T & { type?: string };
-          if (event.type === 'heartbeat') continue;
-          if (event.type === 'error') {
-            throw new Error(event.error || fallbackError);
-          }
-          if (event.type === 'done') {
-            return event;
-          }
-        }
-
-        if (done) break;
-      }
-    } finally {
-      reader.releaseLock();
-    }
-
-    throw new Error(fallbackError);
-  };
-
-  /**
-   * 发送长耗时生成请求，并等待服务端通过 SSE 返回 done 事件。
-   */
-  const fetchSseDone = async <T extends { error?: string }>(
+  const fetchJsonResult = async <T extends { error?: string }>(
     url: string,
     body: Record<string, unknown>,
     signal: AbortSignal,
-    fallbackError: string,
+    errorMessage: string,
   ): Promise<T> => {
     const response = await fetch(url, {
       method: 'POST',
@@ -176,12 +123,12 @@ function GenerationPreviewContent() {
       signal,
     });
 
+    const data = (await response.json()) as T;
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: fallbackError }));
-      throw new Error(errorData.error || fallbackError);
+      throw new Error(data.error || errorMessage);
     }
 
-    return readSseDone<T>(response, fallbackError);
+    return data;
   };
 
   const getEnabledMediaElementIds = (outlines: SceneOutline[]) => {
@@ -779,7 +726,7 @@ function GenerationPreviewContent() {
           store.setCurrentGeneratingOrder(outline.order);
           if (contentStepIdx >= 0) setCurrentStepIndex(contentStepIdx);
 
-          const contentData = await fetchSseDone<{
+          const contentData = await fetchJsonResult<{
             success: boolean;
             content?: unknown;
             effectiveOutline?: SceneOutline;
@@ -794,7 +741,6 @@ function GenerationPreviewContent() {
               stageId: stage.id,
               agents,
               languageDirective,
-              stream: true,
             }),
             signal,
             '页面生成失败',
@@ -807,7 +753,7 @@ function GenerationPreviewContent() {
           if (actionsStepIdx >= 0) setCurrentStepIndex(actionsStepIdx);
           updateParallelStatus();
 
-          const data = await fetchSseDone<{
+          const data = await fetchJsonResult<{
             success: boolean;
             scene?: Scene;
             previousSpeeches?: string[];
@@ -823,7 +769,6 @@ function GenerationPreviewContent() {
               previousSpeeches: [],
               userProfile,
               languageDirective,
-              stream: true,
             }),
             signal,
             '页面生成失败',

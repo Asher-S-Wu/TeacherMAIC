@@ -44,59 +44,6 @@ function withThinkingConfig<T extends Record<string, unknown>>(body: T): T {
   return body;
 }
 
-/**
- * 读取生成接口的 SSE 响应；heartbeat 只保活，done 才表示拿到最终结果。
- */
-async function readSseDone<T extends { error?: string }>(
-  response: Response,
-  fallbackError: string,
-): Promise<T> {
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error('无法读取生成数据流');
-  }
-
-  const decoder = new TextDecoder();
-  let sseBuffer = '';
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (value) {
-        sseBuffer += decoder.decode(value, { stream: !done });
-      }
-      if (done) {
-        sseBuffer += decoder.decode();
-      }
-
-      const blocks = sseBuffer.split('\n\n');
-      sseBuffer = blocks.pop() || '';
-
-      for (const block of blocks) {
-        const dataLine = block
-          .split('\n')
-          .find((line) => line.startsWith('data: '));
-        if (!dataLine) continue;
-
-        const event = JSON.parse(dataLine.slice(6)) as T & { type?: string };
-        if (event.type === 'heartbeat') continue;
-        if (event.type === 'error') {
-          throw new Error(event.error || fallbackError);
-        }
-        if (event.type === 'done') {
-          return event;
-        }
-      }
-
-      if (done) break;
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  throw new Error(fallbackError);
-}
-
 /** Call POST /api/generate/scene-content (step 1) */
 async function fetchSceneContent(
   params: {
@@ -118,16 +65,16 @@ async function fetchSceneContent(
   const response = await fetch('/api/generate/scene-content', {
     method: 'POST',
     headers: getApiHeaders(),
-    body: JSON.stringify(withThinkingConfig({ ...params, stream: true })),
+    body: JSON.stringify(withThinkingConfig(params)),
     signal,
   });
 
+  const data = (await response.json()) as SceneContentResult;
   if (!response.ok) {
-    const data = await response.json().catch(() => ({ error: 'Request failed' }));
     return { success: false, error: data.error || `HTTP ${response.status}` };
   }
 
-  return readSseDone<SceneContentResult>(response, '页面生成失败');
+  return data;
 }
 
 /** Call POST /api/generate/scene-actions (step 2) */
@@ -147,16 +94,16 @@ async function fetchSceneActions(
   const response = await fetch('/api/generate/scene-actions', {
     method: 'POST',
     headers: getApiHeaders(),
-    body: JSON.stringify(withThinkingConfig({ ...params, stream: true })),
+    body: JSON.stringify(withThinkingConfig(params)),
     signal,
   });
 
+  const data = (await response.json()) as SceneActionsResult;
   if (!response.ok) {
-    const data = await response.json().catch(() => ({ error: 'Request failed' }));
     return { success: false, error: data.error || `HTTP ${response.status}` };
   }
 
-  return readSseDone<SceneActionsResult>(response, '页面生成失败');
+  return data;
 }
 
 /** Generate TTS for one speech action and store it in the current account */
