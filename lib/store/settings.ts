@@ -683,10 +683,10 @@ export const useSettingsStore = create<SettingsState>()(
 
             set((state) => {
               const newProvidersConfig = getDefaultProvidersConfig();
-              newProvidersConfig.gemini = {
-                ...newProvidersConfig.gemini,
+              newProvidersConfig.minimax = {
+                ...newProvidersConfig.minimax,
                 apiKey: '',
-                isServerConfigured: !!data.providers.gemini,
+                isServerConfigured: !!data.providers.minimax,
               };
 
               const defaultAudio = getDefaultAudioConfig();

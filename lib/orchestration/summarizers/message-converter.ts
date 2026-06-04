@@ -14,16 +14,14 @@ export function convertMessagesToOpenAI(
     .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
     .map((msg) => {
       if (msg.role === 'assistant') {
-        // Assistant messages use JSON array format to serve as few-shot examples
-        // that match the expected output format from the system prompt
-        const items: Array<{ type: string; [key: string]: string }> = [];
+        const contentParts: string[] = [];
 
         if (msg.parts) {
           for (const part of msg.parts) {
             const p = part as Record<string, unknown>;
 
             if (p.type === 'text' && p.text) {
-              items.push({ type: 'text', content: p.text as string });
+              contentParts.push(p.text as string);
             } else if ((p.type as string)?.startsWith('action-') && p.state === 'result') {
               const actionName = (p.actionName ||
                 (p.type as string).replace('action-', '')) as string;
@@ -34,16 +32,12 @@ export function convertMessagesToOpenAI(
                   ? `result: ${JSON.stringify(output.data).slice(0, 100)}`
                   : 'success'
                 : (output?.error as string) || 'failed';
-              items.push({
-                type: 'action',
-                name: actionName,
-                result: resultSummary,
-              });
+              contentParts.push(`[Action ${actionName}: ${resultSummary}]`);
             }
           }
         }
 
-        const content = items.length > 0 ? JSON.stringify(items) : '';
+        const content = contentParts.join('\n');
         const msgAgentId = msg.metadata?.agentId;
 
         // When currentAgentId is provided and this message is from a DIFFERENT agent,
@@ -101,7 +95,7 @@ export function convertMessagesToOpenAI(
       return {
         role: 'user' as const,
         content: isInterrupted
-          ? `${content}\n[This response was interrupted — do NOT continue it. Start a new JSON array response.]`
+          ? `${content}\n[This response was interrupted. Start a new complete response; do not continue partial wording.]`
           : content,
       };
     })

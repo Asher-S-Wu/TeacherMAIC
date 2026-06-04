@@ -1,7 +1,7 @@
 /**
  * Unified AI Provider Configuration
  *
- * Text generation is fixed to the server-configured Gemini native provider.
+ * Text generation is fixed to the server-configured MiniMax Anthropic-compatible provider.
  */
 
 import type {
@@ -14,16 +14,16 @@ import type {
 } from '@/lib/types/provider';
 import { applyModelMetadata } from './model-metadata';
 import {
-  GEMINI_3_5_FLASH_MODEL_ID,
-  GEMINI_3_5_FLASH_MODEL_NAME,
-  GEMINI_BASE_URL,
-} from './gemini-models';
+  MINIMAX_ANTHROPIC_BASE_URL,
+  MINIMAX_M3_CONTEXT_WINDOW,
+  MINIMAX_M3_MODEL_ID,
+  MINIMAX_M3_MODEL_NAME,
+  MINIMAX_M3_OUTPUT_WINDOW,
+} from './minimax-models';
 
-export const GEMINI_PROVIDER_ID: BuiltInProviderId = 'gemini';
-export const OFFICIAL_GEMINI_3_5_FLASH_MODEL_ID = GEMINI_3_5_FLASH_MODEL_ID;
-export const OFFICIAL_GEMINI_3_5_FLASH_MODEL_NAME = GEMINI_3_5_FLASH_MODEL_NAME;
-export const DEFAULT_PROVIDER_ID: BuiltInProviderId = GEMINI_PROVIDER_ID;
-export const DEFAULT_MODEL_ID = OFFICIAL_GEMINI_3_5_FLASH_MODEL_ID;
+export const MINIMAX_PROVIDER_ID: BuiltInProviderId = 'minimax';
+export const DEFAULT_PROVIDER_ID: BuiltInProviderId = MINIMAX_PROVIDER_ID;
+export const DEFAULT_MODEL_ID = MINIMAX_M3_MODEL_ID;
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
 
 export type { ProviderId, ProviderConfig, ModelInfo, ModelConfig };
@@ -32,18 +32,18 @@ export type { ProviderId, ProviderConfig, ModelInfo, ModelConfig };
 export const MONO_LOGO_PROVIDERS: ReadonlySet<string> = new Set();
 
 export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
-  gemini: {
-    id: 'gemini',
-    name: 'Google Gemini',
-    type: 'gemini-generate-content',
-    defaultBaseUrl: GEMINI_BASE_URL,
+  minimax: {
+    id: 'minimax',
+    name: 'MiniMax',
+    type: 'anthropic-messages',
+    defaultBaseUrl: MINIMAX_ANTHROPIC_BASE_URL,
     requiresApiKey: true,
     models: [
       {
-        id: OFFICIAL_GEMINI_3_5_FLASH_MODEL_ID,
-        name: OFFICIAL_GEMINI_3_5_FLASH_MODEL_NAME,
-        contextWindow: 1048576,
-        outputWindow: 65536,
+        id: MINIMAX_M3_MODEL_ID,
+        name: MINIMAX_M3_MODEL_NAME,
+        contextWindow: MINIMAX_M3_CONTEXT_WINDOW,
+        outputWindow: MINIMAX_M3_OUTPUT_WINDOW,
         capabilities: {
           streaming: true,
           tools: true,
@@ -101,7 +101,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
       providerType: provider.type,
       modelId: config.modelId,
       apiKey: config.apiKey || '',
-      baseUrl: provider.defaultBaseUrl || GEMINI_BASE_URL,
+      baseUrl: provider.defaultBaseUrl || MINIMAX_ANTHROPIC_BASE_URL,
       modelInfo,
     },
     modelInfo,

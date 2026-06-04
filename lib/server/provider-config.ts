@@ -35,7 +35,7 @@ interface ServerConfig {
 // ---------------------------------------------------------------------------
 
 const ARK_API_KEY_ENV = 'ARK_API_KEY';
-const GEMINI_API_KEY_ENV = 'GEMINI_API_KEY';
+const MINIMAX_API_KEY_ENV = 'MINIMAX_API_KEY';
 const XCRAWL_API_KEY_ENV = 'XCRAWL_API_KEY';
 const VOLCENGINE_TTS_API_KEY_ENV = 'VOLCENGINE_TTS_API_KEY';
 const VOLCENGINE_TTS_RESOURCE_ID_ENV = 'VOLCENGINE_TTS_RESOURCE_ID';
@@ -65,9 +65,9 @@ function loadEnvSection(envMap: Record<string, string>): Record<string, ServerPr
 
 function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
   const result: Record<string, ServerProviderEntry> = {};
-  const geminiApiKey = process.env[GEMINI_API_KEY_ENV] || undefined;
+  const minimaxApiKey = process.env[MINIMAX_API_KEY_ENV] || undefined;
 
-  if (geminiApiKey) result.gemini = { apiKey: geminiApiKey };
+  if (minimaxApiKey) result.minimax = { apiKey: minimaxApiKey };
 
   return result;
 }

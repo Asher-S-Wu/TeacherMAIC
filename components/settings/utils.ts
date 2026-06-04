@@ -21,7 +21,7 @@ export function formatContextWindow(size?: number): string {
 }
 
 const PROVIDER_TYPE_LABELS: Record<string, string> = {
-  'gemini-generate-content': 'Gemini 原生',
+  'anthropic-messages': 'Anthropic 兼容',
 };
 
 export function getProviderTypeLabel(type: string): string {

@@ -16,13 +16,13 @@ import type { ThinkingConfig } from '@/lib/types/provider';
 import { resolveApiKey } from '@/lib/server/provider-config';
 
 export interface ResolvedModel extends ModelWithInfo {
-  /** Server-configured model string (e.g. "gemini:gemini-3.5-flash") */
+  /** Server-configured model string (e.g. "minimax:MiniMax-M3") */
   modelString: string;
   /** Resolved provider ID. */
   providerId: string;
   /** API key resolved from server environment variables. */
   apiKey: string;
-  /** Thinking config passed to the LLM adapter. Undefined keeps the default Gemini high thinking. */
+  /** Thinking config passed to the LLM adapter. Undefined keeps MiniMax adaptive thinking enabled. */
   thinkingConfig?: ThinkingConfig;
 }
 

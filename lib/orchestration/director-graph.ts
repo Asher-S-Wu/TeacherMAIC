@@ -32,9 +32,9 @@ import { buildStructuredPrompt } from './prompt-builder';
 import { summarizeConversation } from './summarizers/conversation-summary';
 import { convertMessagesToOpenAI } from './summarizers/message-converter';
 import { buildDirectorPrompt, parseDirectorDecision } from './director-prompt';
-import { getEffectiveActions } from './tool-schemas';
+import { getActionTools, getEffectiveActions } from './tool-schemas';
 import type { AgentTurnSummary, WhiteboardActionRecord } from './types';
-import { parseStructuredChunk, createParserState, finalizeParser } from './stateless-generate';
+import type { LLMToolResult, LLMToolUse } from '@/lib/ai/llm';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('DirectorGraph');
@@ -81,6 +81,10 @@ type OrchestratorStateType = typeof OrchestratorState.State;
  */
 function resolveAgent(state: OrchestratorStateType, agentId: string): AgentConfig | undefined {
   return state.agentConfigOverrides[agentId] ?? useAgentRegistry.getState().getAgent(agentId);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
 // ==================== Director Node ====================
@@ -280,6 +284,7 @@ async function runAgentGeneration(
     : undefined;
   const sceneType = currentScene?.type;
   const effectiveActions = getEffectiveActions(agentConfig.allowedActions, sceneType);
+  const actionTools = getActionTools(effectiveActions);
 
   const discussionContext = state.discussionContext || undefined;
   const systemPrompt = buildStructuredPrompt(
@@ -314,98 +319,70 @@ async function runAgentGeneration(
     lcMessages.push(new HumanMessage("It's your turn to speak. Respond from your perspective."));
   }
 
-  const parserState = createParserState();
   let fullText = '';
   let actionCount = 0;
   const whiteboardActions: WhiteboardActionRecord[] = [];
 
-  try {
-    for await (const chunk of adapter.streamGenerate(lcMessages, {
-      signal: config.signal,
-    })) {
-      if (chunk.type === 'delta') {
-        const parseResult = parseStructuredChunk(chunk.content, parserState);
-
-        // Emit events in original interleaved order via the `ordered` array.
-        // The ordered array tracks complete items from Step 5 of the parser;
-        // trailing partial text deltas (Step 6) are in textChunks but not in ordered.
-        let emittedTextCount = 0;
-        if (parseResult.ordered.length > 0 || parseResult.textChunks.length > 0) {
-          log.debug(
-            `[AgentGenerate] Parse: ordered=${parseResult.ordered.length} (${parseResult.ordered.map((e) => e.type).join(',')}), textChunks=${parseResult.textChunks.length}, actions=${parseResult.actions.length}, done=${parseResult.isDone}`,
-          );
-        }
-        for (const entry of parseResult.ordered) {
-          if (entry.type === 'text') {
-            const rawText = parseResult.textChunks[entry.index];
-            if (!rawText) {
-              log.warn(
-                `[AgentGenerate] Ordered text entry index=${entry.index} but textChunks[${entry.index}] is empty`,
-              );
-              continue;
-            }
-            const text = rawText.replace(/^>+\s?/gm, '');
-            if (!text) continue;
-            fullText += text;
-            write({
-              type: 'text_delta',
-              data: { content: text, messageId },
-            });
-            emittedTextCount++;
-          } else if (entry.type === 'action') {
-            const ac = parseResult.actions[entry.index];
-            if (!ac) continue;
-            if (!effectiveActions.includes(ac.actionName)) {
-              log.warn(
-                `[AgentGenerate] Agent ${agentConfig.name} attempted disallowed action: ${ac.actionName}, skipping`,
-              );
-              continue;
-            }
-            actionCount++;
-            // Record whiteboard actions to the ledger
-            if (ac.actionName.startsWith('wb_')) {
-              whiteboardActions.push({
-                actionName: ac.actionName as WhiteboardActionRecord['actionName'],
-                agentId,
-                agentName: agentConfig.name,
-                params: ac.params,
-              });
-            }
-            write({
-              type: 'action',
-              data: {
-                actionId: ac.actionId,
-                actionName: ac.actionName,
-                params: ac.params,
-                agentId,
-                messageId,
-              },
-            });
-          }
-        }
-
-        // Emit trailing partial text deltas not covered by ordered
-        for (let i = emittedTextCount; i < parseResult.textChunks.length; i++) {
-          const rawText = parseResult.textChunks[i];
-          if (!rawText) continue;
-          const text = rawText.replace(/^>+\s?/gm, '');
-          if (!text) continue;
-          fullText += text;
-          write({
-            type: 'text_delta',
-            data: { content: text, messageId },
-          });
-        }
-      }
+  const onToolUse = async (toolUse: LLMToolUse): Promise<LLMToolResult> => {
+    if (!effectiveActions.includes(toolUse.name)) {
+      log.warn(
+        `[AgentGenerate] Agent ${agentConfig.name} attempted disallowed action: ${toolUse.name}, skipping`,
+      );
+      return {
+        toolUseId: toolUse.id,
+        content: `Action "${toolUse.name}" is not available in the current classroom state.`,
+        isError: true,
+      };
     }
 
-    // Finalize: emit any remaining content if the model didn't produce valid JSON
-    const finalResult = finalizeParser(parserState);
-    for (const entry of finalResult.ordered) {
-      if (entry.type === 'text') {
-        const rawText = finalResult.textChunks[entry.index];
-        if (!rawText) continue;
-        const text = rawText.replace(/^>+\s?/gm, '');
+    if (!isRecord(toolUse.input)) {
+      return {
+        toolUseId: toolUse.id,
+        content: `Action "${toolUse.name}" did not provide a valid parameter object.`,
+        isError: true,
+      };
+    }
+
+    actionCount++;
+    if (toolUse.name.startsWith('wb_')) {
+      whiteboardActions.push({
+        actionName: toolUse.name as WhiteboardActionRecord['actionName'],
+        agentId,
+        agentName: agentConfig.name,
+        params: toolUse.input,
+      });
+    }
+
+    write({
+      type: 'action',
+      data: {
+        actionId: toolUse.id,
+        actionName: toolUse.name,
+        params: toolUse.input,
+        agentId,
+        messageId,
+      },
+    });
+
+    return {
+      toolUseId: toolUse.id,
+      content: `Action "${toolUse.name}" was dispatched to the classroom interface successfully.`,
+    };
+  };
+
+  try {
+    const agentStream =
+      actionTools.length > 0
+        ? adapter.streamGenerateWithTools(lcMessages, actionTools, onToolUse, {
+            signal: config.signal,
+          })
+        : adapter.streamGenerate(lcMessages, {
+            signal: config.signal,
+          });
+
+    for await (const chunk of agentStream) {
+      if (chunk.type === 'delta') {
+        const text = chunk.content.replace(/^>+\s?/gm, '');
         if (!text) continue;
         fullText += text;
         write({

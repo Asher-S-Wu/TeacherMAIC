@@ -52,21 +52,6 @@ interface DiscussionContext {
   prompt?: string;
 }
 
-// ==================== Per-variant string constants ====================
-
-const FORMAT_EXAMPLE_SLIDE = `[{"type":"action","name":"spotlight","params":{"elementId":"img_1"}},{"type":"text","content":"Your natural speech to students"}]`;
-const FORMAT_EXAMPLE_WB = `[{"type":"action","name":"wb_open","params":{}},{"type":"text","content":"Your natural speech to students"}]`;
-
-const ORDERING_SLIDE = `- spotlight/laser actions should appear BEFORE the corresponding text object (point first, then speak)
-- whiteboard actions can interleave WITH text objects (draw while speaking)`;
-const ORDERING_WB = `- whiteboard actions can interleave WITH text objects (draw while speaking)`;
-
-const SPOTLIGHT_EXAMPLES = `[{"type":"action","name":"spotlight","params":{"elementId":"img_1"}},{"type":"text","content":"Photosynthesis is the process by which plants convert light energy into chemical energy. Take a look at this diagram."},{"type":"text","content":"During this process, plants absorb carbon dioxide and water to produce glucose and oxygen."}]
-
-[{"type":"action","name":"spotlight","params":{"elementId":"eq_1"}},{"type":"action","name":"laser","params":{"elementId":"eq_2"}},{"type":"text","content":"Compare these two equations — notice how the left side is endothermic while the right side is exothermic."}]
-
-`;
-
 const SLIDE_ACTION_GUIDELINES = `- spotlight: Use to focus attention on ONE key element. Don't overuse — max 1-2 per response.
 - laser: Use to point at elements. Good for directing attention during explanations.
 `;
@@ -113,7 +98,7 @@ IMPORTANT: As you are starting this discussion, begin by introducing the topic n
 // ==================== System Prompt ====================
 
 /**
- * Build system prompt for structured output generation
+ * Build system prompt for tool-based classroom generation
  *
  * @param agentConfig - The agent configuration
  * @param storeState - Current application state
@@ -144,9 +129,6 @@ export function buildStructuredPrompt(
     studentProfileSection: buildStudentProfileSection(userProfile),
     peerContext: buildPeerContextSection(agentResponses, agentConfig.name),
     languageConstraint: buildLanguageConstraint(storeState.stage?.languageDirective),
-    formatExample: hasSlideActions ? FORMAT_EXAMPLE_SLIDE : FORMAT_EXAMPLE_WB,
-    orderingPrinciples: hasSlideActions ? ORDERING_SLIDE : ORDERING_WB,
-    spotlightExamples: hasSlideActions ? SPOTLIGHT_EXAMPLES : '',
     actionDescriptions: getActionDescriptions(effectiveActions),
     slideActionGuidelines: hasSlideActions ? SLIDE_ACTION_GUIDELINES : '',
     mutualExclusionNote: hasSlideActions ? MUTUAL_EXCLUSION_NOTE : '',

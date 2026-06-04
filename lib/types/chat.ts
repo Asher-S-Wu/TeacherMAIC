@@ -275,15 +275,6 @@ export interface StatelessChatRequest {
 }
 
 /**
- * Parsed action from structured output
- */
-export interface ParsedAction {
-  actionId: string;
-  actionName: string;
-  params: Record<string, unknown>;
-}
-
-/**
  * Server-Sent Events for stateless chat API
  */
 export type StatelessEvent =

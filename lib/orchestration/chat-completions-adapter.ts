@@ -10,8 +10,10 @@ import { HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages
 import type { BaseMessage } from '@langchain/core/messages';
 import type { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager';
 import type { ChatResult } from '@langchain/core/outputs';
+import type Anthropic from '@anthropic-ai/sdk';
 
-import { callLLM, streamLLM } from '@/lib/ai/llm';
+import { callLLM, streamLLM, streamLLMWithTools } from '@/lib/ai/llm';
+import type { LLMToolResult, LLMToolUse } from '@/lib/ai/llm';
 import type { ChatCompletionsModel } from '@/lib/ai/providers';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
@@ -140,6 +142,41 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
     }
 
     // Yield done with full content
+    yield { type: 'done', content: fullContent };
+  }
+
+  /**
+   * Stream generate with Anthropic-compatible native tool use.
+   */
+  async *streamGenerateWithTools(
+    messages: BaseMessage[],
+    tools: Anthropic.Tool[],
+    onToolUse: (toolUse: LLMToolUse) => Promise<LLMToolResult> | LLMToolResult,
+    options?: { signal?: AbortSignal },
+  ): AsyncGenerator<StreamChunk> {
+    const aiMessages = this.convertMessages(messages);
+    const textAndToolStream = streamLLMWithTools(
+      {
+        model: this.languageModel,
+        messages: aiMessages,
+        tools,
+        onToolUse,
+        abortSignal: options?.signal,
+      },
+      'chat-adapter-tool-stream',
+      this.thinking,
+    );
+
+    let fullContent = '';
+
+    for await (const event of textAndToolStream) {
+      if (event.type !== 'text_delta') continue;
+      if (!event.text) continue;
+
+      fullContent += event.text;
+      yield { type: 'delta', content: event.text };
+    }
+
     yield { type: 'done', content: fullContent };
   }
 }

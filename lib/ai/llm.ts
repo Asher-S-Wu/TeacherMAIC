@@ -1,12 +1,14 @@
 /**
  * Unified LLM Call Layer
  *
- * Text generation uses the Gemini native GenerateContent API.
+ * Text generation uses MiniMax M3 through the Anthropic-compatible Messages API.
  */
 
+import Anthropic from '@anthropic-ai/sdk';
 import { createLogger } from '@/lib/logger';
 import type { ChatCompletionsModel } from './providers';
-import type { ThinkingConfig, ThinkingLevel } from '@/lib/types/provider';
+import { MINIMAX_M3_OUTPUT_WINDOW } from './minimax-models';
+import type { ThinkingConfig } from '@/lib/types/provider';
 
 const log = createLogger('LLM');
 
@@ -52,39 +54,38 @@ export interface LLMRetryOptions {
   validate?: (text: string) => boolean;
 }
 
-type GeminiTextPart = { text: string };
-type GeminiInlineDataPart = { inlineData: { mimeType: string; data: string } };
-type GeminiPart = GeminiTextPart | GeminiInlineDataPart;
-type GeminiContent = {
-  role: 'user' | 'model';
-  parts: GeminiPart[];
-};
+export interface LLMToolUse {
+  id: string;
+  name: string;
+  input: unknown;
+}
 
-interface GeminiGenerateContentBody {
-  contents: GeminiContent[];
-  systemInstruction?: { parts: GeminiTextPart[] };
-  generationConfig: {
-    maxOutputTokens: number;
-    thinkingConfig?: { thinkingLevel: ThinkingLevel };
-  };
+export interface LLMToolResult {
+  toolUseId: string;
+  content: string;
+  isError?: boolean;
+}
+
+export type LLMToolStreamEvent =
+  | { type: 'text_delta'; text: string }
+  | { type: 'tool_use'; toolUse: LLMToolUse };
+
+export interface LLMToolLoopParams extends LLMStreamParams {
+  tools: Anthropic.Tool[];
+  onToolUse: (toolUse: LLMToolUse) => Promise<LLMToolResult> | LLMToolResult;
+  maxToolIterations?: number;
 }
 
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
+const DEFAULT_TEMPERATURE = 1;
+const DEFAULT_TOP_P = 0.95;
+const DEFAULT_MAX_TOOL_ITERATIONS = 16;
 
-function getTextGenerationUrl(model: ChatCompletionsModel, stream: boolean): string {
-  const action = stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
-  return `${model.baseUrl.replace(/\/$/, '')}/${model.modelId}:${action}`;
+function getMaxOutputTokens(_params: LLMGenerateParams): number {
+  return MINIMAX_M3_OUTPUT_WINDOW;
 }
 
-function getMaxOutputTokens(params: LLMGenerateParams): number {
-  return params.maxOutputTokens ?? params.model.modelInfo?.outputWindow ?? 128000;
-}
-
-function getGeminiThinkingLevel(_config?: ThinkingConfig): ThinkingLevel {
-  return 'high';
-}
-
-function shouldSendGeminiThinking(config?: ThinkingConfig): boolean {
+function shouldSendAdaptiveThinking(config?: ThinkingConfig): boolean {
   return !(
     config?.mode === 'disabled' ||
     config?.enabled === false ||
@@ -92,24 +93,57 @@ function shouldSendGeminiThinking(config?: ThinkingConfig): boolean {
   );
 }
 
-function imageToGeminiInlineData(part: ImagePart): GeminiInlineDataPart {
+function getThinkingConfig(config?: ThinkingConfig): Anthropic.ThinkingConfigParam {
+  return shouldSendAdaptiveThinking(config) ? { type: 'adaptive' } : { type: 'disabled' };
+}
+
+function getClient(model: ChatCompletionsModel): Anthropic {
+  return new Anthropic({
+    apiKey: model.apiKey,
+    baseURL: model.baseUrl.replace(/\/$/, ''),
+  });
+}
+
+function getMimeType(mimeType?: string): Anthropic.Base64ImageSource['media_type'] {
+  if (
+    mimeType === 'image/jpeg' ||
+    mimeType === 'image/png' ||
+    mimeType === 'image/gif' ||
+    mimeType === 'image/webp'
+  ) {
+    return mimeType;
+  }
+  return 'image/png';
+}
+
+function imageToAnthropicBlock(part: ImagePart): Anthropic.ImageBlockParam {
   const dataUriMatch = part.image.match(/^data:([^;]+);base64,(.+)$/);
   if (dataUriMatch) {
     return {
-      inlineData: {
-        mimeType: dataUriMatch[1],
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: getMimeType(dataUriMatch[1]),
         data: dataUriMatch[2],
       },
     };
   }
 
   if (part.image.startsWith('http://') || part.image.startsWith('https://')) {
-    throw new Error('Gemini 原生接口只支持内嵌图片数据');
+    return {
+      type: 'image',
+      source: {
+        type: 'url',
+        url: part.image,
+      },
+    };
   }
 
   return {
-    inlineData: {
-      mimeType: part.mimeType || 'image/png',
+    type: 'image',
+    source: {
+      type: 'base64',
+      media_type: getMimeType(part.mimeType),
       data: part.image,
     },
   };
@@ -123,74 +157,88 @@ function contentToPlainText(content: MessageContent): string {
     .join('\n');
 }
 
-function contentToGeminiParts(content: MessageContent): GeminiPart[] {
-  if (typeof content === 'string') return [{ text: content }];
-  return content.map((part) =>
-    part.type === 'text' ? { text: part.text } : imageToGeminiInlineData(part),
-  );
+function contentToAnthropicBlocks(
+  content: MessageContent,
+  role: 'user' | 'assistant',
+): Anthropic.ContentBlockParam[] {
+  if (typeof content === 'string') {
+    return content ? [{ type: 'text', text: content }] : [];
+  }
+
+  const blocks: Anthropic.ContentBlockParam[] = [];
+  for (const part of content) {
+    if (part.type === 'text') {
+      if (part.text) blocks.push({ type: 'text', text: part.text });
+      continue;
+    }
+
+    if (role === 'assistant') {
+      continue;
+    }
+
+    blocks.push(imageToAnthropicBlock(part));
+  }
+
+  return blocks;
 }
 
-function buildGeminiContents(params: LLMGenerateParams): {
-  contents: GeminiContent[];
-  systemInstruction?: { parts: GeminiTextPart[] };
+function buildAnthropicInput(params: LLMGenerateParams): {
+  system?: string;
+  messages: Anthropic.MessageParam[];
 } {
-  const contents: GeminiContent[] = [];
-  const systemParts: GeminiTextPart[] = [];
+  const messages: Anthropic.MessageParam[] = [];
+  const systemParts: string[] = [];
 
   if (params.system?.trim()) {
-    systemParts.push({ text: params.system });
+    systemParts.push(params.system.trim());
   }
 
   for (const message of params.messages ?? []) {
     if (message.role === 'system') {
-      const text = contentToPlainText(message.content);
-      if (text.trim()) {
-        systemParts.push({ text });
-      }
+      const text = contentToPlainText(message.content).trim();
+      if (text) systemParts.push(text);
       continue;
     }
 
-    contents.push({
-      role: message.role === 'assistant' ? 'model' : 'user',
-      parts: contentToGeminiParts(message.content),
+    const content = contentToAnthropicBlocks(message.content, message.role);
+    if (content.length === 0) continue;
+
+    messages.push({
+      role: message.role,
+      content,
     });
   }
 
   if (params.prompt !== undefined) {
-    contents.push({
+    messages.push({
       role: 'user',
-      parts: [{ text: params.prompt }],
+      content: [{ type: 'text', text: params.prompt }],
     });
   }
 
-  if (contents.length === 0) {
+  if (messages.length === 0) {
     throw new Error('LLM request missing input');
   }
 
   return {
-    contents,
-    ...(systemParts.length > 0 ? { systemInstruction: { parts: systemParts } } : {}),
+    messages,
+    ...(systemParts.length > 0 ? { system: systemParts.join('\n\n') } : {}),
   };
 }
 
-function buildGeminiGenerateContentBody(
+function buildMessageCreateParams(
   params: LLMGenerateParams,
   thinking?: ThinkingConfig,
-): GeminiGenerateContentBody {
-  const content = buildGeminiContents(params);
-  const generationConfig: GeminiGenerateContentBody['generationConfig'] = {
-    maxOutputTokens: getMaxOutputTokens(params),
-  };
-
-  if (shouldSendGeminiThinking(thinking)) {
-    generationConfig.thinkingConfig = {
-      thinkingLevel: getGeminiThinkingLevel(thinking),
-    };
-  }
-
+): Anthropic.MessageCreateParamsNonStreaming {
+  const input = buildAnthropicInput(params);
   return {
-    ...content,
-    generationConfig,
+    model: params.model.modelId as Anthropic.Model,
+    max_tokens: getMaxOutputTokens(params),
+    messages: input.messages,
+    ...(input.system ? { system: input.system } : {}),
+    thinking: getThinkingConfig(thinking),
+    temperature: DEFAULT_TEMPERATURE,
+    top_p: DEFAULT_TOP_P,
   };
 }
 
@@ -200,7 +248,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function getErrorCode(error: unknown): string | undefined {
   if (!isRecord(error)) return undefined;
-  const code = error.code;
+  const code = error.code ?? error.status;
   return typeof code === 'string' || typeof code === 'number' ? String(code) : undefined;
 }
 
@@ -232,87 +280,33 @@ function describeError(error: unknown): string {
   return String(error);
 }
 
-async function readProviderError(response: Response): Promise<string> {
-  const text = await response.text().catch(() => '');
-  if (!text) return `${response.status} ${response.statusText}`;
-  try {
-    const parsed = JSON.parse(text) as unknown;
-    if (isRecord(parsed)) {
-      const error = parsed.error;
-      if (isRecord(error) && typeof error.message === 'string') return error.message;
-      if (typeof parsed.message === 'string') return parsed.message;
-    }
-  } catch {
-    // Return raw text below.
-  }
-  return text;
+function wrapLLMError(error: unknown, source: string, modelId: string): Error {
+  if (error instanceof Error && error.name === 'AbortError') return error;
+  return new LLMTransportError(
+    `LLM request failed [${source}, model=${modelId}]: ${describeError(error)}`,
+    error,
+  );
 }
 
-async function requestTextGeneration(
-  params: LLMGenerateParams,
-  source: string,
-  thinking: ThinkingConfig | undefined,
-  stream: boolean,
-): Promise<Response> {
-  const body = buildGeminiGenerateContentBody(params, thinking);
-  let response: Response;
-
-  try {
-    response = await fetch(getTextGenerationUrl(params.model, stream), {
-      method: 'POST',
-      headers: {
-        'x-goog-api-key': params.model.apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: params.abortSignal,
-    });
-  } catch (error) {
-    throw new LLMTransportError(
-      `LLM request failed [${source}, model=${params.model.modelId}]: ${describeError(error)}`,
-      error,
-    );
-  }
-
-  if (!response.ok) {
-    const message = await readProviderError(response);
-    throw new Error(
-      `LLM API failed [${source}, model=${params.model.modelId}, status=${response.status}]: ${message}`,
-    );
-  }
-
-  return response;
-}
-
-function extractTextFromGeminiResponse(payload: unknown): string {
-  if (!isRecord(payload)) return '';
-  const candidates = payload.candidates;
-  if (!Array.isArray(candidates)) return '';
-
-  return candidates
-    .map((candidate) => {
-      if (!isRecord(candidate)) return '';
-      const content = candidate.content;
-      if (!isRecord(content)) return '';
-      const parts = content.parts;
-      if (!Array.isArray(parts)) return '';
-
-      return parts
-        .map((part) => {
-          if (!isRecord(part) || part.thought === true) return '';
-          return typeof part.text === 'string' ? part.text : '';
-        })
-        .join('');
-    })
+function extractTextFromAnthropicContent(content: Anthropic.ContentBlock[]): string {
+  return content
+    .map((block) => (block.type === 'text' ? block.text : ''))
     .join('');
 }
 
-function getSseData(block: string): string {
-  return block
-    .split(/\r?\n/)
-    .filter((line) => line.startsWith('data:'))
-    .map((line) => line.slice(5).trimStart())
-    .join('\n');
+async function createMessage(
+  params: LLMGenerateParams,
+  source: string,
+  thinking?: ThinkingConfig,
+): Promise<Anthropic.Message> {
+  const client = getClient(params.model);
+  const body = buildMessageCreateParams(params, thinking);
+
+  try {
+    return await client.messages.create(body, { signal: params.abortSignal });
+  } catch (error) {
+    throw wrapLLMError(error, source, params.model.modelId);
+  }
 }
 
 async function* streamTextGeneration(
@@ -320,53 +314,104 @@ async function* streamTextGeneration(
   source: string,
   thinking?: ThinkingConfig,
 ): AsyncIterable<string> {
-  const response = await requestTextGeneration(params, source, thinking, true);
-  if (!response.body) {
-    throw new Error(`LLM API returned an empty stream [${source}]`);
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
+  const client = getClient(params.model);
+  const body = buildMessageCreateParams(params, thinking);
 
   try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (value) {
-        buffer += decoder.decode(value, { stream: !done });
-        buffer = buffer.replace(/\r\n/g, '\n');
+    const stream = client.messages.stream(body, { signal: params.abortSignal });
+    for await (const event of stream) {
+      if (event.type !== 'content_block_delta') continue;
+      if (event.delta.type === 'text_delta' && event.delta.text) {
+        yield event.delta.text;
       }
-      if (done) {
-        buffer += decoder.decode();
-        buffer = buffer.replace(/\r\n/g, '\n');
-      }
+    }
+    await stream.finalMessage();
+  } catch (error) {
+    throw wrapLLMError(error, source, params.model.modelId);
+  }
+}
 
-      let separatorIndex = buffer.indexOf('\n\n');
-      while (separatorIndex >= 0) {
-        const block = buffer.slice(0, separatorIndex);
-        buffer = buffer.slice(separatorIndex + 2);
+function getToolUseBlocks(message: Anthropic.Message): Anthropic.ToolUseBlock[] {
+  return message.content.filter(
+    (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use',
+  );
+}
 
-        const data = getSseData(block);
-        if (data && data !== '[DONE]') {
-          const parsed = JSON.parse(data) as unknown;
-          const delta = extractTextFromGeminiResponse(parsed);
-          if (delta) yield delta;
+function buildToolResultBlocks(results: LLMToolResult[]): Anthropic.ToolResultBlockParam[] {
+  return results.map((result) => ({
+    type: 'tool_result',
+    tool_use_id: result.toolUseId,
+    content: result.content,
+    ...(result.isError ? { is_error: true } : {}),
+  }));
+}
+
+export async function* streamLLMWithTools(
+  params: LLMToolLoopParams,
+  source: string,
+  thinking?: ThinkingConfig,
+): AsyncIterable<LLMToolStreamEvent> {
+  const client = getClient(params.model);
+  const input = buildAnthropicInput(params);
+  const messages = [...input.messages];
+  const maxIterations = params.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
+
+  for (let iteration = 0; iteration < maxIterations; iteration++) {
+    const request: Anthropic.MessageCreateParamsNonStreaming = {
+      model: params.model.modelId as Anthropic.Model,
+      max_tokens: getMaxOutputTokens(params),
+      messages,
+      ...(input.system ? { system: input.system } : {}),
+      thinking: getThinkingConfig(thinking),
+      temperature: DEFAULT_TEMPERATURE,
+      top_p: DEFAULT_TOP_P,
+      tools: params.tools,
+      tool_choice: { type: 'auto' },
+    };
+
+    let message: Anthropic.Message;
+    try {
+      const stream = client.messages.stream(request, { signal: params.abortSignal });
+      for await (const event of stream) {
+        if (event.type !== 'content_block_delta') continue;
+        if (event.delta.type === 'text_delta' && event.delta.text) {
+          yield { type: 'text_delta', text: event.delta.text };
         }
-
-        separatorIndex = buffer.indexOf('\n\n');
       }
-
-      if (done) break;
+      message = await stream.finalMessage();
+    } catch (error) {
+      throw wrapLLMError(error, source, params.model.modelId);
     }
 
-    const tail = getSseData(buffer);
-    if (tail && tail !== '[DONE]') {
-      const parsed = JSON.parse(tail) as unknown;
-      const delta = extractTextFromGeminiResponse(parsed);
-      if (delta) yield delta;
+    messages.push({
+      role: 'assistant',
+      content: message.content as Anthropic.ContentBlockParam[],
+    });
+
+    if (message.stop_reason === 'pause_turn') {
+      continue;
     }
-  } finally {
-    reader.releaseLock();
+
+    const toolUses = getToolUseBlocks(message);
+    if (toolUses.length === 0) {
+      break;
+    }
+
+    const toolResults: LLMToolResult[] = [];
+    for (const block of toolUses) {
+      const toolUse: LLMToolUse = {
+        id: block.id,
+        name: block.name,
+        input: block.input,
+      };
+      yield { type: 'tool_use', toolUse };
+      toolResults.push(await params.onToolUse(toolUse));
+    }
+
+    messages.push({
+      role: 'user',
+      content: buildToolResultBlocks(toolResults),
+    });
   }
 }
 
@@ -384,11 +429,10 @@ export async function callLLM<T extends LLMGenerateParams>(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const response = await requestTextGeneration(params, source, thinking, false);
-      const payload = (await response.json()) as unknown;
+      const response = await createMessage(params, source, thinking);
       const result: LLMTextResult = {
-        text: extractTextFromGeminiResponse(payload),
-        rawResponse: payload,
+        text: extractTextFromAnthropicContent(response.content),
+        rawResponse: response,
       };
 
       if (validate && !validate(result.text)) {

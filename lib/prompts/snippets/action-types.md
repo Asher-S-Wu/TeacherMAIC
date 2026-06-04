@@ -1,35 +1,28 @@
-## Action Type Definitions
+## Action Tool Definitions
 
-Actions are expressed as objects in a JSON array. Each object has a `type` field.
+Classroom actions are available as tools. Speak to students with normal text; call tools silently only when the visual effect helps the lesson.
 
-### speech - Voice Narration
+### speech
 
-```json
-{ "type": "text", "content": "Narration content" }
-```
+Use normal assistant text for narration. Do not call a tool for speech.
 
-### spotlight - Focus Element
+### spotlight
 
-```json
-{
-  "type": "action",
-  "name": "spotlight",
-  "params": { "elementId": "element_id" }
-}
-```
+Focus one current slide element.
 
-### laser - Laser Pointer
+- Required: `elementId`
+- Optional: `dimOpacity`
 
-```json
-{ "type": "action", "name": "laser", "params": { "elementId": "element_id" } }
-```
+### laser
 
-### discussion - Interactive Discussion
+Point at one current slide element.
 
-```json
-{
-  "type": "action",
-  "name": "discussion",
-  "params": { "topic": "Discussion topic", "prompt": "Guiding prompt" }
-}
-```
+- Required: `elementId`
+- Optional: `color`
+
+### discussion
+
+Start or guide a discussion when that action is available.
+
+- Required: `topic`
+- Optional: `prompt`, `agentId`
