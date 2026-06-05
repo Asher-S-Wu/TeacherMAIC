@@ -17,6 +17,7 @@ interface ServerProviderEntry {
   apiKey: string;
   baseUrl?: string;
   models?: string[];
+  resourceId?: string;
 }
 
 interface ServerConfig {
@@ -33,9 +34,10 @@ interface ServerConfig {
 // Env-var prefix mappings
 // ---------------------------------------------------------------------------
 
-const ARK_API_KEY_ENV = 'ARK_API_KEY';
 const MINIMAX_API_KEY_ENV = 'MINIMAX_API_KEY';
 const XCRAWL_API_KEY_ENV = 'XCRAWL_API_KEY';
+const DOUBAO_ASR_API_KEY_ENV = 'DOUBAO_ASR_API_KEY';
+const DOUBAO_ASR_RESOURCE_ID_ENV = 'DOUBAO_ASR_RESOURCE_ID';
 
 const PDF_ENV_MAP: Record<string, string> = {
   PDF_MINERU_CLOUD: 'mineru-cloud',
@@ -69,14 +71,20 @@ function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
   return result;
 }
 
-function loadArkOnlySection(providerId: string): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[ARK_API_KEY_ENV] || undefined;
-  return apiKey ? { [providerId]: { apiKey } } : {};
-}
-
 function loadMinimaxOnlySection(providerId: string): Record<string, ServerProviderEntry> {
   const apiKey = process.env[MINIMAX_API_KEY_ENV] || undefined;
   return apiKey ? { [providerId]: { apiKey } } : {};
+}
+
+function loadDoubaoASRSection(): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[DOUBAO_ASR_API_KEY_ENV] || undefined;
+  if (!apiKey) return {};
+  return {
+    'doubao-asr': {
+      apiKey,
+      resourceId: process.env[DOUBAO_ASR_RESOURCE_ID_ENV] || 'volc.seedasr.sauc.duration',
+    },
+  };
 }
 
 function loadXCrawlSection(): Record<string, ServerProviderEntry> {
@@ -94,7 +102,7 @@ function buildConfig(): ServerConfig {
   return {
     providers: loadLLMEnvSection(),
     tts: loadMinimaxOnlySection('minimax-tts'),
-    asr: loadArkOnlySection('ark-asr'),
+    asr: loadDoubaoASRSection(),
     pdf: loadEnvSection(PDF_ENV_MAP),
     image: loadMinimaxOnlySection('minimax-image'),
     video: loadMinimaxOnlySection('minimax-video'),
@@ -187,8 +195,14 @@ export function getServerASRProviders(): Record<string, { baseUrl?: string }> {
   return result;
 }
 
-export function resolveASRApiKey(providerId: string): string {
-  return getConfig().asr[providerId]?.apiKey || '';
+export function resolveASRApiConfig(
+  providerId: string,
+): { apiKey: string; resourceId: string } {
+  const entry = getConfig().asr[providerId];
+  return {
+    apiKey: entry?.apiKey || '',
+    resourceId: entry?.resourceId || 'volc.seedasr.sauc.duration',
+  };
 }
 
 export function resolveASRBaseUrl(_providerId: string, _clientBaseUrl?: string): string | undefined {

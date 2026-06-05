@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 import { transcribeAudio } from '@/lib/audio/asr-providers';
-import { resolveASRApiKey } from '@/lib/server/provider-config';
+import { resolveASRApiConfig } from '@/lib/server/provider-config';
 import type { ASRProviderId } from '@/lib/audio/types';
-import { ARK_ASR_MODEL_ID } from '@/lib/audio/constants';
+import { DOUBAO_ASR_MODEL_ID } from '@/lib/audio/constants';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
@@ -25,15 +25,16 @@ export async function POST(req: NextRequest) {
       return apiError('INVALID_REQUEST', 400, '音频文件不存在');
     }
 
-    const effectiveProviderId: ASRProviderId = 'ark-asr';
+    const effectiveProviderId: ASRProviderId = 'doubao-asr';
     resolvedProviderId = effectiveProviderId;
-    resolvedModelId = ARK_ASR_MODEL_ID;
+    resolvedModelId = DOUBAO_ASR_MODEL_ID;
+    const apiConfig = resolveASRApiConfig(effectiveProviderId);
 
     const config = {
       providerId: effectiveProviderId,
-      modelId: ARK_ASR_MODEL_ID,
+      modelId: DOUBAO_ASR_MODEL_ID,
       language: body.language || 'auto',
-      apiKey: resolveASRApiKey(effectiveProviderId),
+      ...apiConfig,
     };
 
     // Transcribe using the provider system

@@ -8,40 +8,73 @@ import type {
   ASRProviderConfig,
 } from './types';
 import {
-  ARK_BASE_URL,
-  ARK_LLM_MODEL_ID,
-  ARK_LLM_MODEL_NAME,
-} from '@/lib/ai/ark-models';
-import {
   MINIMAX_API_BASE_URL,
   MINIMAX_TTS_MODEL_ID,
   MINIMAX_TTS_MODEL_NAME,
 } from '@/lib/ai/minimax-models';
 
-export const ARK_ASR_MODEL_ID = ARK_LLM_MODEL_ID;
 export { MINIMAX_TTS_MODEL_ID, MINIMAX_TTS_MODEL_NAME };
+export const DOUBAO_ASR_BASE_URL = 'wss://openspeech.bytedance.com/api/v3/sauc';
+export const DOUBAO_ASR_MODEL_ID = 'volc.seedasr.sauc.duration';
+export const DOUBAO_ASR_MODEL_NAME = '豆包流式语音识别模型 2.0';
 
-export const ARK_ASR_LANGUAGES = [
+export const DOUBAO_ASR_LANGUAGES = [
   'auto',
-  'zh',
-  'yue',
-  'en',
-  'ja',
-  'ko',
-  'de',
-  'fr',
-  'ru',
-  'es',
-  'pt',
-  'ar',
-  'it',
-  'hi',
-  'id',
-  'ms',
-  'th',
-  'tr',
-  'vi',
+  'zh-CN',
+  'en-US',
+  'yue-CN',
+  'ja-JP',
+  'ko-KR',
+  'de-DE',
+  'fr-FR',
+  'ru-RU',
+  'es-MX',
+  'pt-BR',
+  'ar-SA',
+  'it-IT',
+  'id-ID',
+  'ms-MY',
+  'th-TH',
+  'tr-TR',
+  'vi-VN',
+  'fil-PH',
+  'bn-BD',
+  'el-GR',
+  'nl-NL',
+  'pl-PL',
+  'ro-RO',
+  'ne-NP',
+  'uk-UA',
 ];
+
+export const DOUBAO_ASR_LANGUAGE_NAMES: Record<string, string> = {
+  auto: '自动识别',
+  'zh-CN': '中文普通话',
+  'en-US': '英语',
+  'yue-CN': '粤语',
+  'ja-JP': '日语',
+  'ko-KR': '韩语',
+  'de-DE': '德语',
+  'fr-FR': '法语',
+  'ru-RU': '俄语',
+  'es-MX': '西班牙语',
+  'pt-BR': '葡萄牙语',
+  'ar-SA': '阿拉伯语',
+  'it-IT': '意大利语',
+  'id-ID': '印尼语',
+  'ms-MY': '马来语',
+  'th-TH': '泰语',
+  'tr-TR': '土耳其语',
+  'vi-VN': '越南语',
+  'fil-PH': '菲律宾语',
+  'bn-BD': '孟加拉语',
+  'el-GR': '希腊语',
+  'nl-NL': '荷兰语',
+  'pl-PL': '波兰语',
+  'ro-RO': '罗马尼亚语',
+  'ne-NP': '尼泊尔语',
+  'uk-UA': '乌克兰语',
+};
 
 export const MINIMAX_TTS_VOICES: TTSVoiceInfo[] = [
   {
@@ -107,14 +140,14 @@ export const TTS_PROVIDERS: Record<BuiltInTTSProviderId, TTSProviderConfig> = {
 };
 
 export const ASR_PROVIDERS: Record<BuiltInASRProviderId, ASRProviderConfig> = {
-  'ark-asr': {
-    id: 'ark-asr',
-    name: '火山方舟语音识别',
+  'doubao-asr': {
+    id: 'doubao-asr',
+    name: '豆包语音识别',
     requiresApiKey: true,
-    defaultBaseUrl: ARK_BASE_URL,
-    models: [{ id: ARK_ASR_MODEL_ID, name: ARK_LLM_MODEL_NAME }],
-    defaultModelId: ARK_ASR_MODEL_ID,
-    supportedLanguages: ARK_ASR_LANGUAGES,
+    defaultBaseUrl: DOUBAO_ASR_BASE_URL,
+    models: [{ id: DOUBAO_ASR_MODEL_ID, name: DOUBAO_ASR_MODEL_NAME }],
+    defaultModelId: DOUBAO_ASR_MODEL_ID,
+    supportedLanguages: DOUBAO_ASR_LANGUAGES,
     supportedFormats: ['wav'],
   },
 };
@@ -149,4 +182,8 @@ export function getASRProvider(providerId: ASRProviderId): ASRProviderConfig | u
 
 export function getASRSupportedLanguages(providerId: ASRProviderId): string[] {
   return getASRProvider(providerId)?.supportedLanguages || [];
+}
+
+export function getASRLanguageName(language: string): string {
+  return DOUBAO_ASR_LANGUAGE_NAMES[language] || language;
 }

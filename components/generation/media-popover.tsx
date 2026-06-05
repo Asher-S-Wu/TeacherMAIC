@@ -25,7 +25,11 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useSettingsStore } from '@/lib/store/settings';
-import { ASR_PROVIDERS, getASRSupportedLanguages } from '@/lib/audio/constants';
+import {
+  ASR_PROVIDERS,
+  getASRLanguageName,
+  getASRSupportedLanguages,
+} from '@/lib/audio/constants';
 import type { ASRProviderId } from '@/lib/audio/types';
 import { WEB_SEARCH_PROVIDERS } from '@/lib/web-search/constants';
 import type { SettingsSection } from '@/lib/types/settings';
@@ -113,7 +117,7 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
         available: true,
         items: getASRSupportedLanguages(p.id).map((l) => ({
           id: l,
-          name: l,
+          name: getASRLanguageName(l),
         })),
       });
     }

@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useSettingsStore } from '@/lib/store/settings';
-import { ASR_PROVIDERS } from '@/lib/audio/constants';
+import { ASR_PROVIDERS, getASRLanguageName } from '@/lib/audio/constants';
 import type { ASRProviderId } from '@/lib/audio/types';
 
 interface ASRSettingsProps {
@@ -40,7 +40,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
             <SelectContent>
               {provider.supportedLanguages.map((language) => (
                 <SelectItem key={language} value={language}>
-                  {language}
+                  {getASRLanguageName(language)}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -83,8 +83,19 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
       offset += chunk.length;
     }
 
+    const targetSampleRate = 16000;
+    const resampledLength = Math.max(1, Math.round((samples.length * targetSampleRate) / session.sampleRate));
+    const resampled = new Float32Array(resampledLength);
+    for (let i = 0; i < resampledLength; i += 1) {
+      const sourceIndex = (i * session.sampleRate) / targetSampleRate;
+      const left = Math.floor(sourceIndex);
+      const right = Math.min(left + 1, samples.length - 1);
+      const ratio = sourceIndex - left;
+      resampled[i] = samples[left] * (1 - ratio) + samples[right] * ratio;
+    }
+
     const bytesPerSample = 2;
-    const dataLength = samples.length * bytesPerSample;
+    const dataLength = resampled.length * bytesPerSample;
     const buffer = new ArrayBuffer(44 + dataLength);
     const view = new DataView(buffer);
 
@@ -101,16 +112,16 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
     view.setUint32(16, 16, true);
     view.setUint16(20, 1, true);
     view.setUint16(22, 1, true);
-    view.setUint32(24, session.sampleRate, true);
-    view.setUint32(28, session.sampleRate * bytesPerSample, true);
+    view.setUint32(24, targetSampleRate, true);
+    view.setUint32(28, targetSampleRate * bytesPerSample, true);
     view.setUint16(32, bytesPerSample, true);
     view.setUint16(34, 8 * bytesPerSample, true);
     writeString(36, 'data');
     view.setUint32(40, dataLength, true);
 
     let dataOffset = 44;
-    for (let i = 0; i < samples.length; i += 1) {
-      const sample = Math.max(-1, Math.min(1, samples[i]));
+    for (let i = 0; i < resampled.length; i += 1) {
+      const sample = Math.max(-1, Math.min(1, resampled[i]));
       view.setInt16(dataOffset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
       dataOffset += bytesPerSample;
     }

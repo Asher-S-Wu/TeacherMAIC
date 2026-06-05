@@ -12,9 +12,9 @@ import type { ThinkingConfig } from '@/lib/types/provider';
 import { getThinkingConfigKey, supportsConfigurableThinking } from '@/lib/ai/thinking-config';
 import type { TTSProviderId, ASRProviderId, BuiltInTTSProviderId } from '@/lib/audio/types';
 import {
-  ARK_ASR_MODEL_ID,
   ASR_PROVIDERS,
   DEFAULT_TTS_VOICES,
+  DOUBAO_ASR_MODEL_ID,
   MINIMAX_TTS_MODEL_ID,
   TTS_PROVIDERS,
 } from '@/lib/audio/constants';
@@ -84,6 +84,11 @@ function pruneThinkingConfigs(
 function isValidTTSVoice(providerId: TTSProviderId, voice: string | undefined): voice is string {
   if (!voice) return false;
   return TTS_PROVIDERS[providerId]?.voices.some((item) => item.id === voice) ?? false;
+}
+
+function normalizeASRLanguage(language: string | undefined): string {
+  const supportedLanguages = ASR_PROVIDERS['doubao-asr'].supportedLanguages;
+  return language && supportedLanguages.includes(language) ? language : 'auto';
 }
 
 /** Available playback speed tiers */
@@ -336,8 +341,8 @@ const getDefaultAudioConfig = () => ({
   ttsProviderId: 'minimax-tts' as TTSProviderId,
   ttsVoice: DEFAULT_TTS_VOICES['minimax-tts'],
   ttsSpeed: 1.0,
-  asrProviderId: 'ark-asr' as ASRProviderId,
-  asrLanguage: 'zh',
+  asrProviderId: 'doubao-asr' as ASRProviderId,
+  asrLanguage: 'auto',
   ttsProvidersConfig: {
     'minimax-tts': { apiKey: '', baseUrl: '', modelId: MINIMAX_TTS_MODEL_ID, enabled: true },
   } as Record<
@@ -345,7 +350,7 @@ const getDefaultAudioConfig = () => ({
     { apiKey: string; baseUrl: string; modelId?: string; enabled: boolean }
   >,
   asrProvidersConfig: {
-    'ark-asr': { apiKey: '', baseUrl: '', modelId: ARK_ASR_MODEL_ID, enabled: true },
+    'doubao-asr': { apiKey: '', baseUrl: '', modelId: DOUBAO_ASR_MODEL_ID, enabled: true },
   } as Record<ASRProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -703,14 +708,14 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['ttsProvidersConfig'];
 
               const newASRConfig = {
-                'ark-asr': {
-                  ...defaultAudio.asrProvidersConfig['ark-asr'],
-                  enabled: state.asrProvidersConfig['ark-asr']?.enabled ?? true,
+                'doubao-asr': {
+                  ...defaultAudio.asrProvidersConfig['doubao-asr'],
+                  enabled: state.asrProvidersConfig['doubao-asr']?.enabled ?? true,
                   apiKey: '',
                   baseUrl: '',
-                  modelId: ARK_ASR_MODEL_ID,
-                  isServerConfigured: !!data.asr['ark-asr'],
-                  serverBaseUrl: data.asr['ark-asr']?.baseUrl,
+                  modelId: DOUBAO_ASR_MODEL_ID,
+                  isServerConfigured: !!data.asr['doubao-asr'],
+                  serverBaseUrl: data.asr['doubao-asr']?.baseUrl,
                 },
               } as SettingsState['asrProvidersConfig'];
 
@@ -787,7 +792,8 @@ export const useSettingsStore = create<SettingsState>()(
                 ttsProviderId: 'minimax-tts' as TTSProviderId,
                 ttsVoice,
                 ttsEnabled,
-                asrProviderId: 'ark-asr' as ASRProviderId,
+                asrProviderId: 'doubao-asr' as ASRProviderId,
+                asrLanguage: normalizeASRLanguage(state.asrLanguage),
                 pdfProviderId: 'mineru-cloud' as PDFProviderId,
                 imageProviderId: 'minimax-image' as ImageProviderId,
                 imageModelId: MINIMAX_IMAGE_MODEL_ID,
@@ -832,7 +838,8 @@ export const useSettingsStore = create<SettingsState>()(
           modelId: DEFAULT_MODEL_ID,
           ttsProviderId: 'minimax-tts' as TTSProviderId,
           ttsVoice,
-          asrProviderId: 'ark-asr' as ASRProviderId,
+          asrProviderId: 'doubao-asr' as ASRProviderId,
+          asrLanguage: normalizeASRLanguage(persisted.asrLanguage),
           pdfProviderId: currentState.pdfProviderId,
           imageProviderId: 'minimax-image' as ImageProviderId,
           imageModelId: MINIMAX_IMAGE_MODEL_ID,
