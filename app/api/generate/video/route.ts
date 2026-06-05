@@ -17,10 +17,10 @@ import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
 import { saveRemoteFileForUser } from '@/lib/server/file-storage';
-import { ARK_VIDEO_MODEL_ID } from '@/lib/ai/ark-models';
+import { MINIMAX_VIDEO_MODEL_ID } from '@/lib/ai/minimax-models';
 
 const log = createLogger('VideoGeneration API');
-const ARK_VIDEO_PROVIDER_ID: VideoProviderId = 'ark-video';
+const MINIMAX_VIDEO_PROVIDER_ID: VideoProviderId = 'minimax-video';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing prompt');
     }
 
-    const providerId = ARK_VIDEO_PROVIDER_ID;
+    const providerId = MINIMAX_VIDEO_PROVIDER_ID;
 
     const apiKey = resolveVideoApiKey(providerId);
     if (!apiKey) {
@@ -45,13 +45,13 @@ export async function POST(request: NextRequest) {
     const options = normalizeVideoOptions(providerId, body);
 
     log.info(
-      `Generating video: provider=${providerId}, model=${ARK_VIDEO_MODEL_ID}, ` +
+      `Generating video: provider=${providerId}, model=${MINIMAX_VIDEO_MODEL_ID}, ` +
         `prompt="${body.prompt.slice(0, 80)}...", duration=${options.duration ?? 'auto'}, ` +
         `aspect=${options.aspectRatio ?? 'auto'}, resolution=${options.resolution ?? 'auto'}`,
     );
 
     const result = await generateVideo(
-      { providerId, apiKey, model: ARK_VIDEO_MODEL_ID },
+      { providerId, apiKey, model: MINIMAX_VIDEO_MODEL_ID },
       options,
     );
 
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       return apiError('CONTENT_SENSITIVE', 400, '抱歉，该内容触发了安全检查。');
     }
     log.error(
-      `Video generation failed [provider=ark-video, model=${ARK_VIDEO_MODEL_ID}]:`,
+      `Video generation failed [provider=minimax-video, model=${MINIMAX_VIDEO_MODEL_ID}]:`,
       error,
     );
     return apiError('INTERNAL_ERROR', 500, '视频生成失败，请稍后再试。');

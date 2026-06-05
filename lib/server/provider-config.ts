@@ -17,7 +17,6 @@ interface ServerProviderEntry {
   apiKey: string;
   baseUrl?: string;
   models?: string[];
-  resourceId?: string;
 }
 
 interface ServerConfig {
@@ -37,8 +36,6 @@ interface ServerConfig {
 const ARK_API_KEY_ENV = 'ARK_API_KEY';
 const MINIMAX_API_KEY_ENV = 'MINIMAX_API_KEY';
 const XCRAWL_API_KEY_ENV = 'XCRAWL_API_KEY';
-const VOLCENGINE_TTS_API_KEY_ENV = 'VOLCENGINE_TTS_API_KEY';
-const VOLCENGINE_TTS_RESOURCE_ID_ENV = 'VOLCENGINE_TTS_RESOURCE_ID';
 
 const PDF_ENV_MAP: Record<string, string> = {
   PDF_MINERU_CLOUD: 'mineru-cloud',
@@ -77,15 +74,14 @@ function loadArkOnlySection(providerId: string): Record<string, ServerProviderEn
   return apiKey ? { [providerId]: { apiKey } } : {};
 }
 
+function loadMinimaxOnlySection(providerId: string): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[MINIMAX_API_KEY_ENV] || undefined;
+  return apiKey ? { [providerId]: { apiKey } } : {};
+}
+
 function loadXCrawlSection(): Record<string, ServerProviderEntry> {
   const apiKey = process.env[XCRAWL_API_KEY_ENV] || undefined;
   return apiKey ? { xcrawl: { apiKey } } : {};
-}
-
-function loadDoubaoSpeechSection(providerId: string): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[VOLCENGINE_TTS_API_KEY_ENV] || undefined;
-  const resourceId = process.env[VOLCENGINE_TTS_RESOURCE_ID_ENV] || 'seed-tts-2.0';
-  return apiKey ? { [providerId]: { apiKey, resourceId } } : {};
 }
 
 // ---------------------------------------------------------------------------
@@ -97,11 +93,11 @@ let _config: ServerConfig | null = null;
 function buildConfig(): ServerConfig {
   return {
     providers: loadLLMEnvSection(),
-    tts: loadDoubaoSpeechSection('ark-tts'),
+    tts: loadMinimaxOnlySection('minimax-tts'),
     asr: loadArkOnlySection('ark-asr'),
     pdf: loadEnvSection(PDF_ENV_MAP),
-    image: loadArkOnlySection('ark-image'),
-    video: loadArkOnlySection('ark-video'),
+    image: loadMinimaxOnlySection('minimax-image'),
+    video: loadMinimaxOnlySection('minimax-video'),
     webSearch: loadXCrawlSection(),
   };
 }
@@ -171,10 +167,6 @@ export function getServerTTSProviders(): Record<string, { baseUrl?: string }> {
 
 export function resolveTTSApiKey(providerId: string): string {
   return getConfig().tts[providerId]?.apiKey || '';
-}
-
-export function resolveTTSResourceId(providerId: string): string | undefined {
-  return getConfig().tts[providerId]?.resourceId;
 }
 
 export function resolveTTSBaseUrl(_providerId: string, _clientBaseUrl?: string): string | undefined {

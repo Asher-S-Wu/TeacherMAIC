@@ -13,12 +13,12 @@ import { getThinkingConfigKey, supportsConfigurableThinking } from '@/lib/ai/thi
 import type { TTSProviderId, ASRProviderId, BuiltInTTSProviderId } from '@/lib/audio/types';
 import {
   ARK_ASR_MODEL_ID,
-  ARK_TTS_MODEL_ID,
   ASR_PROVIDERS,
   DEFAULT_TTS_VOICES,
+  MINIMAX_TTS_MODEL_ID,
   TTS_PROVIDERS,
 } from '@/lib/audio/constants';
-import { ARK_IMAGE_MODEL_ID, ARK_VIDEO_MODEL_ID } from '@/lib/ai/ark-models';
+import { MINIMAX_IMAGE_MODEL_ID, MINIMAX_VIDEO_MODEL_ID } from '@/lib/ai/minimax-models';
 import type { PDFProviderId } from '@/lib/pdf/types';
 import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
@@ -333,13 +333,13 @@ const getDefaultProvidersConfig = (): ProvidersConfig => {
 
 // Initialize default audio config
 const getDefaultAudioConfig = () => ({
-  ttsProviderId: 'ark-tts' as TTSProviderId,
-  ttsVoice: DEFAULT_TTS_VOICES['ark-tts'],
+  ttsProviderId: 'minimax-tts' as TTSProviderId,
+  ttsVoice: DEFAULT_TTS_VOICES['minimax-tts'],
   ttsSpeed: 1.0,
   asrProviderId: 'ark-asr' as ASRProviderId,
   asrLanguage: 'zh',
   ttsProvidersConfig: {
-    'ark-tts': { apiKey: '', baseUrl: '', modelId: ARK_TTS_MODEL_ID, enabled: true },
+    'minimax-tts': { apiKey: '', baseUrl: '', modelId: MINIMAX_TTS_MODEL_ID, enabled: true },
   } as Record<
     TTSProviderId,
     { apiKey: string; baseUrl: string; modelId?: string; enabled: boolean }
@@ -359,19 +359,19 @@ const getDefaultPDFConfig = () => ({
 
 // Initialize default Image config
 const getDefaultImageConfig = () => ({
-  imageProviderId: 'ark-image' as ImageProviderId,
-  imageModelId: ARK_IMAGE_MODEL_ID,
+  imageProviderId: 'minimax-image' as ImageProviderId,
+  imageModelId: MINIMAX_IMAGE_MODEL_ID,
   imageProvidersConfig: {
-    'ark-image': { apiKey: '', baseUrl: '', enabled: false },
+    'minimax-image': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<ImageProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
 // Initialize default Video config
 const getDefaultVideoConfig = () => ({
-  videoProviderId: 'ark-video' as VideoProviderId,
-  videoModelId: ARK_VIDEO_MODEL_ID,
+  videoProviderId: 'minimax-video' as VideoProviderId,
+  videoModelId: MINIMAX_VIDEO_MODEL_ID,
   videoProvidersConfig: {
-    'ark-video': { apiKey: '', baseUrl: '', enabled: false },
+    'minimax-video': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<VideoProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -589,8 +589,8 @@ export const useSettingsStore = create<SettingsState>()(
           })),
 
         // Image Generation actions
-        setImageProvider: () => set({ imageProviderId: 'ark-image' as ImageProviderId }),
-        setImageModelId: () => set({ imageModelId: ARK_IMAGE_MODEL_ID }),
+        setImageProvider: () => set({ imageProviderId: 'minimax-image' as ImageProviderId }),
+        setImageModelId: () => set({ imageModelId: MINIMAX_IMAGE_MODEL_ID }),
 
         setImageProviderConfig: (providerId, config) =>
           set((state) => {
@@ -609,8 +609,8 @@ export const useSettingsStore = create<SettingsState>()(
           }),
 
         // Video Generation actions
-        setVideoProvider: () => set({ videoProviderId: 'ark-video' as VideoProviderId }),
-        setVideoModelId: () => set({ videoModelId: ARK_VIDEO_MODEL_ID }),
+        setVideoProvider: () => set({ videoProviderId: 'minimax-video' as VideoProviderId }),
+        setVideoModelId: () => set({ videoModelId: MINIMAX_VIDEO_MODEL_ID }),
 
         setVideoProviderConfig: (providerId, config) =>
           set((state) => {
@@ -691,14 +691,14 @@ export const useSettingsStore = create<SettingsState>()(
 
               const defaultAudio = getDefaultAudioConfig();
               const newTTSConfig = {
-                'ark-tts': {
-                  ...defaultAudio.ttsProvidersConfig['ark-tts'],
-                  enabled: state.ttsProvidersConfig['ark-tts']?.enabled ?? true,
+                'minimax-tts': {
+                  ...defaultAudio.ttsProvidersConfig['minimax-tts'],
+                  enabled: state.ttsProvidersConfig['minimax-tts']?.enabled ?? true,
                   apiKey: '',
                   baseUrl: '',
-                  modelId: ARK_TTS_MODEL_ID,
-                  isServerConfigured: !!data.tts['ark-tts'],
-                  serverBaseUrl: data.tts['ark-tts']?.baseUrl,
+                  modelId: MINIMAX_TTS_MODEL_ID,
+                  isServerConfigured: !!data.tts['minimax-tts'],
+                  serverBaseUrl: data.tts['minimax-tts']?.baseUrl,
                 },
               } as SettingsState['ttsProvidersConfig'];
 
@@ -725,11 +725,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['pdfProvidersConfig'];
 
               const defaultImage = getDefaultImageConfig();
-              const imageServerConfig = data.image['ark-image'];
+              const imageServerConfig = data.image['minimax-image'];
               const newImageConfig = {
-                'ark-image': {
-                  ...defaultImage.imageProvidersConfig['ark-image'],
-                  enabled: state.imageProvidersConfig['ark-image']?.enabled ?? false,
+                'minimax-image': {
+                  ...defaultImage.imageProvidersConfig['minimax-image'],
+                  enabled: state.imageProvidersConfig['minimax-image']?.enabled ?? false,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!imageServerConfig,
@@ -738,11 +738,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['imageProvidersConfig'];
 
               const defaultVideo = getDefaultVideoConfig();
-              const videoServerConfig = data.video['ark-video'];
+              const videoServerConfig = data.video['minimax-video'];
               const newVideoConfig = {
-                'ark-video': {
-                  ...defaultVideo.videoProvidersConfig['ark-video'],
-                  enabled: state.videoProvidersConfig['ark-video']?.enabled ?? false,
+                'minimax-video': {
+                  ...defaultVideo.videoProvidersConfig['minimax-video'],
+                  enabled: state.videoProvidersConfig['minimax-video']?.enabled ?? false,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!videoServerConfig,
@@ -764,14 +764,14 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['webSearchProvidersConfig'];
 
               const imageGenerationEnabled =
-                state.imageGenerationEnabled && !!newImageConfig['ark-image'].isServerConfigured;
+                state.imageGenerationEnabled && !!newImageConfig['minimax-image'].isServerConfigured;
               const videoGenerationEnabled =
-                state.videoGenerationEnabled && !!newVideoConfig['ark-video'].isServerConfigured;
-              const ttsVoice = isValidTTSVoice('ark-tts', state.ttsVoice)
+                state.videoGenerationEnabled && !!newVideoConfig['minimax-video'].isServerConfigured;
+              const ttsVoice = isValidTTSVoice('minimax-tts', state.ttsVoice)
                 ? state.ttsVoice
-                : DEFAULT_TTS_VOICES['ark-tts'];
+                : DEFAULT_TTS_VOICES['minimax-tts'];
               const ttsEnabled =
-                state.ttsEnabled && !!newTTSConfig['ark-tts'].isServerConfigured;
+                state.ttsEnabled && !!newTTSConfig['minimax-tts'].isServerConfigured;
 
               return {
                 providersConfig: newProvidersConfig,
@@ -784,16 +784,16 @@ export const useSettingsStore = create<SettingsState>()(
                 webSearchProvidersConfig: newWebSearchConfig,
                 providerId: DEFAULT_PROVIDER_ID,
                 modelId: DEFAULT_MODEL_ID,
-                ttsProviderId: 'ark-tts' as TTSProviderId,
+                ttsProviderId: 'minimax-tts' as TTSProviderId,
                 ttsVoice,
                 ttsEnabled,
                 asrProviderId: 'ark-asr' as ASRProviderId,
                 pdfProviderId: 'mineru-cloud' as PDFProviderId,
-                imageProviderId: 'ark-image' as ImageProviderId,
-                imageModelId: ARK_IMAGE_MODEL_ID,
+                imageProviderId: 'minimax-image' as ImageProviderId,
+                imageModelId: MINIMAX_IMAGE_MODEL_ID,
                 imageGenerationEnabled,
-                videoProviderId: 'ark-video' as VideoProviderId,
-                videoModelId: ARK_VIDEO_MODEL_ID,
+                videoProviderId: 'minimax-video' as VideoProviderId,
+                videoModelId: MINIMAX_VIDEO_MODEL_ID,
                 videoGenerationEnabled,
                 webSearchProviderId: 'xcrawl' as WebSearchProviderId,
               };
@@ -816,9 +816,9 @@ export const useSettingsStore = create<SettingsState>()(
           persisted.thinkingConfigs,
           currentState.providersConfig,
         );
-        const ttsVoice = isValidTTSVoice('ark-tts', persisted.ttsVoice)
+        const ttsVoice = isValidTTSVoice('minimax-tts', persisted.ttsVoice)
           ? persisted.ttsVoice
-          : DEFAULT_TTS_VOICES['ark-tts'];
+          : DEFAULT_TTS_VOICES['minimax-tts'];
         return {
           ...merged,
           providersConfig: currentState.providersConfig,
@@ -830,14 +830,14 @@ export const useSettingsStore = create<SettingsState>()(
           webSearchProvidersConfig: currentState.webSearchProvidersConfig,
           providerId: DEFAULT_PROVIDER_ID,
           modelId: DEFAULT_MODEL_ID,
-          ttsProviderId: 'ark-tts' as TTSProviderId,
+          ttsProviderId: 'minimax-tts' as TTSProviderId,
           ttsVoice,
           asrProviderId: 'ark-asr' as ASRProviderId,
           pdfProviderId: currentState.pdfProviderId,
-          imageProviderId: 'ark-image' as ImageProviderId,
-          imageModelId: ARK_IMAGE_MODEL_ID,
-          videoProviderId: 'ark-video' as VideoProviderId,
-          videoModelId: ARK_VIDEO_MODEL_ID,
+          imageProviderId: 'minimax-image' as ImageProviderId,
+          imageModelId: MINIMAX_IMAGE_MODEL_ID,
+          videoProviderId: 'minimax-video' as VideoProviderId,
+          videoModelId: MINIMAX_VIDEO_MODEL_ID,
           webSearchProviderId: 'xcrawl' as WebSearchProviderId,
           thinkingConfigs,
         } as SettingsState;

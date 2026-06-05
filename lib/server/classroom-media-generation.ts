@@ -25,7 +25,6 @@ import {
   resolveImageApiKey,
   resolveVideoApiKey,
   resolveTTSApiKey,
-  resolveTTSResourceId,
 } from '@/lib/server/provider-config';
 import type { SceneOutline } from '@/lib/types/generation';
 import type { Scene } from '@/lib/types/stage';
@@ -349,7 +348,6 @@ export async function generateTTSForClassroom(
         {
           providerId,
           modelId: DEFAULT_TTS_MODELS[providerId as keyof typeof DEFAULT_TTS_MODELS] || '',
-          resourceId: resolveTTSResourceId(providerId),
           apiKey,
           voice,
           speed: speechAction.speed,

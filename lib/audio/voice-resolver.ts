@@ -26,11 +26,11 @@ export function resolveAgentVoice(
   agentIndex: number,
   availableProviders: ProviderWithVoices[],
 ): ResolvedVoice {
-  if (agent.voiceConfig?.providerId === 'ark-tts') {
-    const allVoiceIds = new Set(getServerVoiceList('ark-tts'));
+  if (agent.voiceConfig?.providerId === 'minimax-tts') {
+    const allVoiceIds = new Set(getServerVoiceList('minimax-tts'));
     if (allVoiceIds.has(agent.voiceConfig.voiceId)) {
       return {
-        providerId: 'ark-tts',
+        providerId: 'minimax-tts',
         modelId: agent.voiceConfig.modelId,
         voiceId: agent.voiceConfig.voiceId,
       };
@@ -46,7 +46,7 @@ export function resolveAgentVoice(
     };
   }
 
-  return { providerId: 'ark-tts', voiceId: DEFAULT_TTS_VOICES['ark-tts'] };
+  return { providerId: 'minimax-tts', voiceId: DEFAULT_TTS_VOICES['minimax-tts'] };
 }
 
 export function getServerVoiceList(providerId: TTSProviderId): string[] {
@@ -63,8 +63,8 @@ export function getAvailableProvidersWithVoices(
     }
   >,
 ): ProviderWithVoices[] {
-  const provider = TTS_PROVIDERS['ark-tts'];
-  const providerConfig = ttsProvidersConfig['ark-tts'];
+  const provider = TTS_PROVIDERS['minimax-tts'];
+  const providerConfig = ttsProvidersConfig['minimax-tts'];
   const isServerConfigured = providerConfig?.isServerConfigured === true;
   if (!isServerConfigured) return [];
 
@@ -76,7 +76,7 @@ export function getAvailableProvidersWithVoices(
 
   return [
     {
-      providerId: 'ark-tts',
+      providerId: 'minimax-tts',
       providerName: provider.name,
       voices,
       modelGroups: provider.models.map((model) => ({

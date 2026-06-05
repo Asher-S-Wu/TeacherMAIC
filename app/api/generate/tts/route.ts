@@ -9,12 +9,9 @@
 
 import { NextRequest } from 'next/server';
 import { generateTTS } from '@/lib/audio/tts-providers';
-import {
-  resolveTTSApiKey,
-  resolveTTSResourceId,
-} from '@/lib/server/provider-config';
+import { resolveTTSApiKey } from '@/lib/server/provider-config';
 import type { TTSProviderId } from '@/lib/audio/types';
-import { ARK_TTS_MODEL_ID, TTS_PROVIDERS } from '@/lib/audio/constants';
+import { MINIMAX_TTS_MODEL_ID, TTS_PROVIDERS } from '@/lib/audio/constants';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
@@ -52,7 +49,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const effectiveProviderId: TTSProviderId = 'ark-tts';
+    const effectiveProviderId: TTSProviderId = 'minimax-tts';
     const apiKey = resolveTTSApiKey(effectiveProviderId);
     if (!apiKey) {
       return apiError(
@@ -72,15 +69,14 @@ export async function POST(req: NextRequest) {
     // Build TTS config
     const config = {
       providerId: effectiveProviderId,
-      modelId: ARK_TTS_MODEL_ID,
-      resourceId: resolveTTSResourceId(effectiveProviderId),
+      modelId: MINIMAX_TTS_MODEL_ID,
       voice: ttsVoice,
       speed: ttsSpeed ?? 1.0,
       apiKey,
     };
 
     log.info(
-      `Generating TTS: provider=ark-tts, model=${ARK_TTS_MODEL_ID}, voice=${ttsVoice}, audioId=${audioId}, textLen=${text.length}`,
+      `Generating TTS: provider=minimax-tts, model=${MINIMAX_TTS_MODEL_ID}, voice=${ttsVoice}, audioId=${audioId}, textLen=${text.length}`,
     );
 
     // Generate audio
@@ -98,7 +94,7 @@ export async function POST(req: NextRequest) {
     return apiSuccess({ audioId, file, format });
   } catch (error) {
     log.error(
-      `TTS generation failed [provider=ark-tts, voice=${ttsVoice ?? 'unknown'}, audioId=${audioId ?? 'unknown'}]:`,
+      `TTS generation failed [provider=minimax-tts, voice=${ttsVoice ?? 'unknown'}, audioId=${audioId ?? 'unknown'}]:`,
       error,
     );
     return apiError(

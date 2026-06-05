@@ -18,7 +18,7 @@ import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
 import { saveBufferForUser, saveRemoteFileForUser } from '@/lib/server/file-storage';
-import { ARK_IMAGE_MODEL_ID } from '@/lib/ai/ark-models';
+import { MINIMAX_IMAGE_MODEL_ID } from '@/lib/ai/minimax-models';
 
 const log = createLogger('ImageGeneration API');
 
@@ -31,8 +31,8 @@ export async function POST(request: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing prompt');
     }
 
-    const providerId: ImageProviderId = 'ark-image';
-    const model = ARK_IMAGE_MODEL_ID;
+    const providerId: ImageProviderId = 'minimax-image';
+    const model = MINIMAX_IMAGE_MODEL_ID;
 
     const apiKey = resolveImageApiKey(providerId);
     if (!apiKey) {
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       return apiError('CONTENT_SENSITIVE', 400, '抱歉，该内容触发了安全检查。');
     }
     log.error(
-      `Image generation failed [provider=ark-image, model=${ARK_IMAGE_MODEL_ID}]:`,
+      `Image generation failed [provider=minimax-image, model=${MINIMAX_IMAGE_MODEL_ID}]:`,
       error,
     );
     return apiError('INTERNAL_ERROR', 500, '图片生成失败，请稍后再试。');

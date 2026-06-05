@@ -11,13 +11,15 @@ import {
   ARK_BASE_URL,
   ARK_LLM_MODEL_ID,
   ARK_LLM_MODEL_NAME,
-  ARK_TTS_MODEL_ID,
-  ARK_TTS_MODEL_NAME,
 } from '@/lib/ai/ark-models';
+import {
+  MINIMAX_API_BASE_URL,
+  MINIMAX_TTS_MODEL_ID,
+  MINIMAX_TTS_MODEL_NAME,
+} from '@/lib/ai/minimax-models';
 
-export { ARK_TTS_MODEL_ID, ARK_TTS_MODEL_NAME };
 export const ARK_ASR_MODEL_ID = ARK_LLM_MODEL_ID;
-const ARK_TTS_BASE_URL = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
+export { MINIMAX_TTS_MODEL_ID, MINIMAX_TTS_MODEL_NAME };
 
 export const ARK_ASR_LANGUAGES = [
   'auto',
@@ -41,61 +43,61 @@ export const ARK_ASR_LANGUAGES = [
   'vi',
 ];
 
-export const ARK_TTS_VOICES: TTSVoiceInfo[] = [
+export const MINIMAX_TTS_VOICES: TTSVoiceInfo[] = [
   {
-    id: 'zh_female_vv_uranus_bigtts',
-    name: 'vivi 2.0',
+    id: 'Chinese (Mandarin)_Warm_Girl',
+    name: '温暖女声',
     language: 'zh-CN',
     gender: 'female',
   },
   {
-    id: 'zh_male_dayi_saturn_bigtts',
-    name: '大壹',
+    id: 'Chinese (Mandarin)_Male_Announcer',
+    name: '男播音员',
     language: 'zh-CN',
     gender: 'male',
   },
   {
-    id: 'zh_female_mizai_saturn_bigtts',
-    name: '黑猫侦探社咪仔',
+    id: 'Chinese (Mandarin)_News_Anchor',
+    name: '新闻主播',
     language: 'zh-CN',
     gender: 'female',
   },
   {
-    id: 'zh_female_jitangnv_saturn_bigtts',
-    name: '鸡汤女',
+    id: 'Chinese (Mandarin)_Gentleman',
+    name: '绅士男声',
+    language: 'zh-CN',
+    gender: 'male',
+  },
+  {
+    id: 'Chinese (Mandarin)_Warm_Bestie',
+    name: '温暖闺蜜',
     language: 'zh-CN',
     gender: 'female',
   },
   {
-    id: 'zh_female_meilinvyou_saturn_bigtts',
-    name: '魅力女友',
+    id: 'Chinese (Mandarin)_Cute_Spirit',
+    name: '可爱精灵',
     language: 'zh-CN',
     gender: 'female',
   },
   {
-    id: 'zh_female_santongyongns_saturn_bigtts',
-    name: '流畅女声',
-    language: 'zh-CN',
-    gender: 'female',
-  },
-  {
-    id: 'zh_male_ruyayichen_saturn_bigtts',
-    name: '儒雅逸辰',
-    language: 'zh-CN',
+    id: 'English_expressive_narrator',
+    name: '英文叙述者',
+    language: 'en-US',
     gender: 'male',
   },
 ];
 
 export const TTS_PROVIDERS: Record<BuiltInTTSProviderId, TTSProviderConfig> = {
-  'ark-tts': {
-    id: 'ark-tts',
-    name: '豆包语音合成',
+  'minimax-tts': {
+    id: 'minimax-tts',
+    name: 'MiniMax 语音合成',
     requiresApiKey: true,
-    defaultBaseUrl: ARK_TTS_BASE_URL,
-    models: [{ id: ARK_TTS_MODEL_ID, name: ARK_TTS_MODEL_NAME }],
-    defaultModelId: ARK_TTS_MODEL_ID,
-    voices: ARK_TTS_VOICES,
-    supportedFormats: ['mp3', 'pcm', 'ogg_opus'],
+    defaultBaseUrl: MINIMAX_API_BASE_URL,
+    models: [{ id: MINIMAX_TTS_MODEL_ID, name: MINIMAX_TTS_MODEL_NAME }],
+    defaultModelId: MINIMAX_TTS_MODEL_ID,
+    voices: MINIMAX_TTS_VOICES,
+    supportedFormats: ['mp3', 'wav', 'flac'],
     speedRange: {
       min: 0.5,
       max: 2,
@@ -118,11 +120,11 @@ export const ASR_PROVIDERS: Record<BuiltInASRProviderId, ASRProviderConfig> = {
 };
 
 export const DEFAULT_TTS_VOICES: Record<BuiltInTTSProviderId, string> = {
-  'ark-tts': 'zh_female_vv_uranus_bigtts',
+  'minimax-tts': 'Chinese (Mandarin)_Warm_Girl',
 };
 
 export const DEFAULT_TTS_MODELS: Record<BuiltInTTSProviderId, string> = {
-  'ark-tts': ARK_TTS_MODEL_ID,
+  'minimax-tts': MINIMAX_TTS_MODEL_ID,
 };
 
 export function getAllTTSProviders(): TTSProviderConfig[] {

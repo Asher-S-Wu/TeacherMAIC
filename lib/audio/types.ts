@@ -1,10 +1,10 @@
 /**
  * Audio Provider Type Definitions
  *
- * TTS uses Doubao Speech; ASR uses Volcengine Ark audio understanding.
+ * TTS uses MiniMax Speech; ASR uses Volcengine Ark audio understanding.
  */
 
-export type BuiltInTTSProviderId = 'ark-tts';
+export type BuiltInTTSProviderId = 'minimax-tts';
 export type TTSProviderId = BuiltInTTSProviderId;
 
 export interface TTSVoiceInfo {
@@ -37,7 +37,6 @@ export interface TTSProviderConfig {
 export interface TTSModelConfig {
   providerId: TTSProviderId;
   modelId?: string;
-  resourceId?: string;
   apiKey?: string;
   baseUrl?: string;
   voice: string;

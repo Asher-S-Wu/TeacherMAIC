@@ -1,6 +1,6 @@
 import { callLLM } from '@/lib/ai/llm';
 import type { ChatCompletionsModel } from '@/lib/ai/providers';
-import { ARK_IMAGE_MODEL_ID, ARK_VIDEO_MODEL_ID } from '@/lib/ai/ark-models';
+import { MINIMAX_IMAGE_MODEL_ID, MINIMAX_VIDEO_MODEL_ID } from '@/lib/ai/minimax-models';
 import {
   buildPrompt,
   PROMPT_IDS,
@@ -287,15 +287,15 @@ async function generatePreviewMedia(
 
   for (const request of requests) {
     if (request.type === 'image') {
-      const apiKey = resolveImageApiKey('ark-image');
+      const apiKey = resolveImageApiKey('minimax-image');
       if (!apiKey) {
         throw new Error('图片生成暂时不可用');
       }
       const result = await generateImage(
         {
-          providerId: 'ark-image',
+          providerId: 'minimax-image',
           apiKey,
-          model: ARK_IMAGE_MODEL_ID,
+          model: MINIMAX_IMAGE_MODEL_ID,
         },
         {
           prompt: request.prompt,
@@ -313,17 +313,17 @@ async function generatePreviewMedia(
       continue;
     }
 
-    const apiKey = resolveVideoApiKey('ark-video');
+    const apiKey = resolveVideoApiKey('minimax-video');
     if (!apiKey) {
       throw new Error('视频生成暂时不可用');
     }
     const result = await generateVideo(
       {
-        providerId: 'ark-video',
+        providerId: 'minimax-video',
         apiKey,
-        model: ARK_VIDEO_MODEL_ID,
+        model: MINIMAX_VIDEO_MODEL_ID,
       },
-      normalizeVideoOptions('ark-video', {
+      normalizeVideoOptions('minimax-video', {
         prompt: request.prompt,
         aspectRatio: request.aspectRatio,
       }),

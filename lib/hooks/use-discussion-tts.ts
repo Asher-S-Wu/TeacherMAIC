@@ -65,23 +65,23 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
         if (providers.length > 0) {
           return {
             providerId: providers[0].providerId,
-            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['ark-tts'],
+            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['minimax-tts'],
           };
         }
-        return { providerId: 'ark-tts', voiceId: DEFAULT_TTS_VOICES['ark-tts'] };
+        return { providerId: 'minimax-tts', voiceId: DEFAULT_TTS_VOICES['minimax-tts'] };
       }
       const agent = agents.find((a) => a.id === agentId);
       if (!agent) {
         if (providers.length > 0) {
           return {
             providerId: providers[0].providerId,
-            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['ark-tts'],
+            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['minimax-tts'],
             modelId: undefined,
           };
         }
         return {
-          providerId: 'ark-tts',
-          voiceId: DEFAULT_TTS_VOICES['ark-tts'],
+          providerId: 'minimax-tts',
+          voiceId: DEFAULT_TTS_VOICES['minimax-tts'],
           modelId: undefined,
         };
       }
