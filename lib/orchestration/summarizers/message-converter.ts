@@ -131,7 +131,7 @@ export function convertMessagesToLLMHistory(
       for (const historyMessage of msg.metadata.anthropicHistory) {
         converted.push({
           role: historyMessage.role,
-          content: historyMessage.content,
+          content: historyMessage.content as LLMMessage['content'],
         });
       }
       continue;
