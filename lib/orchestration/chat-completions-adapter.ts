@@ -12,8 +12,8 @@ import type { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager
 import type { ChatResult } from '@langchain/core/outputs';
 import type Anthropic from '@anthropic-ai/sdk';
 
-import { callLLM, streamLLM, streamLLMWithTools } from '@/lib/ai/llm';
-import type { LLMToolResult, LLMToolUse } from '@/lib/ai/llm';
+import { callLLM, streamLLMEvents, streamLLMWithTools } from '@/lib/ai/llm';
+import type { LLMMessageContent, LLMToolResult, LLMToolUse } from '@/lib/ai/llm';
 import type { ChatCompletionsModel } from '@/lib/ai/providers';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
@@ -23,7 +23,10 @@ const log = createLogger('ChatCompletionsAdapter');
 /**
  * Stream chunk types for streaming generation
  */
-export type StreamChunk = { type: 'delta'; content: string } | { type: 'done'; content: string };
+export type StreamChunk =
+  | { type: 'delta'; content: string }
+  | { type: 'message_history'; messages: Anthropic.MessageParam[] }
+  | { type: 'done'; content: string };
 
 /**
  * Adapter to use the configured Chat Completions model with LangGraph.
@@ -51,16 +54,17 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
    */
   private convertMessages(
     messages: BaseMessage[],
-  ): { role: 'system' | 'user' | 'assistant'; content: string }[] {
+  ): { role: 'system' | 'user' | 'assistant'; content: LLMMessageContent }[] {
     return messages.map((msg) => {
+      const content = msg.content as LLMMessageContent;
       if (msg instanceof HumanMessage) {
-        return { role: 'user' as const, content: msg.content as string };
+        return { role: 'user' as const, content };
       } else if (msg instanceof AIMessage) {
-        return { role: 'assistant' as const, content: msg.content as string };
+        return { role: 'assistant' as const, content };
       } else if (msg instanceof SystemMessage) {
-        return { role: 'system' as const, content: msg.content as string };
+        return { role: 'system' as const, content };
       } else {
-        return { role: 'user' as const, content: msg.content as string };
+        return { role: 'user' as const, content };
       }
     });
   }
@@ -122,7 +126,7 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
   ): AsyncGenerator<StreamChunk> {
     const aiMessages = this.convertMessages(messages);
 
-    const result = streamLLM(
+    const result = streamLLMEvents(
       {
         model: this.languageModel,
         messages: aiMessages,
@@ -134,10 +138,15 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
 
     let fullContent = '';
 
-    for await (const chunk of result.textStream) {
-      if (chunk) {
-        fullContent += chunk;
-        yield { type: 'delta', content: chunk };
+    for await (const event of result) {
+      if (event.type === 'message_history') {
+        yield { type: 'message_history', messages: event.messages };
+        continue;
+      }
+
+      if (event.text) {
+        fullContent += event.text;
+        yield { type: 'delta', content: event.text };
       }
     }
 
@@ -170,8 +179,12 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
     let fullContent = '';
 
     for await (const event of textAndToolStream) {
-      if (event.type !== 'text_delta') continue;
-      if (!event.text) continue;
+      if (event.type === 'message_history') {
+        yield { type: 'message_history', messages: event.messages };
+        continue;
+      }
+
+      if (event.type !== 'text_delta' || !event.text) continue;
 
       fullContent += event.text;
       yield { type: 'delta', content: event.text };

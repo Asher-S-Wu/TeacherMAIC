@@ -7,7 +7,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createLogger } from '@/lib/logger';
 import type { ChatCompletionsModel } from './providers';
-import { MINIMAX_M3_OUTPUT_WINDOW } from './minimax-models';
+import { MINIMAX_M3_RECOMMENDED_OUTPUT_TOKENS } from './minimax-models';
 import type { ThinkingConfig } from '@/lib/types/provider';
 
 const log = createLogger('LLM');
@@ -16,8 +16,35 @@ export type { ThinkingConfig } from '@/lib/types/provider';
 
 type TextPart = { type: 'text'; text: string };
 type ImagePart = { type: 'image'; image: string; mimeType?: string };
-type MessageContent = string | Array<TextPart | ImagePart>;
-type LLMMessage = { role: 'system' | 'user' | 'assistant'; content: MessageContent };
+type VideoPart = {
+  type: 'video';
+  video: string;
+  mimeType?: string;
+  fps?: number;
+  maxLongSidePixel?: number;
+  detail?: 'low' | 'default' | 'high';
+};
+type MinimaxVideoBlockParam = {
+  type: 'video';
+  source: {
+    type: 'url' | 'base64';
+    url?: string;
+    media_type?: string;
+    data?: string;
+    detail?: 'low' | 'default' | 'high';
+    fps?: number;
+    max_long_side_pixel?: number;
+  };
+  cache_control?: Anthropic.CacheControlEphemeral | null;
+};
+type MinimaxContentBlockParam = Anthropic.ContentBlockParam | MinimaxVideoBlockParam;
+export type LLMMessageContent =
+  | string
+  | Array<TextPart | ImagePart | VideoPart | MinimaxContentBlockParam>;
+export type LLMMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: LLMMessageContent;
+};
 
 export interface LLMGenerateParams {
   model: ChatCompletionsModel;
@@ -68,7 +95,12 @@ export interface LLMToolResult {
 
 export type LLMToolStreamEvent =
   | { type: 'text_delta'; text: string }
-  | { type: 'tool_use'; toolUse: LLMToolUse };
+  | { type: 'tool_use'; toolUse: LLMToolUse }
+  | { type: 'message_history'; messages: Anthropic.MessageParam[] };
+
+export type LLMStreamEvent =
+  | { type: 'text_delta'; text: string }
+  | { type: 'message_history'; messages: Anthropic.MessageParam[] };
 
 export interface LLMToolLoopParams extends LLMStreamParams {
   tools: Anthropic.Tool[];
@@ -82,7 +114,13 @@ const DEFAULT_TOP_P = 0.95;
 const DEFAULT_MAX_TOOL_ITERATIONS = 16;
 
 function getMaxOutputTokens(_params: LLMGenerateParams): number {
-  return MINIMAX_M3_OUTPUT_WINDOW;
+  return MINIMAX_M3_RECOMMENDED_OUTPUT_TOKENS;
+}
+
+function getRequestMetadata(
+  model: ChatCompletionsModel,
+): Anthropic.MessageCreateParamsNonStreaming['metadata'] | undefined {
+  return model.metadataUserId ? { user_id: model.metadataUserId } : undefined;
 }
 
 function shouldSendAdaptiveThinking(config?: ThinkingConfig): boolean {
@@ -149,7 +187,88 @@ function imageToAnthropicBlock(part: ImagePart): Anthropic.ImageBlockParam {
   };
 }
 
-function contentToPlainText(content: MessageContent): string {
+function getVideoMimeType(mimeType?: string): string {
+  if (
+    mimeType === 'video/mp4' ||
+    mimeType === 'video/avi' ||
+    mimeType === 'video/x-msvideo' ||
+    mimeType === 'video/quicktime' ||
+    mimeType === 'video/mov' ||
+    mimeType === 'video/x-matroska'
+  ) {
+    return mimeType;
+  }
+  return 'video/mp4';
+}
+
+function mediaOptions(part: VideoPart): Pick<
+  MinimaxVideoBlockParam['source'],
+  'detail' | 'fps' | 'max_long_side_pixel'
+> {
+  return {
+    ...(part.detail ? { detail: part.detail } : {}),
+    ...(typeof part.fps === 'number' ? { fps: part.fps } : {}),
+    ...(typeof part.maxLongSidePixel === 'number'
+      ? { max_long_side_pixel: part.maxLongSidePixel }
+      : {}),
+  };
+}
+
+function videoToMinimaxBlock(part: VideoPart): MinimaxVideoBlockParam {
+  const dataUriMatch = part.video.match(/^data:([^;]+);base64,(.+)$/);
+  if (dataUriMatch) {
+    return {
+      type: 'video',
+      source: {
+        type: 'base64',
+        media_type: getVideoMimeType(dataUriMatch[1]),
+        data: dataUriMatch[2],
+        ...mediaOptions(part),
+      },
+    };
+  }
+
+  if (
+    part.video.startsWith('http://') ||
+    part.video.startsWith('https://') ||
+    part.video.startsWith('mm_file://')
+  ) {
+    return {
+      type: 'video',
+      source: {
+        type: 'url',
+        url: part.video,
+        ...mediaOptions(part),
+      },
+    };
+  }
+
+  return {
+    type: 'video',
+    source: {
+      type: 'base64',
+      media_type: getVideoMimeType(part.mimeType),
+      data: part.video,
+      ...mediaOptions(part),
+    },
+  };
+}
+
+function isRawAnthropicBlock(part: unknown): part is MinimaxContentBlockParam {
+  if (!isRecord(part) || typeof part.type !== 'string') return false;
+  if (part.type === 'image' || part.type === 'video') {
+    return isRecord(part.source);
+  }
+  return (
+    part.type === 'thinking' ||
+    part.type === 'tool_use' ||
+    part.type === 'tool_result' ||
+    part.type === 'mid_conv_system' ||
+    part.type === 'redacted_thinking'
+  );
+}
+
+function contentToPlainText(content: LLMMessageContent): string {
   if (typeof content === 'string') return content;
   return content
     .filter((part): part is TextPart => part.type === 'text')
@@ -158,15 +277,20 @@ function contentToPlainText(content: MessageContent): string {
 }
 
 function contentToAnthropicBlocks(
-  content: MessageContent,
+  content: LLMMessageContent,
   role: 'user' | 'assistant',
-): Anthropic.ContentBlockParam[] {
+): MinimaxContentBlockParam[] {
   if (typeof content === 'string') {
     return content ? [{ type: 'text', text: content }] : [];
   }
 
-  const blocks: Anthropic.ContentBlockParam[] = [];
+  const blocks: MinimaxContentBlockParam[] = [];
   for (const part of content) {
+    if (isRawAnthropicBlock(part)) {
+      blocks.push(part);
+      continue;
+    }
+
     if (part.type === 'text') {
       if (part.text) blocks.push({ type: 'text', text: part.text });
       continue;
@@ -176,7 +300,14 @@ function contentToAnthropicBlocks(
       continue;
     }
 
-    blocks.push(imageToAnthropicBlock(part));
+    if (part.type === 'image') {
+      blocks.push(imageToAnthropicBlock(part));
+      continue;
+    }
+
+    if (part.type === 'video') {
+      blocks.push(videoToMinimaxBlock(part));
+    }
   }
 
   return blocks;
@@ -205,7 +336,7 @@ function buildAnthropicInput(params: LLMGenerateParams): {
 
     messages.push({
       role: message.role,
-      content,
+      content: content as Anthropic.ContentBlockParam[],
     });
   }
 
@@ -231,11 +362,13 @@ function buildMessageCreateParams(
   thinking?: ThinkingConfig,
 ): Anthropic.MessageCreateParamsNonStreaming {
   const input = buildAnthropicInput(params);
+  const metadata = getRequestMetadata(params.model);
   return {
     model: params.model.modelId as Anthropic.Model,
     max_tokens: getMaxOutputTokens(params),
     messages: input.messages,
     ...(input.system ? { system: input.system } : {}),
+    ...(metadata ? { metadata } : {}),
     thinking: getThinkingConfig(thinking),
     temperature: DEFAULT_TEMPERATURE,
     top_p: DEFAULT_TOP_P,
@@ -331,6 +464,37 @@ async function* streamTextGeneration(
   }
 }
 
+async function* streamTextGenerationEvents(
+  params: LLMStreamParams,
+  source: string,
+  thinking?: ThinkingConfig,
+): AsyncIterable<LLMStreamEvent> {
+  const client = getClient(params.model);
+  const body = buildMessageCreateParams(params, thinking);
+
+  try {
+    const stream = client.messages.stream(body, { signal: params.abortSignal });
+    for await (const event of stream) {
+      if (event.type !== 'content_block_delta') continue;
+      if (event.delta.type === 'text_delta' && event.delta.text) {
+        yield { type: 'text_delta', text: event.delta.text };
+      }
+    }
+    const message = await stream.finalMessage();
+    yield {
+      type: 'message_history',
+      messages: [
+        {
+          role: 'assistant',
+          content: message.content as Anthropic.ContentBlockParam[],
+        },
+      ],
+    };
+  } catch (error) {
+    throw wrapLLMError(error, source, params.model.modelId);
+  }
+}
+
 function getToolUseBlocks(message: Anthropic.Message): Anthropic.ToolUseBlock[] {
   return message.content.filter(
     (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use',
@@ -355,13 +519,16 @@ export async function* streamLLMWithTools(
   const input = buildAnthropicInput(params);
   const messages = [...input.messages];
   const maxIterations = params.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
+  const generatedHistory: Anthropic.MessageParam[] = [];
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
+    const metadata = getRequestMetadata(params.model);
     const request: Anthropic.MessageCreateParamsNonStreaming = {
       model: params.model.modelId as Anthropic.Model,
       max_tokens: getMaxOutputTokens(params),
       messages,
       ...(input.system ? { system: input.system } : {}),
+      ...(metadata ? { metadata } : {}),
       thinking: getThinkingConfig(thinking),
       temperature: DEFAULT_TEMPERATURE,
       top_p: DEFAULT_TOP_P,
@@ -387,6 +554,10 @@ export async function* streamLLMWithTools(
       role: 'assistant',
       content: message.content as Anthropic.ContentBlockParam[],
     });
+    generatedHistory.push({
+      role: 'assistant',
+      content: message.content as Anthropic.ContentBlockParam[],
+    });
 
     if (message.stop_reason === 'pause_turn') {
       continue;
@@ -408,10 +579,16 @@ export async function* streamLLMWithTools(
       toolResults.push(await params.onToolUse(toolUse));
     }
 
-    messages.push({
+    const toolResultMessage: Anthropic.MessageParam = {
       role: 'user',
       content: buildToolResultBlocks(toolResults),
-    });
+    };
+    messages.push(toolResultMessage);
+    generatedHistory.push(toolResultMessage);
+  }
+
+  if (generatedHistory.length > 0) {
+    yield { type: 'message_history', messages: generatedHistory };
   }
 }
 
@@ -463,6 +640,14 @@ export function streamLLM<T extends LLMStreamParams>(
   thinking?: ThinkingConfig,
 ): LLMStreamResult {
   return { textStream: streamTextGeneration(params, source, thinking) };
+}
+
+export function streamLLMEvents<T extends LLMStreamParams>(
+  params: T,
+  source: string,
+  thinking?: ThinkingConfig,
+): AsyncIterable<LLMStreamEvent> {
+  return streamTextGenerationEvents(params, source, thinking);
 }
 
 export async function collectStreamLLMText<T extends LLMStreamParams>(

@@ -30,7 +30,10 @@ import type { AgentConfig } from '@/lib/orchestration/registry/types';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { buildStructuredPrompt } from './prompt-builder';
 import { summarizeConversation } from './summarizers/conversation-summary';
-import { convertMessagesToOpenAI } from './summarizers/message-converter';
+import {
+  convertMessagesToLLMHistory,
+  convertMessagesToOpenAI,
+} from './summarizers/message-converter';
 import { buildDirectorPrompt, parseDirectorDecision } from './director-prompt';
 import { getActionTools, getEffectiveActions } from './tool-schemas';
 import type { AgentTurnSummary, WhiteboardActionRecord } from './types';
@@ -295,7 +298,7 @@ async function runAgentGeneration(
     state.userProfile || undefined,
     state.agentResponses,
   );
-  const openaiMessages = convertMessagesToOpenAI(state.messages, agentId);
+  const llmMessages = convertMessagesToLLMHistory(state.messages, agentId);
   const adapter = new ChatCompletionsLangGraphAdapter(
     state.languageModel,
     state.thinkingConfig ?? undefined,
@@ -303,8 +306,10 @@ async function runAgentGeneration(
 
   const lcMessages = [
     new SystemMessage(systemPrompt),
-    ...openaiMessages.map((m) =>
-      m.role === 'user' ? new HumanMessage(m.content) : new AIMessage(m.content),
+    ...llmMessages.map((m) =>
+      m.role === 'user'
+        ? new HumanMessage({ content: m.content as string })
+        : new AIMessage({ content: m.content as string }),
     ),
   ];
 
@@ -388,6 +393,17 @@ async function runAgentGeneration(
         write({
           type: 'text_delta',
           data: { content: text, messageId },
+        });
+      } else if (chunk.type === 'message_history') {
+        write({
+          type: 'message_history',
+          data: {
+            messageId,
+            messages: chunk.messages.map((message) => ({
+              role: message.role === 'assistant' ? 'assistant' : 'user',
+              content: message.content,
+            })),
+          },
         });
       }
     }

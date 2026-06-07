@@ -14,6 +14,7 @@ import {
 } from '@/lib/ai/providers';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { resolveApiKey } from '@/lib/server/provider-config';
+import { getCurrentUser } from '@/lib/server/auth';
 
 export interface ResolvedModel extends ModelWithInfo {
   /** Server-configured model string (e.g. "minimax:MiniMax-M3") */
@@ -52,12 +53,25 @@ export async function resolveModel(): Promise<ResolvedModel> {
   };
 }
 
+async function withCurrentUserMetadata(resolved: ResolvedModel): Promise<ResolvedModel> {
+  const user = await getCurrentUser();
+  if (!user) return resolved;
+
+  return {
+    ...resolved,
+    model: {
+      ...resolved.model,
+      metadataUserId: user._id.toString(),
+    },
+  };
+}
+
 /**
  * Resolve the server-configured language model.
  */
 export async function resolveModelFromHeaders(req: NextRequest): Promise<ResolvedModel> {
   void req;
-  return resolveModel();
+  return withCurrentUserMetadata(await resolveModel());
 }
 
 /**
@@ -69,6 +83,5 @@ export async function resolveModelFromRequest(
 ): Promise<ResolvedModel> {
   void req;
   void body;
-  const resolved = await resolveModel();
-  return resolved;
+  return withCurrentUserMetadata(await resolveModel());
 }

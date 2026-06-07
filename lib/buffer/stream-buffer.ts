@@ -1,4 +1,4 @@
-import type { DirectorState } from '@/lib/types/chat';
+import type { AnthropicHistoryMessage, DirectorState } from '@/lib/types/chat';
 
 /**
  * StreamBuffer — unified presentation pacing layer.
@@ -53,6 +53,12 @@ export interface ActionItem {
   agentId: string;
 }
 
+export interface MessageHistoryItem {
+  kind: 'message_history';
+  messageId: string;
+  messages: AnthropicHistoryMessage[];
+}
+
 export interface ThinkingItem {
   kind: 'thinking';
   stage: string;
@@ -83,6 +89,7 @@ export type BufferItem =
   | AgentEndItem
   | TextItem
   | ActionItem
+  | MessageHistoryItem
   | ThinkingItem
   | CueUserItem
   | DoneItem
@@ -103,6 +110,7 @@ export interface StreamBufferCallbacks {
   onTextReveal(messageId: string, partId: string, revealedText: string, isComplete: boolean): void;
   /** Fired when tick reaches an action item. Callers should execute the effect + add badge. */
   onActionReady(messageId: string, data: ActionItem): void;
+  onMessageHistory(messageId: string, messages: AnthropicHistoryMessage[]): void;
   /**
    * Unified speech feed for the Roundtable bubble.
    * Reports only the CURRENT segment text (resets on action / agent switch).
@@ -253,6 +261,12 @@ export class StreamBuffer {
     this.items.push({ kind: 'action', ...data });
   }
 
+  pushMessageHistory(data: Omit<MessageHistoryItem, 'kind'>): void {
+    if (this._disposed) return;
+    this.sealLastText();
+    this.items.push({ kind: 'message_history', ...data });
+  }
+
   pushThinking(data: { stage: string; agentId?: string }): void {
     if (this._disposed) return;
     this.items.push({ kind: 'thinking', ...data });
@@ -344,6 +358,9 @@ export class StreamBuffer {
           this.currentSegmentText = '';
           this.cb.onActionReady(item.messageId, item);
           this.cb.onLiveSpeech(null, this.currentAgentId);
+          break;
+        case 'message_history':
+          this.cb.onMessageHistory(item.messageId, item.messages);
           break;
         case 'agent_start':
           this.currentAgentId = item.agentId;
@@ -557,6 +574,13 @@ export class StreamBuffer {
         this.advanceNonText();
         break;
 
+      case 'message_history':
+        this.cb.onMessageHistory(item.messageId, item.messages);
+        this.readIndex++;
+        this.charCursor = 0;
+        this.advanceNonText();
+        break;
+
       case 'thinking':
         this.cb.onThinking(item);
         this.readIndex++;
@@ -634,6 +658,9 @@ export class StreamBuffer {
             return; // resume on next tick after countdown
           }
           continue; // no delay — keep advancing
+        case 'message_history':
+          this.cb.onMessageHistory(next.messageId, next.messages);
+          break;
         case 'thinking':
           this.cb.onThinking(next);
           break;

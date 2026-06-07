@@ -73,6 +73,7 @@ export interface ChatCompletionsModel {
   apiKey: string;
   baseUrl: string;
   modelInfo: ModelInfo | null;
+  metadataUserId?: string;
 }
 
 export function isProviderKeyRequired(providerId: string): boolean {

@@ -247,6 +247,10 @@ export async function generateClassroom(
     apiKey,
     thinkingConfig,
   } = await resolveModel();
+  const languageModelWithMetadata = {
+    ...languageModel,
+    metadataUserId: options.userId.toString(),
+  };
   const interactiveMode = false;
   log.info(`Using server-configured model: ${modelString}`);
 
@@ -262,7 +266,7 @@ export async function generateClassroom(
     // 后台课堂生成需要完整文本再解析；底层走流式，避免等待响应头超时。
     return collectStreamLLMText(
       {
-        model: languageModel,
+        model: languageModelWithMetadata,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -291,7 +295,7 @@ export async function generateClassroom(
     // 后台联网搜索中的模型步骤也走流式，返回值仍是完整文本。
     return collectStreamLLMText(
       {
-        model: languageModel,
+        model: languageModelWithMetadata,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },

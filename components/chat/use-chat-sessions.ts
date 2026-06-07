@@ -7,6 +7,7 @@ import type {
   SessionStatus,
   ChatMessageMetadata,
   DirectorState,
+  AnthropicHistoryMessage,
 } from '@/lib/types/chat';
 import type { DiscussionRequest } from '@/components/roundtable';
 import type { Action, SpotlightAction, DiscussionAction } from '@/lib/types/action';
@@ -345,6 +346,28 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
             }
           },
 
+          onMessageHistory(messageId: string, messages: AnthropicHistoryMessage[]) {
+            setSessions((prev) =>
+              prev.map((s) => {
+                if (s.id !== sessionId) return s;
+                return {
+                  ...s,
+                  messages: s.messages.map((m) =>
+                    m.id === messageId
+                      ? {
+                          ...m,
+                          metadata: {
+                            ...m.metadata,
+                            anthropicHistory: messages,
+                          },
+                        }
+                      : m,
+                  ),
+                };
+              }),
+            );
+          },
+
           onLiveSpeech(text: string | null, agentId: string | null) {
             // Lecture sessions: roundtable text is managed by PlaybackEngine → setLectureSpeech
             // in stage.tsx. Buffer only drives chat area pacing for lectures.
@@ -544,6 +567,15 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
                   params: event.data.params,
                   messageId: targetId,
                   agentId: event.data.agentId,
+                });
+                break;
+              }
+              case 'message_history': {
+                const targetId = event.data.messageId ?? currentMessageId;
+                if (!targetId) break;
+                currentBuffer.pushMessageHistory({
+                  messageId: targetId,
+                  messages: event.data.messages,
                 });
                 break;
               }

@@ -1,4 +1,5 @@
 import type { StatelessChatRequest } from '@/lib/types/chat';
+import type { LLMMessage } from '@/lib/ai/llm';
 
 // ==================== Message Conversion ====================
 
@@ -105,4 +106,40 @@ export function convertMessagesToOpenAI(
       const stripped = msg.content.replace(/[.\s…]+/g, '');
       return stripped.length > 0;
     });
+}
+
+export function convertMessagesToLLMHistory(
+  messages: StatelessChatRequest['messages'],
+  currentAgentId?: string,
+): LLMMessage[] {
+  const converted: LLMMessage[] = [];
+
+  for (const msg of messages) {
+    if (msg.role !== 'user' && msg.role !== 'assistant') continue;
+
+    const isInterrupted =
+      (msg as unknown as Record<string, unknown>).metadata &&
+      ((msg as unknown as Record<string, unknown>).metadata as Record<string, unknown>)
+        ?.interrupted;
+
+    if (
+      msg.role === 'assistant' &&
+      !isInterrupted &&
+      msg.metadata?.anthropicHistory?.length &&
+      (!currentAgentId || !msg.metadata.agentId || msg.metadata.agentId === currentAgentId)
+    ) {
+      for (const historyMessage of msg.metadata.anthropicHistory) {
+        converted.push({
+          role: historyMessage.role,
+          content: historyMessage.content,
+        });
+      }
+      continue;
+    }
+
+    const fallback = convertMessagesToOpenAI([msg], currentAgentId);
+    converted.push(...fallback);
+  }
+
+  return converted;
 }

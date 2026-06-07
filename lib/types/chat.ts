@@ -23,6 +23,12 @@ export interface ChatMessageMetadata {
   agentColor?: string;
   createdAt?: number;
   interrupted?: boolean;
+  anthropicHistory?: AnthropicHistoryMessage[];
+}
+
+export interface AnthropicHistoryMessage {
+  role: 'user' | 'assistant';
+  content: string | unknown[];
 }
 
 /**
@@ -298,6 +304,13 @@ export type StatelessEvent =
         params: Record<string, unknown>;
         agentId: string;
         messageId?: string;
+      };
+    }
+  | {
+      type: 'message_history';
+      data: {
+        messageId: string;
+        messages: AnthropicHistoryMessage[];
       };
     }
   | {

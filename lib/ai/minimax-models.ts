@@ -4,6 +4,7 @@ export const MINIMAX_API_BASE_URL = 'https://api.minimax.io/v1';
 export const MINIMAX_M3_MODEL_ID = 'MiniMax-M3';
 export const MINIMAX_M3_MODEL_NAME = 'MiniMax M3';
 export const MINIMAX_M3_CONTEXT_WINDOW = 1000000;
+export const MINIMAX_M3_RECOMMENDED_OUTPUT_TOKENS = 131072;
 export const MINIMAX_M3_OUTPUT_WINDOW = 524288;
 
 export const MINIMAX_IMAGE_MODEL_ID = 'image-01';
