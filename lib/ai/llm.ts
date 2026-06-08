@@ -265,11 +265,6 @@ function contentToOpenAIContent(
 
   const parts: OpenAIContentPart[] = [];
   for (const part of content) {
-    if (isOpenAIContentPart(part)) {
-      parts.push(part);
-      continue;
-    }
-
     if (part.type === 'text') {
       if (part.text) parts.push({ type: 'text', text: part.text });
       continue;
@@ -285,10 +280,16 @@ function contentToOpenAIContent(
 
     if (part.type === 'video') {
       const videos = Array.isArray(part.video) ? part.video : [part.video];
+      const mimeType = 'mimeType' in part ? part.mimeType : undefined;
       parts.push({
         type: 'video',
-        video: videos.map((item) => withMimeDataUri(item, part.mimeType || 'video/mp4')),
+        video: videos.map((item) => withMimeDataUri(item, mimeType || 'video/mp4')),
       });
+      continue;
+    }
+
+    if (isOpenAIContentPart(part)) {
+      parts.push(part);
     }
   }
 
