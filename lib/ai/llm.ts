@@ -376,7 +376,7 @@ async function createChatCompletionStream(
   try {
     return (await getOpenAIClient(params.model).chat.completions.create(body as any, {
       signal: params.abortSignal,
-    })) as AsyncIterable<ChatCompletionChunk>;
+    })) as unknown as AsyncIterable<ChatCompletionChunk>;
   } catch (error) {
     throw wrapLLMError(error, source, params.model.modelId);
   }
