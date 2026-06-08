@@ -1,7 +1,7 @@
 /**
  * Unified AI Provider Configuration
  *
- * Text generation is fixed to the server-configured MiniMax Anthropic-compatible provider.
+ * Text generation is fixed to the server-configured Bailian OpenAI-compatible provider.
  */
 
 import type {
@@ -14,16 +14,14 @@ import type {
 } from '@/lib/types/provider';
 import { applyModelMetadata } from './model-metadata';
 import {
-  MINIMAX_ANTHROPIC_BASE_URL,
-  MINIMAX_M3_CONTEXT_WINDOW,
-  MINIMAX_M3_MODEL_ID,
-  MINIMAX_M3_MODEL_NAME,
-  MINIMAX_M3_OUTPUT_WINDOW,
-} from './minimax-models';
+  BAILIAN_COMPATIBLE_BASE_URL_TEMPLATE,
+  QWEN_3_7_PLUS_MODEL_ID,
+  QWEN_3_7_PLUS_MODEL_NAME,
+} from './bailian-models';
 
-export const MINIMAX_PROVIDER_ID: BuiltInProviderId = 'minimax';
-export const DEFAULT_PROVIDER_ID: BuiltInProviderId = MINIMAX_PROVIDER_ID;
-export const DEFAULT_MODEL_ID = MINIMAX_M3_MODEL_ID;
+export const BAILIAN_PROVIDER_ID: BuiltInProviderId = 'bailian';
+export const DEFAULT_PROVIDER_ID: BuiltInProviderId = BAILIAN_PROVIDER_ID;
+export const DEFAULT_MODEL_ID = QWEN_3_7_PLUS_MODEL_ID;
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
 
 export type { ProviderId, ProviderConfig, ModelInfo, ModelConfig };
@@ -32,18 +30,16 @@ export type { ProviderId, ProviderConfig, ModelInfo, ModelConfig };
 export const MONO_LOGO_PROVIDERS: ReadonlySet<string> = new Set();
 
 export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
-  minimax: {
-    id: 'minimax',
-    name: 'MiniMax',
-    type: 'anthropic-messages',
-    defaultBaseUrl: MINIMAX_ANTHROPIC_BASE_URL,
+  bailian: {
+    id: 'bailian',
+    name: '阿里云百炼',
+    type: 'openai-chat',
+    defaultBaseUrl: BAILIAN_COMPATIBLE_BASE_URL_TEMPLATE,
     requiresApiKey: true,
     models: [
       {
-        id: MINIMAX_M3_MODEL_ID,
-        name: MINIMAX_M3_MODEL_NAME,
-        contextWindow: MINIMAX_M3_CONTEXT_WINDOW,
-        outputWindow: MINIMAX_M3_OUTPUT_WINDOW,
+        id: QWEN_3_7_PLUS_MODEL_ID,
+        name: QWEN_3_7_PLUS_MODEL_NAME,
         capabilities: {
           streaming: true,
           tools: true,
@@ -95,6 +91,9 @@ export function getModel(config: ModelConfig): ModelWithInfo {
   if (requiresApiKey && !config.apiKey) {
     throw new Error('智能服务暂时不可用，请稍后再试');
   }
+  if (!config.baseUrl) {
+    throw new Error('智能服务暂时不可用，请稍后再试');
+  }
 
   return {
     model: {
@@ -102,7 +101,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
       providerType: provider.type,
       modelId: config.modelId,
       apiKey: config.apiKey || '',
-      baseUrl: provider.defaultBaseUrl || MINIMAX_ANTHROPIC_BASE_URL,
+      baseUrl: config.baseUrl,
       modelInfo,
     },
     modelInfo,

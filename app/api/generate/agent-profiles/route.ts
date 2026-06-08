@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
       : '';
 
     const voiceJsonField = voiceListStr
-      ? ',\n      "voice": "string (voice id from available list, e.g. \'minimax-tts::Chinese (Mandarin)_Warm_Girl\')"'
+      ? ',\n      "voice": "string (voice id from available list, e.g. \'bailian-tts::Cherry\')"'
       : '';
 
     const userPrompt = `Generate agent profiles for the following course:

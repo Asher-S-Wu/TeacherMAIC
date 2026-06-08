@@ -1,6 +1,6 @@
 import { callLLM } from '@/lib/ai/llm';
 import type { ChatCompletionsModel } from '@/lib/ai/providers';
-import { MINIMAX_IMAGE_MODEL_ID, MINIMAX_VIDEO_MODEL_ID } from '@/lib/ai/minimax-models';
+import { BAILIAN_IMAGE_MODEL_ID, BAILIAN_VIDEO_MODEL_ID } from '@/lib/ai/bailian-models';
 import {
   buildPrompt,
   PROMPT_IDS,
@@ -29,7 +29,9 @@ import {
 import type { MediaGenerationRequest } from '@/lib/media/types';
 import {
   resolveImageApiKey,
+  resolveImageBaseUrl,
   resolveVideoApiKey,
+  resolveVideoBaseUrl,
 } from '@/lib/server/provider-config';
 import type { ThinkingConfig } from '@/lib/types/provider';
 
@@ -287,15 +289,18 @@ async function generatePreviewMedia(
 
   for (const request of requests) {
     if (request.type === 'image') {
-      const apiKey = resolveImageApiKey('minimax-image');
+      const providerId = 'bailian-image';
+      const apiKey = resolveImageApiKey(providerId);
+      const baseUrl = resolveImageBaseUrl(providerId);
       if (!apiKey) {
         throw new Error('图片生成暂时不可用');
       }
       const result = await generateImage(
         {
-          providerId: 'minimax-image',
+          providerId,
           apiKey,
-          model: MINIMAX_IMAGE_MODEL_ID,
+          baseUrl,
+          model: BAILIAN_IMAGE_MODEL_ID,
         },
         {
           prompt: request.prompt,
@@ -313,17 +318,20 @@ async function generatePreviewMedia(
       continue;
     }
 
-    const apiKey = resolveVideoApiKey('minimax-video');
+    const providerId = 'bailian-video';
+    const apiKey = resolveVideoApiKey(providerId);
+    const baseUrl = resolveVideoBaseUrl(providerId);
     if (!apiKey) {
       throw new Error('视频生成暂时不可用');
     }
     const result = await generateVideo(
       {
-        providerId: 'minimax-video',
+        providerId,
         apiKey,
-        model: MINIMAX_VIDEO_MODEL_ID,
+        baseUrl,
+        model: BAILIAN_VIDEO_MODEL_ID,
       },
-      normalizeVideoOptions('minimax-video', {
+      normalizeVideoOptions(providerId, {
         prompt: request.prompt,
         aspectRatio: request.aspectRatio,
       }),

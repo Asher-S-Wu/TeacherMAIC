@@ -13,12 +13,12 @@ import { getThinkingConfigKey, supportsConfigurableThinking } from '@/lib/ai/thi
 import type { TTSProviderId, ASRProviderId, BuiltInTTSProviderId } from '@/lib/audio/types';
 import {
   ASR_PROVIDERS,
+  BAILIAN_ASR_MODEL_ID,
+  BAILIAN_TTS_MODEL_ID,
   DEFAULT_TTS_VOICES,
-  DOUBAO_ASR_MODEL_ID,
-  MINIMAX_TTS_MODEL_ID,
   TTS_PROVIDERS,
 } from '@/lib/audio/constants';
-import { MINIMAX_IMAGE_MODEL_ID, MINIMAX_VIDEO_MODEL_ID } from '@/lib/ai/minimax-models';
+import { BAILIAN_IMAGE_MODEL_ID, BAILIAN_VIDEO_MODEL_ID } from '@/lib/ai/bailian-models';
 import type { PDFProviderId } from '@/lib/pdf/types';
 import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
@@ -87,7 +87,7 @@ function isValidTTSVoice(providerId: TTSProviderId, voice: string | undefined): 
 }
 
 function normalizeASRLanguage(language: string | undefined): string {
-  const supportedLanguages = ASR_PROVIDERS['doubao-asr'].supportedLanguages;
+  const supportedLanguages = ASR_PROVIDERS['bailian-asr'].supportedLanguages;
   return language && supportedLanguages.includes(language) ? language : 'auto';
 }
 
@@ -107,7 +107,6 @@ export interface SettingsState {
   // Audio settings
   ttsProviderId: TTSProviderId;
   ttsVoice: string;
-  ttsSpeed: number;
   asrProviderId: ASRProviderId;
   asrLanguage: string;
 
@@ -247,7 +246,6 @@ export interface SettingsState {
   // Audio actions
   setTTSProvider: (providerId: TTSProviderId) => void;
   setTTSVoice: (voice: string) => void;
-  setTTSSpeed: (speed: number) => void;
   setASRProvider: (providerId: ASRProviderId) => void;
   setASRLanguage: (language: string) => void;
   setTTSProviderConfig: (
@@ -338,19 +336,18 @@ const getDefaultProvidersConfig = (): ProvidersConfig => {
 
 // Initialize default audio config
 const getDefaultAudioConfig = () => ({
-  ttsProviderId: 'minimax-tts' as TTSProviderId,
-  ttsVoice: DEFAULT_TTS_VOICES['minimax-tts'],
-  ttsSpeed: 1.0,
-  asrProviderId: 'doubao-asr' as ASRProviderId,
+  ttsProviderId: 'bailian-tts' as TTSProviderId,
+  ttsVoice: DEFAULT_TTS_VOICES['bailian-tts'],
+  asrProviderId: 'bailian-asr' as ASRProviderId,
   asrLanguage: 'auto',
   ttsProvidersConfig: {
-    'minimax-tts': { apiKey: '', baseUrl: '', modelId: MINIMAX_TTS_MODEL_ID, enabled: true },
+    'bailian-tts': { apiKey: '', baseUrl: '', modelId: BAILIAN_TTS_MODEL_ID, enabled: true },
   } as Record<
     TTSProviderId,
     { apiKey: string; baseUrl: string; modelId?: string; enabled: boolean }
   >,
   asrProvidersConfig: {
-    'doubao-asr': { apiKey: '', baseUrl: '', modelId: DOUBAO_ASR_MODEL_ID, enabled: true },
+    'bailian-asr': { apiKey: '', baseUrl: '', modelId: BAILIAN_ASR_MODEL_ID, enabled: true },
   } as Record<ASRProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -364,19 +361,19 @@ const getDefaultPDFConfig = () => ({
 
 // Initialize default Image config
 const getDefaultImageConfig = () => ({
-  imageProviderId: 'minimax-image' as ImageProviderId,
-  imageModelId: MINIMAX_IMAGE_MODEL_ID,
+  imageProviderId: 'bailian-image' as ImageProviderId,
+  imageModelId: BAILIAN_IMAGE_MODEL_ID,
   imageProvidersConfig: {
-    'minimax-image': { apiKey: '', baseUrl: '', enabled: false },
+    'bailian-image': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<ImageProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
 // Initialize default Video config
 const getDefaultVideoConfig = () => ({
-  videoProviderId: 'minimax-video' as VideoProviderId,
-  videoModelId: MINIMAX_VIDEO_MODEL_ID,
+  videoProviderId: 'bailian-video' as VideoProviderId,
+  videoModelId: BAILIAN_VIDEO_MODEL_ID,
   videoProvidersConfig: {
-    'minimax-video': { apiKey: '', baseUrl: '', enabled: false },
+    'bailian-video': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<VideoProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -525,8 +522,6 @@ export const useSettingsStore = create<SettingsState>()(
               : DEFAULT_TTS_VOICES[state.ttsProviderId as BuiltInTTSProviderId],
           })),
 
-        setTTSSpeed: (speed) => set({ ttsSpeed: speed }),
-
         setASRProvider: (providerId) =>
           set((state) => {
             const supportedLanguages =
@@ -594,8 +589,8 @@ export const useSettingsStore = create<SettingsState>()(
           })),
 
         // Image Generation actions
-        setImageProvider: () => set({ imageProviderId: 'minimax-image' as ImageProviderId }),
-        setImageModelId: () => set({ imageModelId: MINIMAX_IMAGE_MODEL_ID }),
+        setImageProvider: () => set({ imageProviderId: 'bailian-image' as ImageProviderId }),
+        setImageModelId: () => set({ imageModelId: BAILIAN_IMAGE_MODEL_ID }),
 
         setImageProviderConfig: (providerId, config) =>
           set((state) => {
@@ -614,8 +609,8 @@ export const useSettingsStore = create<SettingsState>()(
           }),
 
         // Video Generation actions
-        setVideoProvider: () => set({ videoProviderId: 'minimax-video' as VideoProviderId }),
-        setVideoModelId: () => set({ videoModelId: MINIMAX_VIDEO_MODEL_ID }),
+        setVideoProvider: () => set({ videoProviderId: 'bailian-video' as VideoProviderId }),
+        setVideoModelId: () => set({ videoModelId: BAILIAN_VIDEO_MODEL_ID }),
 
         setVideoProviderConfig: (providerId, config) =>
           set((state) => {
@@ -688,34 +683,34 @@ export const useSettingsStore = create<SettingsState>()(
 
             set((state) => {
               const newProvidersConfig = getDefaultProvidersConfig();
-              newProvidersConfig.minimax = {
-                ...newProvidersConfig.minimax,
+              newProvidersConfig.bailian = {
+                ...newProvidersConfig.bailian,
                 apiKey: '',
-                isServerConfigured: !!data.providers.minimax,
+                isServerConfigured: !!data.providers.bailian,
               };
 
               const defaultAudio = getDefaultAudioConfig();
               const newTTSConfig = {
-                'minimax-tts': {
-                  ...defaultAudio.ttsProvidersConfig['minimax-tts'],
-                  enabled: state.ttsProvidersConfig['minimax-tts']?.enabled ?? true,
+                'bailian-tts': {
+                  ...defaultAudio.ttsProvidersConfig['bailian-tts'],
+                  enabled: state.ttsProvidersConfig['bailian-tts']?.enabled ?? true,
                   apiKey: '',
                   baseUrl: '',
-                  modelId: MINIMAX_TTS_MODEL_ID,
-                  isServerConfigured: !!data.tts['minimax-tts'],
-                  serverBaseUrl: data.tts['minimax-tts']?.baseUrl,
+                  modelId: BAILIAN_TTS_MODEL_ID,
+                  isServerConfigured: !!data.tts['bailian-tts'],
+                  serverBaseUrl: data.tts['bailian-tts']?.baseUrl,
                 },
               } as SettingsState['ttsProvidersConfig'];
 
               const newASRConfig = {
-                'doubao-asr': {
-                  ...defaultAudio.asrProvidersConfig['doubao-asr'],
-                  enabled: state.asrProvidersConfig['doubao-asr']?.enabled ?? true,
+                'bailian-asr': {
+                  ...defaultAudio.asrProvidersConfig['bailian-asr'],
+                  enabled: state.asrProvidersConfig['bailian-asr']?.enabled ?? true,
                   apiKey: '',
                   baseUrl: '',
-                  modelId: DOUBAO_ASR_MODEL_ID,
-                  isServerConfigured: !!data.asr['doubao-asr'],
-                  serverBaseUrl: data.asr['doubao-asr']?.baseUrl,
+                  modelId: BAILIAN_ASR_MODEL_ID,
+                  isServerConfigured: !!data.asr['bailian-asr'],
+                  serverBaseUrl: data.asr['bailian-asr']?.baseUrl,
                 },
               } as SettingsState['asrProvidersConfig'];
 
@@ -730,11 +725,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['pdfProvidersConfig'];
 
               const defaultImage = getDefaultImageConfig();
-              const imageServerConfig = data.image['minimax-image'];
+              const imageServerConfig = data.image['bailian-image'];
               const newImageConfig = {
-                'minimax-image': {
-                  ...defaultImage.imageProvidersConfig['minimax-image'],
-                  enabled: state.imageProvidersConfig['minimax-image']?.enabled ?? false,
+                'bailian-image': {
+                  ...defaultImage.imageProvidersConfig['bailian-image'],
+                  enabled: state.imageProvidersConfig['bailian-image']?.enabled ?? false,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!imageServerConfig,
@@ -743,11 +738,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['imageProvidersConfig'];
 
               const defaultVideo = getDefaultVideoConfig();
-              const videoServerConfig = data.video['minimax-video'];
+              const videoServerConfig = data.video['bailian-video'];
               const newVideoConfig = {
-                'minimax-video': {
-                  ...defaultVideo.videoProvidersConfig['minimax-video'],
-                  enabled: state.videoProvidersConfig['minimax-video']?.enabled ?? false,
+                'bailian-video': {
+                  ...defaultVideo.videoProvidersConfig['bailian-video'],
+                  enabled: state.videoProvidersConfig['bailian-video']?.enabled ?? false,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!videoServerConfig,
@@ -769,14 +764,14 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['webSearchProvidersConfig'];
 
               const imageGenerationEnabled =
-                state.imageGenerationEnabled && !!newImageConfig['minimax-image'].isServerConfigured;
+                state.imageGenerationEnabled && !!newImageConfig['bailian-image'].isServerConfigured;
               const videoGenerationEnabled =
-                state.videoGenerationEnabled && !!newVideoConfig['minimax-video'].isServerConfigured;
-              const ttsVoice = isValidTTSVoice('minimax-tts', state.ttsVoice)
+                state.videoGenerationEnabled && !!newVideoConfig['bailian-video'].isServerConfigured;
+              const ttsVoice = isValidTTSVoice('bailian-tts', state.ttsVoice)
                 ? state.ttsVoice
-                : DEFAULT_TTS_VOICES['minimax-tts'];
+                : DEFAULT_TTS_VOICES['bailian-tts'];
               const ttsEnabled =
-                state.ttsEnabled && !!newTTSConfig['minimax-tts'].isServerConfigured;
+                state.ttsEnabled && !!newTTSConfig['bailian-tts'].isServerConfigured;
 
               return {
                 providersConfig: newProvidersConfig,
@@ -789,17 +784,17 @@ export const useSettingsStore = create<SettingsState>()(
                 webSearchProvidersConfig: newWebSearchConfig,
                 providerId: DEFAULT_PROVIDER_ID,
                 modelId: DEFAULT_MODEL_ID,
-                ttsProviderId: 'minimax-tts' as TTSProviderId,
+                ttsProviderId: 'bailian-tts' as TTSProviderId,
                 ttsVoice,
                 ttsEnabled,
-                asrProviderId: 'doubao-asr' as ASRProviderId,
+                asrProviderId: 'bailian-asr' as ASRProviderId,
                 asrLanguage: normalizeASRLanguage(state.asrLanguage),
                 pdfProviderId: 'mineru-cloud' as PDFProviderId,
-                imageProviderId: 'minimax-image' as ImageProviderId,
-                imageModelId: MINIMAX_IMAGE_MODEL_ID,
+                imageProviderId: 'bailian-image' as ImageProviderId,
+                imageModelId: BAILIAN_IMAGE_MODEL_ID,
                 imageGenerationEnabled,
-                videoProviderId: 'minimax-video' as VideoProviderId,
-                videoModelId: MINIMAX_VIDEO_MODEL_ID,
+                videoProviderId: 'bailian-video' as VideoProviderId,
+                videoModelId: BAILIAN_VIDEO_MODEL_ID,
                 videoGenerationEnabled,
                 webSearchProviderId: 'xcrawl' as WebSearchProviderId,
               };
@@ -822,9 +817,9 @@ export const useSettingsStore = create<SettingsState>()(
           persisted.thinkingConfigs,
           currentState.providersConfig,
         );
-        const ttsVoice = isValidTTSVoice('minimax-tts', persisted.ttsVoice)
+        const ttsVoice = isValidTTSVoice('bailian-tts', persisted.ttsVoice)
           ? persisted.ttsVoice
-          : DEFAULT_TTS_VOICES['minimax-tts'];
+          : DEFAULT_TTS_VOICES['bailian-tts'];
         return {
           ...merged,
           providersConfig: currentState.providersConfig,
@@ -836,15 +831,15 @@ export const useSettingsStore = create<SettingsState>()(
           webSearchProvidersConfig: currentState.webSearchProvidersConfig,
           providerId: DEFAULT_PROVIDER_ID,
           modelId: DEFAULT_MODEL_ID,
-          ttsProviderId: 'minimax-tts' as TTSProviderId,
+          ttsProviderId: 'bailian-tts' as TTSProviderId,
           ttsVoice,
-          asrProviderId: 'doubao-asr' as ASRProviderId,
+          asrProviderId: 'bailian-asr' as ASRProviderId,
           asrLanguage: normalizeASRLanguage(persisted.asrLanguage),
           pdfProviderId: currentState.pdfProviderId,
-          imageProviderId: 'minimax-image' as ImageProviderId,
-          imageModelId: MINIMAX_IMAGE_MODEL_ID,
-          videoProviderId: 'minimax-video' as VideoProviderId,
-          videoModelId: MINIMAX_VIDEO_MODEL_ID,
+          imageProviderId: 'bailian-image' as ImageProviderId,
+          imageModelId: BAILIAN_IMAGE_MODEL_ID,
+          videoProviderId: 'bailian-video' as VideoProviderId,
+          videoModelId: BAILIAN_VIDEO_MODEL_ID,
           webSearchProviderId: 'xcrawl' as WebSearchProviderId,
           thinkingConfigs,
         } as SettingsState;

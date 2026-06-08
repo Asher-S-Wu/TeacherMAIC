@@ -121,7 +121,6 @@ export async function generateAndStoreTTS(
       text,
       audioId,
       ttsVoice: settings.ttsVoice,
-      ttsSpeed: settings.ttsSpeed,
     }),
     signal,
   });

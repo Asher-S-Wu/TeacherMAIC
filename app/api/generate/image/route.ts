@@ -12,13 +12,13 @@
 
 import { NextRequest } from 'next/server';
 import { generateImage, aspectRatioToDimensions } from '@/lib/media/image-providers';
-import { resolveImageApiKey } from '@/lib/server/provider-config';
+import { resolveImageApiKey, resolveImageBaseUrl } from '@/lib/server/provider-config';
 import type { ImageProviderId, ImageGenerationOptions } from '@/lib/media/types';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
 import { saveBufferForUser, saveRemoteFileForUser } from '@/lib/server/file-storage';
-import { MINIMAX_IMAGE_MODEL_ID } from '@/lib/ai/minimax-models';
+import { BAILIAN_IMAGE_MODEL_ID } from '@/lib/ai/bailian-models';
 
 const log = createLogger('ImageGeneration API');
 
@@ -31,10 +31,11 @@ export async function POST(request: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing prompt');
     }
 
-    const providerId: ImageProviderId = 'minimax-image';
-    const model = MINIMAX_IMAGE_MODEL_ID;
+    const providerId: ImageProviderId = 'bailian-image';
+    const model = BAILIAN_IMAGE_MODEL_ID;
 
     const apiKey = resolveImageApiKey(providerId);
+    const baseUrl = resolveImageBaseUrl(providerId);
     if (!apiKey) {
       return apiError(
         'MISSING_API_KEY',
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
         `prompt="${body.prompt.slice(0, 80)}...", size=${body.width ?? 'auto'}x${body.height ?? 'auto'}`,
     );
 
-    const result = await generateImage({ providerId, apiKey, model }, body);
+    const result = await generateImage({ providerId, apiKey, baseUrl, model }, body);
 
     const filename = `generated-image-${Date.now()}.png`;
     const file = result.base64
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
       return apiError('CONTENT_SENSITIVE', 400, '抱歉，该内容触发了安全检查。');
     }
     log.error(
-      `Image generation failed [provider=minimax-image, model=${MINIMAX_IMAGE_MODEL_ID}]:`,
+      `Image generation failed [provider=bailian-image, model=${BAILIAN_IMAGE_MODEL_ID}]:`,
       error,
     );
     return apiError('INTERNAL_ERROR', 500, '图片生成失败，请稍后再试。');

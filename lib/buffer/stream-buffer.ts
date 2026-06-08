@@ -1,4 +1,4 @@
-import type { AnthropicHistoryMessage, DirectorState } from '@/lib/types/chat';
+import type { DirectorState, ModelHistoryMessage } from '@/lib/types/chat';
 
 /**
  * StreamBuffer — unified presentation pacing layer.
@@ -56,7 +56,7 @@ export interface ActionItem {
 export interface MessageHistoryItem {
   kind: 'message_history';
   messageId: string;
-  messages: AnthropicHistoryMessage[];
+  messages: ModelHistoryMessage[];
 }
 
 export interface ThinkingItem {
@@ -110,7 +110,7 @@ export interface StreamBufferCallbacks {
   onTextReveal(messageId: string, partId: string, revealedText: string, isComplete: boolean): void;
   /** Fired when tick reaches an action item. Callers should execute the effect + add badge. */
   onActionReady(messageId: string, data: ActionItem): void;
-  onMessageHistory(messageId: string, messages: AnthropicHistoryMessage[]): void;
+  onMessageHistory(messageId: string, messages: ModelHistoryMessage[]): void;
   /**
    * Unified speech feed for the Roundtable bubble.
    * Reports only the CURRENT segment text (resets on action / agent switch).

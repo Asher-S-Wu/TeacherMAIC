@@ -1,21 +1,10 @@
 import type { ProviderConfig, ProviderId, ThinkingCapability } from '@/lib/types/provider';
-import { MINIMAX_M3_MODEL_ID } from './minimax-models';
 
 export function getModelMetadataKey(providerId: string, modelId: string): string {
   return `${providerId}:${modelId}`;
 }
 
-const MINIMAX_M3_THINKING_CAPABILITY: ThinkingCapability = {
-  control: 'mode',
-  requestAdapter: 'anthropic-messages',
-  defaultMode: 'enabled',
-  toggleable: true,
-  defaultEnabled: true,
-};
-
-const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
-  [`minimax:${MINIMAX_M3_MODEL_ID}`]: MINIMAX_M3_THINKING_CAPABILITY,
-};
+const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {};
 
 export function getCatalogThinkingCapability(
   providerId: string,

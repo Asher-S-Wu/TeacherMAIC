@@ -26,11 +26,11 @@ export function resolveAgentVoice(
   agentIndex: number,
   availableProviders: ProviderWithVoices[],
 ): ResolvedVoice {
-  if (agent.voiceConfig?.providerId === 'minimax-tts') {
-    const allVoiceIds = new Set(getServerVoiceList('minimax-tts'));
+  if (agent.voiceConfig?.providerId === 'bailian-tts') {
+    const allVoiceIds = new Set(getServerVoiceList('bailian-tts'));
     if (allVoiceIds.has(agent.voiceConfig.voiceId)) {
       return {
-        providerId: 'minimax-tts',
+        providerId: 'bailian-tts',
         modelId: agent.voiceConfig.modelId,
         voiceId: agent.voiceConfig.voiceId,
       };
@@ -46,7 +46,7 @@ export function resolveAgentVoice(
     };
   }
 
-  return { providerId: 'minimax-tts', voiceId: DEFAULT_TTS_VOICES['minimax-tts'] };
+  return { providerId: 'bailian-tts', voiceId: DEFAULT_TTS_VOICES['bailian-tts'] };
 }
 
 export function getServerVoiceList(providerId: TTSProviderId): string[] {
@@ -63,8 +63,8 @@ export function getAvailableProvidersWithVoices(
     }
   >,
 ): ProviderWithVoices[] {
-  const provider = TTS_PROVIDERS['minimax-tts'];
-  const providerConfig = ttsProvidersConfig['minimax-tts'];
+  const provider = TTS_PROVIDERS['bailian-tts'];
+  const providerConfig = ttsProvidersConfig['bailian-tts'];
   const isServerConfigured = providerConfig?.isServerConfigured === true;
   if (!isServerConfigured) return [];
 
@@ -76,7 +76,7 @@ export function getAvailableProvidersWithVoices(
 
   return [
     {
-      providerId: 'minimax-tts',
+      providerId: 'bailian-tts',
       providerName: provider.name,
       voices,
       modelGroups: provider.models.map((model) => ({

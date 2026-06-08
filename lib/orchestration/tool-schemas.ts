@@ -1,10 +1,10 @@
 /**
  * Action tool schemas for stateless generation.
  *
- * MiniMax M3 receives classroom actions as Anthropic-compatible tool definitions.
+ * Bailian receives classroom actions as OpenAI-compatible function tool definitions.
  */
 
-import type Anthropic from '@anthropic-ai/sdk';
+import type { OpenAIChatTool } from '@/lib/ai/llm';
 import { SLIDE_ONLY_ACTIONS } from '@/lib/types/action';
 
 // ==================== Effective Actions ====================
@@ -22,7 +22,7 @@ export function getEffectiveActions(allowedActions: string[], sceneType?: string
 
 // ==================== Tool Schemas ====================
 
-type JsonSchema = Anthropic.Tool.InputSchema;
+type JsonSchema = Record<string, unknown>;
 
 const stringSchema = (description: string) => ({ type: 'string', description });
 const numberSchema = (description: string) => ({ type: 'number', description });
@@ -263,14 +263,16 @@ const toolSchemas: Record<string, JsonSchema> = {
   ),
 };
 
-export function getActionTools(allowedActions: string[]): Anthropic.Tool[] {
+export function getActionTools(allowedActions: string[]): OpenAIChatTool[] {
   return allowedActions
     .filter((action) => toolDescriptions[action] && toolSchemas[action])
     .map((action) => ({
-      name: action,
-      description: toolDescriptions[action],
-      input_schema: toolSchemas[action],
-      strict: true,
+      type: 'function',
+      function: {
+        name: action,
+        description: toolDescriptions[action],
+        parameters: toolSchemas[action],
+      },
     }));
 }
 

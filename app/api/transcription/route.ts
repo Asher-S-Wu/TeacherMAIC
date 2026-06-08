@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { transcribeAudio } from '@/lib/audio/asr-providers';
 import { resolveASRApiConfig } from '@/lib/server/provider-config';
 import type { ASRProviderId } from '@/lib/audio/types';
-import { DOUBAO_ASR_MODEL_ID } from '@/lib/audio/constants';
+import { BAILIAN_ASR_MODEL_ID } from '@/lib/audio/constants';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
@@ -25,15 +25,16 @@ export async function POST(req: NextRequest) {
       return apiError('INVALID_REQUEST', 400, '音频文件不存在');
     }
 
-    const effectiveProviderId: ASRProviderId = 'doubao-asr';
+    const effectiveProviderId: ASRProviderId = 'bailian-asr';
     resolvedProviderId = effectiveProviderId;
-    resolvedModelId = DOUBAO_ASR_MODEL_ID;
+    resolvedModelId = BAILIAN_ASR_MODEL_ID;
     const apiConfig = resolveASRApiConfig(effectiveProviderId);
 
     const config = {
       providerId: effectiveProviderId,
-      modelId: DOUBAO_ASR_MODEL_ID,
+      modelId: BAILIAN_ASR_MODEL_ID,
       language: body.language || 'auto',
+      mimeType: storedAudio.file.contentType,
       ...apiConfig,
     };
 

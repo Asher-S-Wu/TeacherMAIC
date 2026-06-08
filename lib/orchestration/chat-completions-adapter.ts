@@ -10,10 +10,15 @@ import { HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages
 import type { BaseMessage } from '@langchain/core/messages';
 import type { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager';
 import type { ChatResult } from '@langchain/core/outputs';
-import type Anthropic from '@anthropic-ai/sdk';
 
 import { callLLM, streamLLMEvents, streamLLMWithTools } from '@/lib/ai/llm';
-import type { LLMMessageContent, LLMToolResult, LLMToolUse } from '@/lib/ai/llm';
+import type {
+  LLMMessageContent,
+  LLMToolResult,
+  LLMToolUse,
+  OpenAIChatMessage,
+  OpenAIChatTool,
+} from '@/lib/ai/llm';
 import type { ChatCompletionsModel } from '@/lib/ai/providers';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
@@ -25,7 +30,7 @@ const log = createLogger('ChatCompletionsAdapter');
  */
 export type StreamChunk =
   | { type: 'delta'; content: string }
-  | { type: 'message_history'; messages: Anthropic.MessageParam[] }
+  | { type: 'message_history'; messages: OpenAIChatMessage[] }
   | { type: 'done'; content: string };
 
 /**
@@ -155,11 +160,11 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
   }
 
   /**
-   * Stream generate with Anthropic-compatible native tool use.
+   * Stream generate with OpenAI-compatible native tool use.
    */
   async *streamGenerateWithTools(
     messages: BaseMessage[],
-    tools: Anthropic.Tool[],
+    tools: OpenAIChatTool[],
     onToolUse: (toolUse: LLMToolUse) => Promise<LLMToolResult> | LLMToolResult,
     options?: { signal?: AbortSignal },
   ): AsyncGenerator<StreamChunk> {

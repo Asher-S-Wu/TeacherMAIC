@@ -1,10 +1,10 @@
 /**
  * Audio Provider Type Definitions
  *
- * TTS uses MiniMax Speech; ASR uses Doubao Speech ASR.
+ * TTS and ASR use Alibaba Cloud Bailian.
  */
 
-export type BuiltInTTSProviderId = 'minimax-tts';
+export type BuiltInTTSProviderId = 'bailian-tts';
 export type TTSProviderId = BuiltInTTSProviderId;
 
 export interface TTSVoiceInfo {
@@ -27,11 +27,6 @@ export interface TTSProviderConfig {
   defaultModelId: string;
   voices: TTSVoiceInfo[];
   supportedFormats: string[];
-  speedRange?: {
-    min: number;
-    max: number;
-    default: number;
-  };
 }
 
 export interface TTSModelConfig {
@@ -40,11 +35,10 @@ export interface TTSModelConfig {
   apiKey?: string;
   baseUrl?: string;
   voice: string;
-  speed?: number;
   format?: string;
 }
 
-export type BuiltInASRProviderId = 'doubao-asr';
+export type BuiltInASRProviderId = 'bailian-asr';
 export type ASRProviderId = BuiltInASRProviderId;
 
 export interface ASRProviderConfig {
@@ -63,7 +57,7 @@ export interface ASRModelConfig {
   providerId: ASRProviderId;
   modelId?: string;
   apiKey?: string;
-  resourceId?: string;
   baseUrl?: string;
   language?: string;
+  mimeType?: string;
 }

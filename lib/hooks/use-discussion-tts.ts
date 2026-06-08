@@ -30,7 +30,6 @@ interface QueueItem {
 
 export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: DiscussionTTSOptions) {
   const ttsProvidersConfig = useSettingsStore((s) => s.ttsProvidersConfig);
-  const ttsSpeed = useSettingsStore((s) => s.ttsSpeed);
   const ttsMuted = useSettingsStore((s) => s.ttsMuted);
   const ttsVolume = useSettingsStore((s) => s.ttsVolume);
   const playbackSpeed = useSettingsStore((s) => s.playbackSpeed);
@@ -65,23 +64,23 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
         if (providers.length > 0) {
           return {
             providerId: providers[0].providerId,
-            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['minimax-tts'],
+            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['bailian-tts'],
           };
         }
-        return { providerId: 'minimax-tts', voiceId: DEFAULT_TTS_VOICES['minimax-tts'] };
+        return { providerId: 'bailian-tts', voiceId: DEFAULT_TTS_VOICES['bailian-tts'] };
       }
       const agent = agents.find((a) => a.id === agentId);
       if (!agent) {
         if (providers.length > 0) {
           return {
             providerId: providers[0].providerId,
-            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['minimax-tts'],
+            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['bailian-tts'],
             modelId: undefined,
           };
         }
         return {
-          providerId: 'minimax-tts',
-          voiceId: DEFAULT_TTS_VOICES['minimax-tts'],
+          providerId: 'bailian-tts',
+          voiceId: DEFAULT_TTS_VOICES['bailian-tts'],
           modelId: undefined,
         };
       }
@@ -123,7 +122,6 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
           text: item.text,
           audioId: item.partId,
           ttsVoice: item.voiceId,
-          ttsSpeed: ttsSpeed,
         }),
         signal: controller.signal,
       });
@@ -177,7 +175,7 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
         queueMicrotask(() => processQueueRef.current());
       }
     }
-  }, [enabled, ttsMuted, ttsVolume, ttsProvidersConfig, ttsSpeed, playbackSpeed]);
+  }, [enabled, ttsMuted, ttsVolume, ttsProvidersConfig, playbackSpeed]);
 
   processQueueRef.current = processQueue;
 

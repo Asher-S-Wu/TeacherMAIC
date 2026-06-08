@@ -6,6 +6,10 @@
  */
 
 import { createLogger } from '@/lib/logger';
+import {
+  buildBailianCompatibleBaseUrl,
+  buildBailianDashScopeApiBaseUrl,
+} from '@/lib/ai/bailian-models';
 
 const log = createLogger('ServerProviderConfig');
 
@@ -17,7 +21,6 @@ interface ServerProviderEntry {
   apiKey: string;
   baseUrl?: string;
   models?: string[];
-  resourceId?: string;
 }
 
 interface ServerConfig {
@@ -34,10 +37,8 @@ interface ServerConfig {
 // Env-var prefix mappings
 // ---------------------------------------------------------------------------
 
-const MINIMAX_API_KEY_ENV = 'MINIMAX_API_KEY';
+const DASHSCOPE_API_KEY_ENV = 'DASHSCOPE_API_KEY';
 const XCRAWL_API_KEY_ENV = 'XCRAWL_API_KEY';
-const DOUBAO_ASR_API_KEY_ENV = 'DOUBAO_ASR_API_KEY';
-const DOUBAO_ASR_RESOURCE_ID_ENV = 'DOUBAO_ASR_RESOURCE_ID';
 
 const PDF_ENV_MAP: Record<string, string> = {
   PDF_MINERU_CLOUD: 'mineru-cloud',
@@ -63,26 +64,19 @@ function loadEnvSection(envMap: Record<string, string>): Record<string, ServerPr
 }
 
 function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
-  const result: Record<string, ServerProviderEntry> = {};
-  const minimaxApiKey = process.env[MINIMAX_API_KEY_ENV] || undefined;
-
-  if (minimaxApiKey) result.minimax = { apiKey: minimaxApiKey };
-
-  return result;
+  return loadBailianSection('bailian', buildBailianCompatibleBaseUrl);
 }
 
-function loadMinimaxOnlySection(providerId: string): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[MINIMAX_API_KEY_ENV] || undefined;
-  return apiKey ? { [providerId]: { apiKey } } : {};
-}
-
-function loadDoubaoASRSection(): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[DOUBAO_ASR_API_KEY_ENV] || undefined;
+function loadBailianSection(
+  providerId: string,
+  buildBaseUrl: () => string,
+): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[DASHSCOPE_API_KEY_ENV] || undefined;
   if (!apiKey) return {};
   return {
-    'doubao-asr': {
+    [providerId]: {
       apiKey,
-      resourceId: process.env[DOUBAO_ASR_RESOURCE_ID_ENV] || 'volc.seedasr.sauc.duration',
+      baseUrl: buildBaseUrl(),
     },
   };
 }
@@ -101,11 +95,11 @@ let _config: ServerConfig | null = null;
 function buildConfig(): ServerConfig {
   return {
     providers: loadLLMEnvSection(),
-    tts: loadMinimaxOnlySection('minimax-tts'),
-    asr: loadDoubaoASRSection(),
+    tts: loadBailianSection('bailian-tts', buildBailianDashScopeApiBaseUrl),
+    asr: loadBailianSection('bailian-asr', buildBailianCompatibleBaseUrl),
     pdf: loadEnvSection(PDF_ENV_MAP),
-    image: loadMinimaxOnlySection('minimax-image'),
-    video: loadMinimaxOnlySection('minimax-video'),
+    image: loadBailianSection('bailian-image', buildBailianDashScopeApiBaseUrl),
+    video: loadBailianSection('bailian-video', buildBailianDashScopeApiBaseUrl),
     webSearch: loadXCrawlSection(),
   };
 }
@@ -143,8 +137,9 @@ function getConfig(): ServerConfig {
 export function getServerProviders(): Record<string, { models?: string[]; baseUrl?: string }> {
   const cfg = getConfig();
   const result: Record<string, { models?: string[]; baseUrl?: string }> = {};
-  for (const id of Object.keys(cfg.providers)) {
+  for (const [id, entry] of Object.entries(cfg.providers)) {
     result[id] = {};
+    if (entry.baseUrl) result[id].baseUrl = entry.baseUrl;
   }
   return result;
 }
@@ -154,9 +149,8 @@ export function resolveApiKey(providerId: string): string {
   return getConfig().providers[providerId]?.apiKey || '';
 }
 
-/** LLM base URL is fixed by the built-in provider registry. */
-export function resolveBaseUrl(_providerId: string, _clientBaseUrl?: string): string | undefined {
-  return undefined;
+export function resolveBaseUrl(providerId: string, _clientBaseUrl?: string): string | undefined {
+  return getConfig().providers[providerId]?.baseUrl;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,8 +171,8 @@ export function resolveTTSApiKey(providerId: string): string {
   return getConfig().tts[providerId]?.apiKey || '';
 }
 
-export function resolveTTSBaseUrl(_providerId: string, _clientBaseUrl?: string): string | undefined {
-  return undefined;
+export function resolveTTSBaseUrl(providerId: string, _clientBaseUrl?: string): string | undefined {
+  return getConfig().tts[providerId]?.baseUrl;
 }
 
 // ---------------------------------------------------------------------------
@@ -197,16 +191,16 @@ export function getServerASRProviders(): Record<string, { baseUrl?: string }> {
 
 export function resolveASRApiConfig(
   providerId: string,
-): { apiKey: string; resourceId: string } {
+): { apiKey: string; baseUrl?: string } {
   const entry = getConfig().asr[providerId];
   return {
     apiKey: entry?.apiKey || '',
-    resourceId: entry?.resourceId || 'volc.seedasr.sauc.duration',
+    baseUrl: entry?.baseUrl,
   };
 }
 
-export function resolveASRBaseUrl(_providerId: string, _clientBaseUrl?: string): string | undefined {
-  return undefined;
+export function resolveASRBaseUrl(providerId: string, _clientBaseUrl?: string): string | undefined {
+  return getConfig().asr[providerId]?.baseUrl;
 }
 
 // ---------------------------------------------------------------------------
@@ -245,10 +239,10 @@ export function resolveImageApiKey(providerId: string): string {
 }
 
 export function resolveImageBaseUrl(
-  _providerId: string,
+  providerId: string,
   _clientBaseUrl?: string,
 ): string | undefined {
-  return undefined;
+  return getConfig().image[providerId]?.baseUrl;
 }
 
 // ---------------------------------------------------------------------------
@@ -258,8 +252,9 @@ export function resolveImageBaseUrl(
 export function getServerVideoProviders(): Record<string, { baseUrl?: string }> {
   const cfg = getConfig();
   const result: Record<string, { baseUrl?: string }> = {};
-  for (const id of Object.keys(cfg.video)) {
+  for (const [id, entry] of Object.entries(cfg.video)) {
     result[id] = {};
+    if (entry.baseUrl) result[id].baseUrl = entry.baseUrl;
   }
   return result;
 }
@@ -269,10 +264,10 @@ export function resolveVideoApiKey(providerId: string): string {
 }
 
 export function resolveVideoBaseUrl(
-  _providerId: string,
+  providerId: string,
   _clientBaseUrl?: string,
 ): string | undefined {
-  return undefined;
+  return getConfig().video[providerId]?.baseUrl;
 }
 
 // ---------------------------------------------------------------------------

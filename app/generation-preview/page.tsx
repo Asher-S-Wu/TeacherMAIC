@@ -194,7 +194,6 @@ function GenerationPreviewContent() {
             text: action.text,
             audioId,
             ttsVoice: settings.ttsVoice,
-            ttsSpeed: settings.ttsSpeed,
           }),
           signal,
         });

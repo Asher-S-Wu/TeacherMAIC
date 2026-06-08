@@ -7,7 +7,7 @@ import type {
   SessionStatus,
   ChatMessageMetadata,
   DirectorState,
-  AnthropicHistoryMessage,
+  ModelHistoryMessage,
 } from '@/lib/types/chat';
 import type { DiscussionRequest } from '@/components/roundtable';
 import type { Action, SpotlightAction, DiscussionAction } from '@/lib/types/action';
@@ -346,7 +346,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
             }
           },
 
-          onMessageHistory(messageId: string, messages: AnthropicHistoryMessage[]) {
+          onMessageHistory(messageId: string, messages: ModelHistoryMessage[]) {
             setSessions((prev) =>
               prev.map((s) => {
                 if (s.id !== sessionId) return s;
@@ -358,7 +358,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
                           ...m,
                           metadata: {
                             ...m.metadata,
-                            anthropicHistory: messages,
+                            modelHistory: messages,
                           },
                         }
                       : m,

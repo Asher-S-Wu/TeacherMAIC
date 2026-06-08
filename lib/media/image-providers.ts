@@ -6,19 +6,19 @@ import type {
   ImageProviderConfig,
 } from './types';
 import {
-  MINIMAX_API_BASE_URL,
-  MINIMAX_IMAGE_MODEL_ID,
-  MINIMAX_IMAGE_MODEL_NAME,
-} from '@/lib/ai/minimax-models';
-import { generateWithMinimaxImage } from './adapters/minimax-image-adapter';
+  BAILIAN_DASHSCOPE_API_BASE_URL_TEMPLATE,
+  BAILIAN_IMAGE_MODEL_ID,
+  BAILIAN_IMAGE_MODEL_NAME,
+} from '@/lib/ai/bailian-models';
+import { generateWithBailianImage } from './adapters/bailian-image-adapter';
 
 export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
-  'minimax-image': {
-    id: 'minimax-image',
-    name: 'MiniMax 图片生成',
+  'bailian-image': {
+    id: 'bailian-image',
+    name: '百炼图片生成',
     requiresApiKey: true,
-    defaultBaseUrl: MINIMAX_API_BASE_URL,
-    models: [{ id: MINIMAX_IMAGE_MODEL_ID, name: MINIMAX_IMAGE_MODEL_NAME }],
+    defaultBaseUrl: BAILIAN_DASHSCOPE_API_BASE_URL_TEMPLATE,
+    models: [{ id: BAILIAN_IMAGE_MODEL_ID, name: BAILIAN_IMAGE_MODEL_NAME }],
     supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16', '3:4'],
   },
 };
@@ -27,7 +27,7 @@ export async function generateImage(
   config: ImageGenerationConfig,
   options: ImageGenerationOptions,
 ): Promise<ImageGenerationResult> {
-  return generateWithMinimaxImage(config, options);
+  return generateWithBailianImage(config, options);
 }
 
 export function aspectRatioToDimensions(

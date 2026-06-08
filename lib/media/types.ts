@@ -4,10 +4,10 @@
  * Unified types for image generation and video generation.
  *
  * Currently Supported Image Providers:
- * - MiniMax Image
+ * - Bailian Image
  *
  * Currently Supported Video Providers:
- * - MiniMax Hailuo
+ * - Bailian HappyHorse
  *
  */
 
@@ -21,7 +21,7 @@
  * Add new image providers here as union members.
  * Keep in sync with IMAGE_PROVIDERS registry in constants.ts
  */
-export type ImageProviderId = 'minimax-image';
+export type ImageProviderId = 'bailian-image';
 
 /**
  * Image Provider Configuration
@@ -126,7 +126,7 @@ export interface ImageGenerationResult {
  * Add new video providers here as union members.
  * Keep in sync with VIDEO_PROVIDERS registry in constants.ts
  */
-export type VideoProviderId = 'minimax-video';
+export type VideoProviderId = 'bailian-video';
 
 /**
  * Video Provider Configuration
@@ -155,7 +155,7 @@ export interface VideoProviderConfig {
   /** Supported video durations in seconds */
   supportedDurations?: number[];
   /** Supported output resolutions */
-  supportedResolutions?: Array<'720P' | '768P' | '1080P'>;
+  supportedResolutions?: Array<'720P' | '1080P'>;
   /** Maximum video duration in seconds */
   maxVideoDuration?: number;
 }
@@ -191,7 +191,7 @@ export interface VideoGenerationOptions {
   /** Desired aspect ratio */
   aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16' | '3:4';
   /** Desired output resolution */
-  resolution?: '720P' | '768P' | '1080P';
+  resolution?: '720P' | '1080P';
 }
 
 /**

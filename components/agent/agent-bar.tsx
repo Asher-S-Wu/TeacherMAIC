@@ -141,7 +141,6 @@ function AgentVoicePill({
             text: previewText,
             audioId: 'voice-preview',
             ttsVoice: voiceId,
-            ttsSpeed: 1,
           }),
           signal: controller.signal,
         });
@@ -371,7 +370,6 @@ function TeacherVoicePill({
             text: previewText,
             audioId: 'voice-preview',
             ttsVoice: voiceId,
-            ttsSpeed: 1,
           }),
           signal: controller.signal,
         });

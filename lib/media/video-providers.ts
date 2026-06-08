@@ -6,23 +6,23 @@ import type {
   VideoProviderConfig,
 } from './types';
 import {
-  MINIMAX_API_BASE_URL,
-  MINIMAX_VIDEO_MODEL_ID,
-  MINIMAX_VIDEO_MODEL_NAME,
-} from '@/lib/ai/minimax-models';
-import { generateWithMinimaxVideo } from './adapters/minimax-video-adapter';
+  BAILIAN_DASHSCOPE_API_BASE_URL_TEMPLATE,
+  BAILIAN_VIDEO_MODEL_ID,
+  BAILIAN_VIDEO_MODEL_NAME,
+} from '@/lib/ai/bailian-models';
+import { generateWithBailianVideo } from './adapters/bailian-video-adapter';
 
 export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
-  'minimax-video': {
-    id: 'minimax-video',
-    name: 'MiniMax 视频生成',
+  'bailian-video': {
+    id: 'bailian-video',
+    name: '百炼视频生成',
     requiresApiKey: true,
-    defaultBaseUrl: MINIMAX_API_BASE_URL,
-    models: [{ id: MINIMAX_VIDEO_MODEL_ID, name: MINIMAX_VIDEO_MODEL_NAME }],
+    defaultBaseUrl: BAILIAN_DASHSCOPE_API_BASE_URL_TEMPLATE,
+    models: [{ id: BAILIAN_VIDEO_MODEL_ID, name: BAILIAN_VIDEO_MODEL_NAME }],
     supportedAspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'],
-    supportedDurations: [6, 10],
-    supportedResolutions: ['768P', '1080P'],
-    maxVideoDuration: 10,
+    supportedDurations: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    supportedResolutions: ['720P', '1080P'],
+    maxVideoDuration: 15,
   },
 };
 
@@ -37,9 +37,9 @@ export function normalizeVideoOptions(
 
   if (provider.supportedDurations && provider.supportedDurations.length > 0) {
     if (!normalized.duration) {
-      normalized.duration = provider.supportedDurations[0];
+      normalized.duration = 5;
     } else if (!provider.supportedDurations.includes(normalized.duration)) {
-      throw new Error(`MiniMax 不支持该视频时长：${normalized.duration}`);
+      throw new Error(`百炼视频生成不支持该视频时长：${normalized.duration}`);
     }
   }
 
@@ -48,15 +48,15 @@ export function normalizeVideoOptions(
       normalized.aspectRatio = provider
         .supportedAspectRatios[0] as VideoGenerationOptions['aspectRatio'];
     } else if (!provider.supportedAspectRatios.includes(normalized.aspectRatio)) {
-      throw new Error(`Unsupported Ark video aspect ratio: ${normalized.aspectRatio}`);
+      throw new Error(`百炼视频生成不支持该视频比例：${normalized.aspectRatio}`);
     }
   }
 
   if (provider.supportedResolutions && provider.supportedResolutions.length > 0) {
     if (!normalized.resolution) {
-      normalized.resolution = provider.supportedResolutions[0];
+      normalized.resolution = '1080P';
     } else if (!provider.supportedResolutions.includes(normalized.resolution)) {
-      throw new Error(`MiniMax 不支持该视频清晰度：${normalized.resolution}`);
+      throw new Error(`百炼视频生成不支持该视频清晰度：${normalized.resolution}`);
     }
   }
 
@@ -67,5 +67,5 @@ export async function generateVideo(
   config: VideoGenerationConfig,
   options: VideoGenerationOptions,
 ): Promise<VideoGenerationResult> {
-  return generateWithMinimaxVideo(config, options);
+  return generateWithBailianVideo(config, options);
 }

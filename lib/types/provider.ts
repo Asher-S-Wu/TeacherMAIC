@@ -5,7 +5,7 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId = 'minimax';
+export type BuiltInProviderId = 'bailian';
 
 /**
  * Provider ID
@@ -16,7 +16,7 @@ export type ProviderId = BuiltInProviderId;
  * Provider API types
  */
 export type ProviderType =
-  | 'anthropic-messages';
+  | 'openai-chat';
 
 export type ThinkingControlType =
   | 'none'
@@ -33,7 +33,7 @@ export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high' | 'max';
 
 export type ThinkingRequestAdapter =
   | 'none'
-  | 'anthropic-messages';
+  | 'openai-chat';
 
 /**
  * Describes a model's thinking/reasoning API control capability.
@@ -136,5 +136,6 @@ export interface ModelConfig {
   providerId: ProviderId;
   modelId: string;
   apiKey: string;
+  baseUrl?: string;
   requiresApiKey?: boolean;
 }

@@ -25,6 +25,9 @@ import {
   resolveImageApiKey,
   resolveVideoApiKey,
   resolveTTSApiKey,
+  resolveImageBaseUrl,
+  resolveVideoBaseUrl,
+  resolveTTSBaseUrl,
 } from '@/lib/server/provider-config';
 import type { SceneOutline } from '@/lib/types/generation';
 import type { Scene } from '@/lib/types/stage';
@@ -80,6 +83,7 @@ export async function generateMediaForClassroom(
     for (const req of imageRequests) {
       const providerId = imageProviderIds[0] as ImageProviderId;
       const apiKey = resolveImageApiKey(providerId);
+      const baseUrl = resolveImageBaseUrl(providerId);
       if (!apiKey) {
         throw new Error(`图片生成服务缺少 API Key：${providerId}`);
       }
@@ -87,7 +91,7 @@ export async function generateMediaForClassroom(
       const model = providerConfig?.models?.[0]?.id;
 
       const result = await generateImage(
-        { providerId, apiKey, model },
+        { providerId, apiKey, baseUrl, model },
         { prompt: req.prompt, aspectRatio: req.aspectRatio || '16:9' },
       );
 
@@ -136,6 +140,7 @@ export async function generateMediaForClassroom(
     for (const req of videoRequests) {
       const providerId = videoProviderIds[0] as VideoProviderId;
       const apiKey = resolveVideoApiKey(providerId);
+      const baseUrl = resolveVideoBaseUrl(providerId);
       if (!apiKey) {
         throw new Error(`视频生成服务缺少 API Key：${providerId}`);
       }
@@ -148,7 +153,7 @@ export async function generateMediaForClassroom(
       });
 
       const result = await generateVideo(
-        { providerId, apiKey, model },
+        { providerId, apiKey, baseUrl, model },
         normalized,
       );
 
@@ -322,6 +327,7 @@ export async function generateTTSForClassroom(
 
   const providerId = ttsProviderIds[0] as TTSProviderId;
   const apiKey = resolveTTSApiKey(providerId);
+  const ttsBaseUrl = resolveTTSBaseUrl(providerId);
   if (!apiKey) {
     throw new Error(`语音生成服务缺少 API Key：${providerId}`);
   }
@@ -349,8 +355,8 @@ export async function generateTTSForClassroom(
           providerId,
           modelId: DEFAULT_TTS_MODELS[providerId as keyof typeof DEFAULT_TTS_MODELS] || '',
           apiKey,
+          baseUrl: ttsBaseUrl,
           voice,
-          speed: speechAction.speed,
         },
         speechAction.text,
       );

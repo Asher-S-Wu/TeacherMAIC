@@ -125,13 +125,16 @@ export function convertMessagesToLLMHistory(
     if (
       msg.role === 'assistant' &&
       !isInterrupted &&
-      msg.metadata?.anthropicHistory?.length &&
+      msg.metadata?.modelHistory?.length &&
       (!currentAgentId || !msg.metadata.agentId || msg.metadata.agentId === currentAgentId)
     ) {
-      for (const historyMessage of msg.metadata.anthropicHistory) {
+      for (const historyMessage of msg.metadata.modelHistory) {
         converted.push({
           role: historyMessage.role,
           content: historyMessage.content as LLMMessage['content'],
+          toolCalls: historyMessage.tool_calls as LLMMessage['toolCalls'],
+          toolCallId: historyMessage.tool_call_id,
+          name: historyMessage.name,
         });
       }
       continue;

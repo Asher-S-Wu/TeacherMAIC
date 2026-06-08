@@ -1,9 +1,47 @@
 import type { TTSModelConfig } from './types';
-import { MINIMAX_TTS_MODEL_ID, TTS_PROVIDERS } from './constants';
+import { BAILIAN_TTS_MODEL_ID } from './constants';
 
 export interface TTSGenerationResult {
   audio: Uint8Array;
   format: string;
+}
+
+interface BailianTTSResponse {
+  output?: {
+    audio?: {
+      url?: string;
+      data?: string;
+    };
+  };
+  request_id?: string;
+  code?: string;
+  message?: string;
+}
+
+function endpoint(baseUrl: string, path: string): string {
+  return `${baseUrl.replace(/\/$/, '')}${path}`;
+}
+
+function requireBaseUrl(baseUrl?: string): string {
+  if (!baseUrl) {
+    throw new Error('百炼语音合成暂时不可用，请稍后再试。');
+  }
+  return baseUrl;
+}
+
+function getAudioFormat(url?: string, requestedFormat = 'wav'): string {
+  if (!url) return requestedFormat;
+  const pathname = new URL(url).pathname.toLowerCase();
+  const match = pathname.match(/\.([a-z0-9]+)$/);
+  return match?.[1] || requestedFormat;
+}
+
+async function fetchAudioBytes(url: string): Promise<Uint8Array> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`百炼语音文件下载失败（${response.status}）`);
+  }
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 export async function generateTTS(
@@ -11,89 +49,51 @@ export async function generateTTS(
   text: string,
 ): Promise<TTSGenerationResult> {
   if (!config.apiKey) {
-    throw new Error(
-      'API Key required for MiniMax 语音合成. Set MINIMAX_API_KEY in Vercel.',
-    );
+    throw new Error('百炼语音合成未配置 API Key，请在 Vercel 配置 DASHSCOPE_API_KEY。');
   }
-  return generateMinimaxTTS(config, text);
-}
 
-interface MinimaxTTSResponse {
-  data?: {
-    audio?: string;
-    status?: number;
-  };
-  base_resp?: {
-    status_code?: number;
-    status_msg?: string;
-  };
-  extra_info?: {
-    audio_format?: string;
-  };
-}
-
-function endpoint(baseUrl: string, path: string): string {
-  return `${baseUrl.replace(/\/$/, '')}${path}`;
-}
-
-function clampSpeed(speed: number | undefined): number {
-  if (!speed || Number.isNaN(speed)) return 1;
-  return Math.max(0.5, Math.min(2, speed));
-}
-
-async function generateMinimaxTTS(
-  config: TTSModelConfig,
-  text: string,
-): Promise<TTSGenerationResult> {
-  const baseUrl = config.baseUrl || TTS_PROVIDERS['minimax-tts'].defaultBaseUrl!;
-  const format = config.format || 'mp3';
-
-  const response = await fetch(endpoint(baseUrl, '/t2a_v2'), {
+  const baseUrl = requireBaseUrl(config.baseUrl);
+  const response = await fetch(endpoint(baseUrl, '/services/aigc/multimodal-generation/generation'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${config.apiKey}`,
     },
     body: JSON.stringify({
-      model: config.modelId || MINIMAX_TTS_MODEL_ID,
-      text,
-      stream: false,
-      language_boost: 'auto',
-      output_format: 'hex',
-      voice_setting: {
-        voice_id: config.voice,
-        speed: clampSpeed(config.speed),
-        vol: 1,
-        pitch: 0,
-      },
-      audio_setting: {
-        sample_rate: 32000,
-        bitrate: 128000,
-        format,
-        channel: 1,
+      model: config.modelId || BAILIAN_TTS_MODEL_ID,
+      input: {
+        text,
+        voice: config.voice,
       },
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => response.statusText);
-    throw new Error(`MiniMax 语音合成失败（${response.status}）：${errorText}`);
+    throw new Error(`百炼语音合成失败（${response.status}）：${errorText}`);
   }
 
-  const data = (await response.json()) as MinimaxTTSResponse;
-  const statusCode = data.base_resp?.status_code;
-  if (statusCode !== undefined && statusCode !== 0) {
-    throw new Error(`MiniMax 语音合成失败：${data.base_resp?.status_msg || statusCode}`);
+  const data = (await response.json()) as BailianTTSResponse;
+  if (data.code) {
+    throw new Error(`百炼语音合成失败：${data.message || data.code}`);
   }
 
-  const audioHex = data.data?.audio;
-  if (!audioHex) {
-    throw new Error(`MiniMax 语音合成没有返回音频：${JSON.stringify(data)}`);
+  const audioUrl = data.output?.audio?.url;
+  const audioData = data.output?.audio?.data;
+  if (audioData) {
+    return {
+      audio: new Uint8Array(Buffer.from(audioData, 'base64')),
+      format: config.format || 'wav',
+    };
+  }
+
+  if (!audioUrl) {
+    throw new Error(`百炼语音合成没有返回音频：${JSON.stringify(data)}`);
   }
 
   return {
-    audio: new Uint8Array(Buffer.from(audioHex, 'hex')),
-    format: data.extra_info?.audio_format || format,
+    audio: await fetchAudioBytes(audioUrl),
+    format: getAudioFormat(audioUrl, config.format || 'wav'),
   };
 }
 
@@ -103,13 +103,12 @@ export async function getCurrentTTSConfig(): Promise<TTSModelConfig> {
   }
 
   const { useSettingsStore } = await import('@/lib/store/settings');
-  const { ttsVoice, ttsSpeed } = useSettingsStore.getState();
+  const { ttsVoice } = useSettingsStore.getState();
 
   return {
-    providerId: 'minimax-tts',
-    modelId: MINIMAX_TTS_MODEL_ID,
+    providerId: 'bailian-tts',
+    modelId: BAILIAN_TTS_MODEL_ID,
     voice: ttsVoice,
-    speed: ttsSpeed,
   };
 }
 

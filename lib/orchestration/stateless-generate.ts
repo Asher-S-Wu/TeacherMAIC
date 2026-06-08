@@ -3,7 +3,7 @@
  *
  * Key design decisions:
  * - Backend is stateless (all state in request/response)
- * - Agent classroom actions use native MiniMax/Anthropic-compatible tool_use
+ * - Agent classroom actions use native OpenAI-compatible tool calls
  * - Text is natural teacher speech, NOT meta-commentary
  * - Tool calls are silent actions - students see results only
  *

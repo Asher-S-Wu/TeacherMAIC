@@ -13,17 +13,17 @@ import {
   type ModelWithInfo,
 } from '@/lib/ai/providers';
 import type { ThinkingConfig } from '@/lib/types/provider';
-import { resolveApiKey } from '@/lib/server/provider-config';
+import { resolveApiKey, resolveBaseUrl } from '@/lib/server/provider-config';
 import { getCurrentUser } from '@/lib/server/auth';
 
 export interface ResolvedModel extends ModelWithInfo {
-  /** Server-configured model string (e.g. "minimax:MiniMax-M3") */
+  /** Server-configured model string (e.g. "bailian:qwen3.7-plus") */
   modelString: string;
   /** Resolved provider ID. */
   providerId: string;
   /** API key resolved from server environment variables. */
   apiKey: string;
-  /** Thinking config passed to the LLM adapter. Undefined keeps MiniMax adaptive thinking enabled. */
+  /** Thinking config passed to the LLM adapter. Undefined uses the model's official default. */
   thinkingConfig?: ThinkingConfig;
 }
 
@@ -37,10 +37,12 @@ export async function resolveModel(): Promise<ResolvedModel> {
   const modelId = DEFAULT_MODEL_ID;
 
   const apiKey = resolveApiKey(providerId);
+  const baseUrl = resolveBaseUrl(providerId);
   const { model, modelInfo } = getModel({
     providerId,
     modelId,
     apiKey,
+    baseUrl,
   });
 
   return {

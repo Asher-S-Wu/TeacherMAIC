@@ -1,13 +1,12 @@
 /**
  * Unified LLM Call Layer
  *
- * Text generation uses MiniMax M3 through the Anthropic-compatible Messages API.
+ * Text generation uses Alibaba Cloud Bailian through the OpenAI-compatible Chat API.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { createLogger } from '@/lib/logger';
 import type { ChatCompletionsModel } from './providers';
-import { MINIMAX_M3_RECOMMENDED_OUTPUT_TOKENS } from './minimax-models';
 import type { ThinkingConfig } from '@/lib/types/provider';
 
 const log = createLogger('LLM');
@@ -18,32 +17,52 @@ type TextPart = { type: 'text'; text: string };
 type ImagePart = { type: 'image'; image: string; mimeType?: string };
 type VideoPart = {
   type: 'video';
-  video: string;
+  video: string | string[];
   mimeType?: string;
   fps?: number;
   maxLongSidePixel?: number;
   detail?: 'low' | 'default' | 'high';
 };
-type MinimaxVideoBlockParam = {
-  type: 'video';
-  source: {
-    type: 'url' | 'base64';
-    url?: string;
-    media_type?: string;
-    data?: string;
-    detail?: 'low' | 'default' | 'high';
-    fps?: number;
-    max_long_side_pixel?: number;
+
+export type OpenAIContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+  | { type: 'video'; video: string[] }
+  | { type: 'input_audio'; input_audio: { data: string } };
+
+export type OpenAIToolCall = {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
   };
-  cache_control?: Anthropic.CacheControlEphemeral | null;
 };
-type MinimaxContentBlockParam = Anthropic.ContentBlockParam | MinimaxVideoBlockParam;
-export type LLMMessageContent =
-  | string
-  | Array<TextPart | ImagePart | VideoPart | MinimaxContentBlockParam>;
+
+export type OpenAIChatMessage = {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content?: string | OpenAIContentPart[] | null;
+  tool_calls?: OpenAIToolCall[];
+  tool_call_id?: string;
+  name?: string;
+};
+
+export type OpenAIChatTool = {
+  type: 'function';
+  function: {
+    name: string;
+    description?: string;
+    parameters?: Record<string, unknown>;
+  };
+};
+
+export type LLMMessageContent = string | null | Array<TextPart | ImagePart | VideoPart | OpenAIContentPart>;
 export type LLMMessage = {
-  role: 'system' | 'user' | 'assistant';
+  role: OpenAIChatMessage['role'];
   content: LLMMessageContent;
+  toolCalls?: OpenAIToolCall[];
+  toolCallId?: string;
+  name?: string;
 };
 
 export interface LLMGenerateParams {
@@ -95,288 +114,75 @@ export interface LLMToolResult {
 
 export type LLMToolStreamEvent =
   | { type: 'text_delta'; text: string }
-  | { type: 'tool_use'; toolUse: LLMToolUse }
-  | { type: 'message_history'; messages: Anthropic.MessageParam[] };
+  | { type: 'message_history'; messages: OpenAIChatMessage[] };
 
 export type LLMStreamEvent =
   | { type: 'text_delta'; text: string }
-  | { type: 'message_history'; messages: Anthropic.MessageParam[] };
+  | { type: 'message_history'; messages: OpenAIChatMessage[] };
 
 export interface LLMToolLoopParams extends LLMStreamParams {
-  tools: Anthropic.Tool[];
+  tools: OpenAIChatTool[];
   onToolUse: (toolUse: LLMToolUse) => Promise<LLMToolResult> | LLMToolResult;
   maxToolIterations?: number;
 }
 
+type ChatCompletionResponse = {
+  id?: string;
+  choices?: Array<{
+    message?: {
+      role?: 'assistant';
+      content?: string | null;
+      tool_calls?: OpenAIToolCall[];
+    };
+    finish_reason?: string | null;
+  }>;
+  usage?: unknown;
+  code?: string;
+  message?: string;
+};
+
+type ChatCompletionChunk = {
+  choices?: Array<{
+    delta?: {
+      role?: string;
+      content?: string | null;
+      tool_calls?: Array<{
+        index?: number;
+        id?: string;
+        type?: 'function';
+        function?: {
+          name?: string;
+          arguments?: string;
+        };
+      }>;
+    };
+    finish_reason?: string | null;
+  }>;
+  usage?: unknown;
+  code?: string;
+  message?: string;
+};
+
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
-const DEFAULT_TEMPERATURE = 1;
-const DEFAULT_TOP_P = 0.95;
 const DEFAULT_MAX_TOOL_ITERATIONS = 16;
-
-function getMaxOutputTokens(_params: LLMGenerateParams): number {
-  return MINIMAX_M3_RECOMMENDED_OUTPUT_TOKENS;
-}
-
-function getRequestMetadata(
-  model: ChatCompletionsModel,
-): Anthropic.MessageCreateParamsNonStreaming['metadata'] | undefined {
-  return model.metadataUserId ? { user_id: model.metadataUserId } : undefined;
-}
-
-function shouldSendAdaptiveThinking(config?: ThinkingConfig): boolean {
-  return !(
-    config?.mode === 'disabled' ||
-    config?.enabled === false ||
-    config?.effort === 'none'
-  );
-}
-
-function getThinkingConfig(config?: ThinkingConfig): Anthropic.ThinkingConfigParam {
-  return shouldSendAdaptiveThinking(config) ? { type: 'adaptive' } : { type: 'disabled' };
-}
-
-function getClient(model: ChatCompletionsModel): Anthropic {
-  return new Anthropic({
-    apiKey: model.apiKey,
-    baseURL: model.baseUrl.replace(/\/$/, ''),
-  });
-}
-
-function getMimeType(mimeType?: string): Anthropic.Base64ImageSource['media_type'] {
-  if (
-    mimeType === 'image/jpeg' ||
-    mimeType === 'image/png' ||
-    mimeType === 'image/gif' ||
-    mimeType === 'image/webp'
-  ) {
-    return mimeType;
-  }
-  return 'image/png';
-}
-
-function imageToAnthropicBlock(part: ImagePart): Anthropic.ImageBlockParam {
-  const dataUriMatch = part.image.match(/^data:([^;]+);base64,(.+)$/);
-  if (dataUriMatch) {
-    return {
-      type: 'image',
-      source: {
-        type: 'base64',
-        media_type: getMimeType(dataUriMatch[1]),
-        data: dataUriMatch[2],
-      },
-    };
-  }
-
-  if (part.image.startsWith('http://') || part.image.startsWith('https://')) {
-    return {
-      type: 'image',
-      source: {
-        type: 'url',
-        url: part.image,
-      },
-    };
-  }
-
-  return {
-    type: 'image',
-    source: {
-      type: 'base64',
-      media_type: getMimeType(part.mimeType),
-      data: part.image,
-    },
-  };
-}
-
-function getVideoMimeType(mimeType?: string): string {
-  if (
-    mimeType === 'video/mp4' ||
-    mimeType === 'video/avi' ||
-    mimeType === 'video/x-msvideo' ||
-    mimeType === 'video/quicktime' ||
-    mimeType === 'video/mov' ||
-    mimeType === 'video/x-matroska'
-  ) {
-    return mimeType;
-  }
-  return 'video/mp4';
-}
-
-function mediaOptions(part: VideoPart): Pick<
-  MinimaxVideoBlockParam['source'],
-  'detail' | 'fps' | 'max_long_side_pixel'
-> {
-  return {
-    ...(part.detail ? { detail: part.detail } : {}),
-    ...(typeof part.fps === 'number' ? { fps: part.fps } : {}),
-    ...(typeof part.maxLongSidePixel === 'number'
-      ? { max_long_side_pixel: part.maxLongSidePixel }
-      : {}),
-  };
-}
-
-function videoToMinimaxBlock(part: VideoPart): MinimaxVideoBlockParam {
-  const dataUriMatch = part.video.match(/^data:([^;]+);base64,(.+)$/);
-  if (dataUriMatch) {
-    return {
-      type: 'video',
-      source: {
-        type: 'base64',
-        media_type: getVideoMimeType(dataUriMatch[1]),
-        data: dataUriMatch[2],
-        ...mediaOptions(part),
-      },
-    };
-  }
-
-  if (
-    part.video.startsWith('http://') ||
-    part.video.startsWith('https://') ||
-    part.video.startsWith('mm_file://')
-  ) {
-    return {
-      type: 'video',
-      source: {
-        type: 'url',
-        url: part.video,
-        ...mediaOptions(part),
-      },
-    };
-  }
-
-  return {
-    type: 'video',
-    source: {
-      type: 'base64',
-      media_type: getVideoMimeType(part.mimeType),
-      data: part.video,
-      ...mediaOptions(part),
-    },
-  };
-}
-
-function isRawAnthropicBlock(part: unknown): part is MinimaxContentBlockParam {
-  if (!isRecord(part) || typeof part.type !== 'string') return false;
-  if (part.type === 'image' || part.type === 'video') {
-    return isRecord(part.source);
-  }
-  return (
-    part.type === 'thinking' ||
-    part.type === 'tool_use' ||
-    part.type === 'tool_result' ||
-    part.type === 'mid_conv_system' ||
-    part.type === 'redacted_thinking'
-  );
-}
-
-function contentToPlainText(content: LLMMessageContent): string {
-  if (typeof content === 'string') return content;
-  return content
-    .filter((part): part is TextPart => part.type === 'text')
-    .map((part) => part.text)
-    .join('\n');
-}
-
-function contentToAnthropicBlocks(
-  content: LLMMessageContent,
-  role: 'user' | 'assistant',
-): MinimaxContentBlockParam[] {
-  if (typeof content === 'string') {
-    return content ? [{ type: 'text', text: content }] : [];
-  }
-
-  const blocks: MinimaxContentBlockParam[] = [];
-  for (const part of content) {
-    if (isRawAnthropicBlock(part)) {
-      blocks.push(part);
-      continue;
-    }
-
-    if (part.type === 'text') {
-      if (part.text) blocks.push({ type: 'text', text: part.text });
-      continue;
-    }
-
-    if (role === 'assistant') {
-      continue;
-    }
-
-    if (part.type === 'image') {
-      blocks.push(imageToAnthropicBlock(part));
-      continue;
-    }
-
-    if (part.type === 'video') {
-      blocks.push(videoToMinimaxBlock(part));
-    }
-  }
-
-  return blocks;
-}
-
-function buildAnthropicInput(params: LLMGenerateParams): {
-  system?: string;
-  messages: Anthropic.MessageParam[];
-} {
-  const messages: Anthropic.MessageParam[] = [];
-  const systemParts: string[] = [];
-
-  if (params.system?.trim()) {
-    systemParts.push(params.system.trim());
-  }
-
-  for (const message of params.messages ?? []) {
-    if (message.role === 'system') {
-      const text = contentToPlainText(message.content).trim();
-      if (text) systemParts.push(text);
-      continue;
-    }
-
-    const content = contentToAnthropicBlocks(message.content, message.role);
-    if (content.length === 0) continue;
-
-    messages.push({
-      role: message.role,
-      content: content as Anthropic.ContentBlockParam[],
-    });
-  }
-
-  if (params.prompt !== undefined) {
-    messages.push({
-      role: 'user',
-      content: [{ type: 'text', text: params.prompt }],
-    });
-  }
-
-  if (messages.length === 0) {
-    throw new Error('LLM request missing input');
-  }
-
-  return {
-    messages,
-    ...(systemParts.length > 0 ? { system: systemParts.join('\n\n') } : {}),
-  };
-}
-
-function buildMessageCreateParams(
-  params: LLMGenerateParams,
-  thinking?: ThinkingConfig,
-): Anthropic.MessageCreateParamsNonStreaming {
-  const input = buildAnthropicInput(params);
-  const metadata = getRequestMetadata(params.model);
-  return {
-    model: params.model.modelId as Anthropic.Model,
-    max_tokens: getMaxOutputTokens(params),
-    messages: input.messages,
-    ...(input.system ? { system: input.system } : {}),
-    ...(metadata ? { metadata } : {}),
-    thinking: getThinkingConfig(thinking),
-    temperature: DEFAULT_TEMPERATURE,
-    top_p: DEFAULT_TOP_P,
-  };
-}
+const clientCache = new Map<string, OpenAI>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function getOpenAIClient(model: ChatCompletionsModel): OpenAI {
+  const baseURL = model.baseUrl.replace(/\/$/, '');
+  const cacheKey = `${baseURL}\n${model.apiKey}`;
+  const cached = clientCache.get(cacheKey);
+  if (cached) return cached;
+
+  const client = new OpenAI({
+    apiKey: model.apiKey,
+    baseURL,
+  });
+  clientCache.set(cacheKey, client);
+  return client;
 }
 
 function getErrorCode(error: unknown): string | undefined {
@@ -421,170 +227,309 @@ function wrapLLMError(error: unknown, source: string, modelId: string): Error {
   );
 }
 
-function extractTextFromAnthropicContent(content: Anthropic.ContentBlock[]): string {
-  return content
-    .map((block) => (block.type === 'text' ? block.text : ''))
-    .join('');
+function withMimeDataUri(value: string, mimeType?: string): string {
+  if (value.startsWith('data:') || value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
+  }
+  return `data:${mimeType || 'image/png'};base64,${value}`;
 }
 
-async function createMessage(
+function isOpenAIContentPart(part: unknown): part is OpenAIContentPart {
+  if (!isRecord(part) || typeof part.type !== 'string') return false;
+  return (
+    part.type === 'text' ||
+    part.type === 'image_url' ||
+    part.type === 'video' ||
+    part.type === 'input_audio'
+  );
+}
+
+function contentToPlainText(content: LLMMessageContent): string {
+  if (typeof content === 'string') return content;
+  if (!content) return '';
+  return content
+    .filter((part): part is TextPart => part.type === 'text' && 'text' in part)
+    .map((part) => part.text)
+    .join('\n');
+}
+
+function contentToOpenAIContent(
+  content: LLMMessageContent,
+  role: OpenAIChatMessage['role'],
+): string | OpenAIContentPart[] | null {
+  if (typeof content === 'string' || content === null) return content;
+
+  if (role !== 'user') {
+    return contentToPlainText(content);
+  }
+
+  const parts: OpenAIContentPart[] = [];
+  for (const part of content) {
+    if (isOpenAIContentPart(part)) {
+      parts.push(part);
+      continue;
+    }
+
+    if (part.type === 'text') {
+      if (part.text) parts.push({ type: 'text', text: part.text });
+      continue;
+    }
+
+    if (part.type === 'image') {
+      parts.push({
+        type: 'image_url',
+        image_url: { url: withMimeDataUri(part.image, part.mimeType) },
+      });
+      continue;
+    }
+
+    if (part.type === 'video') {
+      const videos = Array.isArray(part.video) ? part.video : [part.video];
+      parts.push({
+        type: 'video',
+        video: videos.map((item) => withMimeDataUri(item, part.mimeType || 'video/mp4')),
+      });
+    }
+  }
+
+  return parts.length > 0 ? parts : null;
+}
+
+function buildOpenAIInput(params: LLMGenerateParams): OpenAIChatMessage[] {
+  const messages: OpenAIChatMessage[] = [];
+
+  if (params.system?.trim()) {
+    messages.push({ role: 'system', content: params.system.trim() });
+  }
+
+  for (const message of params.messages ?? []) {
+    const content = contentToOpenAIContent(message.content, message.role);
+    if (
+      content === null &&
+      message.role !== 'assistant' &&
+      message.role !== 'tool' &&
+      !message.toolCalls?.length
+    ) {
+      continue;
+    }
+
+    messages.push({
+      role: message.role,
+      content,
+      ...(message.toolCalls?.length ? { tool_calls: message.toolCalls } : {}),
+      ...(message.toolCallId ? { tool_call_id: message.toolCallId } : {}),
+      ...(message.name ? { name: message.name } : {}),
+    });
+  }
+
+  if (params.prompt !== undefined) {
+    messages.push({ role: 'user', content: params.prompt });
+  }
+
+  if (messages.length === 0) {
+    throw new Error('LLM request missing input');
+  }
+
+  return messages;
+}
+
+function buildRequestBody(
+  params: LLMGenerateParams,
+  options?: { stream?: boolean; tools?: OpenAIChatTool[] },
+): Record<string, unknown> {
+  return {
+    model: params.model.modelId,
+    messages: buildOpenAIInput(params),
+    ...(options?.stream ? { stream: true, stream_options: { include_usage: true } } : {}),
+    ...(typeof params.maxOutputTokens === 'number'
+      ? { max_completion_tokens: params.maxOutputTokens }
+      : {}),
+    ...(options?.tools?.length ? { tools: options.tools, tool_choice: 'auto' } : {}),
+  };
+}
+
+async function createChatCompletion(
   params: LLMGenerateParams,
   source: string,
-  thinking?: ThinkingConfig,
-): Promise<Anthropic.Message> {
-  const client = getClient(params.model);
-  const body = buildMessageCreateParams(params, thinking);
-
+  body: Record<string, unknown>,
+): Promise<ChatCompletionResponse> {
   try {
-    return await client.messages.create(body, { signal: params.abortSignal });
+    return (await getOpenAIClient(params.model).chat.completions.create(body as any, {
+      signal: params.abortSignal,
+    })) as ChatCompletionResponse;
   } catch (error) {
     throw wrapLLMError(error, source, params.model.modelId);
   }
 }
 
+async function createChatCompletionStream(
+  params: LLMGenerateParams,
+  source: string,
+  body: Record<string, unknown>,
+): Promise<AsyncIterable<ChatCompletionChunk>> {
+  try {
+    return (await getOpenAIClient(params.model).chat.completions.create(body as any, {
+      signal: params.abortSignal,
+    })) as AsyncIterable<ChatCompletionChunk>;
+  } catch (error) {
+    throw wrapLLMError(error, source, params.model.modelId);
+  }
+}
+
+function extractAssistantText(response: ChatCompletionResponse): string {
+  return response.choices?.[0]?.message?.content ?? '';
+}
+
+async function createMessage(
+  params: LLMGenerateParams,
+  source: string,
+): Promise<ChatCompletionResponse> {
+  const data = await createChatCompletion(params, source, buildRequestBody(params));
+  if (data.code || data.message) {
+    throw wrapLLMError(data, source, params.model.modelId);
+  }
+  return data;
+}
+
 async function* streamTextGeneration(
   params: LLMStreamParams,
   source: string,
-  thinking?: ThinkingConfig,
 ): AsyncIterable<string> {
-  const client = getClient(params.model);
-  const body = buildMessageCreateParams(params, thinking);
+  const stream = await createChatCompletionStream(
+    params,
+    source,
+    buildRequestBody(params, { stream: true }),
+  );
 
-  try {
-    const stream = client.messages.stream(body, { signal: params.abortSignal });
-    for await (const event of stream) {
-      if (event.type !== 'content_block_delta') continue;
-      if (event.delta.type === 'text_delta' && event.delta.text) {
-        yield event.delta.text;
-      }
-    }
-    await stream.finalMessage();
-  } catch (error) {
-    throw wrapLLMError(error, source, params.model.modelId);
+  for await (const chunk of stream) {
+    const delta = chunk.choices?.[0]?.delta?.content;
+    if (delta) yield delta;
   }
 }
 
 async function* streamTextGenerationEvents(
   params: LLMStreamParams,
   source: string,
-  thinking?: ThinkingConfig,
 ): AsyncIterable<LLMStreamEvent> {
-  const client = getClient(params.model);
-  const body = buildMessageCreateParams(params, thinking);
+  let fullText = '';
+  for await (const text of streamTextGeneration(params, source)) {
+    fullText += text;
+    yield { type: 'text_delta', text };
+  }
+  yield {
+    type: 'message_history',
+    messages: [{ role: 'assistant', content: fullText }],
+  };
+}
 
-  try {
-    const stream = client.messages.stream(body, { signal: params.abortSignal });
-    for await (const event of stream) {
-      if (event.type !== 'content_block_delta') continue;
-      if (event.delta.type === 'text_delta' && event.delta.text) {
-        yield { type: 'text_delta', text: event.delta.text };
-      }
-    }
-    const message = await stream.finalMessage();
-    yield {
-      type: 'message_history',
-      messages: [
-        {
-          role: 'assistant',
-          content: message.content as Anthropic.ContentBlockParam[],
-        },
-      ],
-    };
-  } catch (error) {
-    throw wrapLLMError(error, source, params.model.modelId);
+function parseToolArguments(raw: string): unknown {
+  return JSON.parse(raw.trim() || '{}');
+}
+
+function mergeToolCallDelta(
+  toolCalls: Map<number, OpenAIToolCall>,
+  delta: NonNullable<NonNullable<ChatCompletionChunk['choices']>[number]['delta']>['tool_calls'],
+): void {
+  for (const item of delta ?? []) {
+    const index = item.index ?? toolCalls.size;
+    const existing =
+      toolCalls.get(index) ??
+      ({
+        id: item.id || `call_${index}`,
+        type: 'function',
+        function: { name: '', arguments: '' },
+      } satisfies OpenAIToolCall);
+
+    toolCalls.set(index, {
+      id: item.id || existing.id,
+      type: 'function',
+      function: {
+        name: item.function?.name || existing.function.name,
+        arguments: existing.function.arguments + (item.function?.arguments || ''),
+      },
+    });
   }
 }
 
-function getToolUseBlocks(message: Anthropic.Message): Anthropic.ToolUseBlock[] {
-  return message.content.filter(
-    (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use',
-  );
-}
-
-function buildToolResultBlocks(results: LLMToolResult[]): Anthropic.ToolResultBlockParam[] {
+function buildToolResultMessages(results: LLMToolResult[]): OpenAIChatMessage[] {
   return results.map((result) => ({
-    type: 'tool_result',
-    tool_use_id: result.toolUseId,
-    content: result.content,
-    ...(result.isError ? { is_error: true } : {}),
+    role: 'tool',
+    tool_call_id: result.toolUseId,
+    content: result.isError ? `Error: ${result.content}` : result.content,
   }));
 }
 
 export async function* streamLLMWithTools(
   params: LLMToolLoopParams,
   source: string,
-  thinking?: ThinkingConfig,
+  _thinking?: ThinkingConfig,
 ): AsyncIterable<LLMToolStreamEvent> {
-  const client = getClient(params.model);
-  const input = buildAnthropicInput(params);
-  const messages = [...input.messages];
+  const messages = buildOpenAIInput(params);
   const maxIterations = params.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
-  const generatedHistory: Anthropic.MessageParam[] = [];
+  const generatedHistory: OpenAIChatMessage[] = [];
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
-    const metadata = getRequestMetadata(params.model);
-    const request: Anthropic.MessageCreateParamsNonStreaming = {
-      model: params.model.modelId as Anthropic.Model,
-      max_tokens: getMaxOutputTokens(params),
-      messages,
-      ...(input.system ? { system: input.system } : {}),
-      ...(metadata ? { metadata } : {}),
-      thinking: getThinkingConfig(thinking),
-      temperature: DEFAULT_TEMPERATURE,
-      top_p: DEFAULT_TOP_P,
-      tools: params.tools,
-      tool_choice: { type: 'auto' },
+    const request = {
+      ...buildRequestBody(
+        {
+          ...params,
+          messages: messages.map((message) => ({
+            role: message.role,
+            content: (message.content ?? null) as LLMMessageContent,
+            toolCalls: message.tool_calls,
+            toolCallId: message.tool_call_id,
+            name: message.name,
+          })),
+          system: undefined,
+          prompt: undefined,
+        },
+        { stream: true, tools: params.tools },
+      ),
     };
 
-    let message: Anthropic.Message;
-    try {
-      const stream = client.messages.stream(request, { signal: params.abortSignal });
-      for await (const event of stream) {
-        if (event.type !== 'content_block_delta') continue;
-        if (event.delta.type === 'text_delta' && event.delta.text) {
-          yield { type: 'text_delta', text: event.delta.text };
-        }
+    const stream = await createChatCompletionStream(params, source, request);
+    let assistantText = '';
+    const toolCallsByIndex = new Map<number, OpenAIToolCall>();
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices?.[0]?.delta;
+      if (!delta) continue;
+
+      if (delta.content) {
+        assistantText += delta.content;
+        yield { type: 'text_delta', text: delta.content };
       }
-      message = await stream.finalMessage();
-    } catch (error) {
-      throw wrapLLMError(error, source, params.model.modelId);
+
+      mergeToolCallDelta(toolCallsByIndex, delta.tool_calls);
     }
 
-    messages.push({
+    const toolCalls = [...toolCallsByIndex.values()].filter(
+      (toolCall) => toolCall.id && toolCall.function.name,
+    );
+    const assistantMessage: OpenAIChatMessage = {
       role: 'assistant',
-      content: message.content as Anthropic.ContentBlockParam[],
-    });
-    generatedHistory.push({
-      role: 'assistant',
-      content: message.content as Anthropic.ContentBlockParam[],
-    });
+      content: assistantText || null,
+      ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
+    };
 
-    if (message.stop_reason === 'pause_turn') {
-      continue;
-    }
+    messages.push(assistantMessage);
+    generatedHistory.push(assistantMessage);
 
-    const toolUses = getToolUseBlocks(message);
-    if (toolUses.length === 0) {
-      break;
-    }
+    if (toolCalls.length === 0) break;
 
     const toolResults: LLMToolResult[] = [];
-    for (const block of toolUses) {
+    for (const toolCall of toolCalls) {
       const toolUse: LLMToolUse = {
-        id: block.id,
-        name: block.name,
-        input: block.input,
+        id: toolCall.id,
+        name: toolCall.function.name,
+        input: parseToolArguments(toolCall.function.arguments),
       };
-      yield { type: 'tool_use', toolUse };
       toolResults.push(await params.onToolUse(toolUse));
     }
 
-    const toolResultMessage: Anthropic.MessageParam = {
-      role: 'user',
-      content: buildToolResultBlocks(toolResults),
-    };
-    messages.push(toolResultMessage);
-    generatedHistory.push(toolResultMessage);
+    const toolResultMessages = buildToolResultMessages(toolResults);
+    messages.push(...toolResultMessages);
+    generatedHistory.push(...toolResultMessages);
   }
 
   if (generatedHistory.length > 0) {
@@ -596,7 +541,7 @@ export async function callLLM<T extends LLMGenerateParams>(
   params: T,
   source: string,
   retryOptions?: LLMRetryOptions,
-  thinking?: ThinkingConfig,
+  _thinking?: ThinkingConfig,
 ): Promise<LLMTextResult> {
   const maxAttempts = (retryOptions?.retries ?? 0) + 1;
   const validate = retryOptions?.validate ?? (maxAttempts > 1 ? DEFAULT_VALIDATE : undefined);
@@ -606,9 +551,9 @@ export async function callLLM<T extends LLMGenerateParams>(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const response = await createMessage(params, source, thinking);
+      const response = await createMessage(params, source);
       const result: LLMTextResult = {
-        text: extractTextFromAnthropicContent(response.content),
+        text: extractAssistantText(response),
         rawResponse: response,
       };
 
@@ -637,17 +582,17 @@ export async function callLLM<T extends LLMGenerateParams>(
 export function streamLLM<T extends LLMStreamParams>(
   params: T,
   source: string,
-  thinking?: ThinkingConfig,
+  _thinking?: ThinkingConfig,
 ): LLMStreamResult {
-  return { textStream: streamTextGeneration(params, source, thinking) };
+  return { textStream: streamTextGeneration(params, source) };
 }
 
 export function streamLLMEvents<T extends LLMStreamParams>(
   params: T,
   source: string,
-  thinking?: ThinkingConfig,
+  _thinking?: ThinkingConfig,
 ): AsyncIterable<LLMStreamEvent> {
-  return streamTextGenerationEvents(params, source, thinking);
+  return streamTextGenerationEvents(params, source);
 }
 
 export async function collectStreamLLMText<T extends LLMStreamParams>(
@@ -656,8 +601,9 @@ export async function collectStreamLLMText<T extends LLMStreamParams>(
   thinking?: ThinkingConfig,
 ): Promise<string> {
   let text = '';
-  for await (const chunk of streamTextGeneration(params, source, thinking)) {
+  for await (const chunk of streamTextGeneration(params, source)) {
     text += chunk;
   }
+  void thinking;
   return text;
 }

@@ -399,10 +399,7 @@ async function runAgentGeneration(
           type: 'message_history',
           data: {
             messageId,
-            messages: chunk.messages.map((message) => ({
-              role: message.role === 'assistant' ? 'assistant' : 'user',
-              content: message.content,
-            })),
+            messages: chunk.messages,
           },
         });
       }
