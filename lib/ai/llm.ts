@@ -6,6 +6,7 @@
 
 import OpenAI from 'openai';
 import { createLogger } from '@/lib/logger';
+import { QWEN_3_7_PLUS_CHAT_PARAMETERS, QWEN_3_7_PLUS_MODEL_ID } from './bailian-models';
 import type { ChatCompletionsModel } from './providers';
 import type { ThinkingConfig } from '@/lib/types/provider';
 
@@ -338,9 +339,13 @@ function buildRequestBody(
   params: LLMGenerateParams,
   options?: { stream?: boolean; tools?: OpenAIChatTool[] },
 ): Record<string, unknown> {
+  const modelParameters =
+    params.model.modelId === QWEN_3_7_PLUS_MODEL_ID ? QWEN_3_7_PLUS_CHAT_PARAMETERS : {};
+
   return {
     model: params.model.modelId,
     messages: buildOpenAIInput(params),
+    ...modelParameters,
     ...(options?.stream ? { stream: true, stream_options: { include_usage: true } } : {}),
     ...(typeof params.maxOutputTokens === 'number'
       ? { max_completion_tokens: params.maxOutputTokens }
