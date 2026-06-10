@@ -33,7 +33,6 @@ import {
   resolveVideoApiKey,
   resolveVideoBaseUrl,
 } from '@/lib/server/provider-config';
-import type { ThinkingConfig } from '@/lib/types/provider';
 
 interface VibeEditOutlinePayload {
   type: SceneOutline['type'];
@@ -67,7 +66,6 @@ interface CreateVibeEditDraftParams {
   allowVideoGeneration: boolean;
   model: ChatCompletionsModel;
   modelOutputWindow?: number;
-  thinkingConfig?: ThinkingConfig;
 }
 
 export async function createVibeEditDraft(
@@ -78,12 +76,7 @@ export async function createVibeEditDraft(
     outline.id === params.outline.id ? nextOutline : outline,
   );
 
-  const aiCall = createAiCall(
-    params.model,
-    params.modelOutputWindow,
-    params.thinkingConfig,
-    'vibe-edit-content',
-  );
+  const aiCall = createAiCall(params.model, params.modelOutputWindow, 'vibe-edit-content');
 
   const content = await generateSceneContent(nextOutline, aiCall, {
     languageModel: nextOutline.type === 'pbl' ? params.model : undefined,
@@ -148,8 +141,6 @@ async function generateEditedOutline(
       maxOutputTokens: params.modelOutputWindow,
     },
     'vibe-edit-outline',
-    undefined,
-    params.thinkingConfig,
   );
 
   const parsed = parseJsonResponse<VibeEditPlanPayload>(result.text);
@@ -216,7 +207,6 @@ function assertRequestedMediaAllowed(
 function createAiCall(
   model: ChatCompletionsModel,
   modelOutputWindow: number | undefined,
-  thinkingConfig: ThinkingConfig | undefined,
   source: string,
 ): AICallFn {
   return async (systemPrompt, userPrompt) => {
@@ -228,8 +218,6 @@ function createAiCall(
         maxOutputTokens: modelOutputWindow,
       },
       source,
-      undefined,
-      thinkingConfig,
     );
     return result.text;
   };

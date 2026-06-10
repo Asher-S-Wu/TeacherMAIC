@@ -112,11 +112,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Model resolution from request headers/body ──
-    const {
-      model: languageModel,
-      modelString: _modelString,
-      thinkingConfig,
-    } = await resolveModelFromRequest(req, body);
+    const { model: languageModel, modelString: _modelString } = await resolveModelFromRequest(
+      req,
+      body,
+    );
     modelString = _modelString;
 
     // ── Build prompt ──
@@ -208,7 +207,6 @@ Return a JSON object with this exact structure:
                 }),
           },
           'agent-profiles',
-          thinkingConfig,
         );
 
         const rawText = stripCodeFences(responseText);

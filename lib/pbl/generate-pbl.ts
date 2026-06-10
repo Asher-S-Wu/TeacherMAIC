@@ -8,7 +8,6 @@ import { callLLM } from '@/lib/ai/llm';
 import type { ChatCompletionsModel } from '@/lib/ai/providers';
 import type { PBLProjectConfig } from './types';
 import { buildPBLSystemPrompt } from './pbl-system-prompt';
-import type { ThinkingConfig } from '@/lib/types/provider';
 import {
   buildStructuredRetryPrompt,
   MAX_GENERATION_ATTEMPTS,
@@ -143,7 +142,6 @@ export async function generatePBLContent(
   config: GeneratePBLConfig,
   model: ChatCompletionsModel,
   callbacks?: GeneratePBLCallbacks,
-  thinkingConfig?: ThinkingConfig,
 ): Promise<PBLProjectConfig> {
   const { languageDirective } = config;
 
@@ -232,8 +230,6 @@ Return ONLY valid JSON. Do not use markdown fences or explanatory text.`,
                 ),
         },
         'pbl-generate',
-        undefined,
-        thinkingConfig,
       );
       const responseText = result.text;
 
@@ -257,7 +253,7 @@ Return ONLY valid JSON. Do not use markdown fences or explanatory text.`,
   callbacks?.onProgress?.('PBL structure generated. Running post-processing...');
 
   // Post-processing: activate first issue and generate initial questions
-  await postProcessPBL(projectConfig, model, languageDirective, callbacks, thinkingConfig);
+  await postProcessPBL(projectConfig, model, languageDirective, callbacks);
 
   callbacks?.onProgress?.('PBL project generation complete!');
 
@@ -272,7 +268,6 @@ async function postProcessPBL(
   model: ChatCompletionsModel,
   languageDirective: string,
   callbacks?: GeneratePBLCallbacks,
-  thinkingConfig?: ThinkingConfig,
 ): Promise<void> {
   const { issueboard, agents } = config;
 
@@ -324,8 +319,6 @@ Format the questions as a numbered list.`;
       prompt: context,
     },
     'pbl-post-process',
-    undefined,
-    thinkingConfig,
   );
 
   firstIssue.generated_questions = generatedQuestionsResult.text;

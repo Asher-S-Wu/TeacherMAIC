@@ -8,11 +8,8 @@ import OpenAI from 'openai';
 import { createLogger } from '@/lib/logger';
 import { QWEN_3_7_PLUS_CHAT_PARAMETERS, QWEN_3_7_PLUS_MODEL_ID } from './bailian-models';
 import type { ChatCompletionsModel } from './providers';
-import type { ThinkingConfig } from '@/lib/types/provider';
 
 const log = createLogger('LLM');
-
-export type { ThinkingConfig } from '@/lib/types/provider';
 
 type TextPart = { type: 'text'; text: string };
 type ImagePart = { type: 'image'; image: string; mimeType?: string };
@@ -72,6 +69,8 @@ export interface LLMGenerateParams {
   prompt?: string;
   messages?: LLMMessage[];
   maxOutputTokens?: number;
+  /** 思考模式开关：不传 = 模型默认（qwen3.7-plus 开启）；false = 强制关闭 */
+  enableThinking?: boolean;
   abortSignal?: AbortSignal;
 }
 
@@ -79,7 +78,6 @@ export type LLMStreamParams = LLMGenerateParams;
 
 export interface LLMTextResult {
   text: string;
-  rawResponse: unknown;
 }
 
 export class LLMTransportError extends Error {
@@ -126,21 +124,6 @@ export interface LLMToolLoopParams extends LLMStreamParams {
   onToolUse: (toolUse: LLMToolUse) => Promise<LLMToolResult> | LLMToolResult;
   maxToolIterations?: number;
 }
-
-type ChatCompletionResponse = {
-  id?: string;
-  choices?: Array<{
-    message?: {
-      role?: 'assistant';
-      content?: string | null;
-      tool_calls?: OpenAIToolCall[];
-    };
-    finish_reason?: string | null;
-  }>;
-  usage?: unknown;
-  code?: string;
-  message?: string;
-};
 
 type ChatCompletionChunk = {
   choices?: Array<{
@@ -339,33 +322,24 @@ function buildRequestBody(
   params: LLMGenerateParams,
   options?: { stream?: boolean; tools?: OpenAIChatTool[] },
 ): Record<string, unknown> {
-  const modelParameters =
-    params.model.modelId === QWEN_3_7_PLUS_MODEL_ID ? QWEN_3_7_PLUS_CHAT_PARAMETERS : {};
+  const isQwen37Plus = params.model.modelId === QWEN_3_7_PLUS_MODEL_ID;
+  const modelParameters: Record<string, unknown> = isQwen37Plus
+    ? { ...QWEN_3_7_PLUS_CHAT_PARAMETERS }
+    : {};
+
+  if (isQwen37Plus && params.enableThinking === false) {
+    modelParameters.enable_thinking = false;
+    delete modelParameters.preserve_thinking;
+  }
 
   return {
     model: params.model.modelId,
     messages: buildOpenAIInput(params),
     ...modelParameters,
     ...(options?.stream ? { stream: true, stream_options: { include_usage: true } } : {}),
-    ...(typeof params.maxOutputTokens === 'number'
-      ? { max_completion_tokens: params.maxOutputTokens }
-      : {}),
+    ...(typeof params.maxOutputTokens === 'number' ? { max_tokens: params.maxOutputTokens } : {}),
     ...(options?.tools?.length ? { tools: options.tools, tool_choice: 'auto' } : {}),
   };
-}
-
-async function createChatCompletion(
-  params: LLMGenerateParams,
-  source: string,
-  body: Record<string, unknown>,
-): Promise<ChatCompletionResponse> {
-  try {
-    return (await getOpenAIClient(params.model).chat.completions.create(body as any, {
-      signal: params.abortSignal,
-    })) as ChatCompletionResponse;
-  } catch (error) {
-    throw wrapLLMError(error, source, params.model.modelId);
-  }
 }
 
 async function createChatCompletionStream(
@@ -382,21 +356,6 @@ async function createChatCompletionStream(
   }
 }
 
-function extractAssistantText(response: ChatCompletionResponse): string {
-  return response.choices?.[0]?.message?.content ?? '';
-}
-
-async function createMessage(
-  params: LLMGenerateParams,
-  source: string,
-): Promise<ChatCompletionResponse> {
-  const data = await createChatCompletion(params, source, buildRequestBody(params));
-  if (data.code || data.message) {
-    throw wrapLLMError(data, source, params.model.modelId);
-  }
-  return data;
-}
-
 async function* streamTextGeneration(
   params: LLMStreamParams,
   source: string,
@@ -408,6 +367,9 @@ async function* streamTextGeneration(
   );
 
   for await (const chunk of stream) {
+    if (chunk.code) {
+      throw wrapLLMError(chunk, source, params.model.modelId);
+    }
     const delta = chunk.choices?.[0]?.delta?.content;
     if (delta) yield delta;
   }
@@ -468,7 +430,6 @@ function buildToolResultMessages(results: LLMToolResult[]): OpenAIChatMessage[] 
 export async function* streamLLMWithTools(
   params: LLMToolLoopParams,
   source: string,
-  _thinking?: ThinkingConfig,
 ): AsyncIterable<LLMToolStreamEvent> {
   const messages = buildOpenAIInput(params);
   const maxIterations = params.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
@@ -498,6 +459,9 @@ export async function* streamLLMWithTools(
     const toolCallsByIndex = new Map<number, OpenAIToolCall>();
 
     for await (const chunk of stream) {
+      if (chunk.code) {
+        throw wrapLLMError(chunk, source, params.model.modelId);
+      }
       const delta = chunk.choices?.[0]?.delta;
       if (!delta) continue;
 
@@ -547,7 +511,6 @@ export async function callLLM<T extends LLMGenerateParams>(
   params: T,
   source: string,
   retryOptions?: LLMRetryOptions,
-  _thinking?: ThinkingConfig,
 ): Promise<LLMTextResult> {
   const maxAttempts = (retryOptions?.retries ?? 0) + 1;
   const validate = retryOptions?.validate ?? (maxAttempts > 1 ? DEFAULT_VALIDATE : undefined);
@@ -557,11 +520,12 @@ export async function callLLM<T extends LLMGenerateParams>(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const response = await createMessage(params, source);
-      const result: LLMTextResult = {
-        text: extractAssistantText(response),
-        rawResponse: response,
-      };
+      // 思考模式要求流式调用，因此内部统一走流式接收并聚合为完整文本
+      let text = '';
+      for await (const chunk of streamTextGeneration(params, source)) {
+        text += chunk;
+      }
+      const result: LLMTextResult = { text };
 
       if (validate && !validate(result.text)) {
         log.warn(
@@ -588,7 +552,6 @@ export async function callLLM<T extends LLMGenerateParams>(
 export function streamLLM<T extends LLMStreamParams>(
   params: T,
   source: string,
-  _thinking?: ThinkingConfig,
 ): LLMStreamResult {
   return { textStream: streamTextGeneration(params, source) };
 }
@@ -596,7 +559,6 @@ export function streamLLM<T extends LLMStreamParams>(
 export function streamLLMEvents<T extends LLMStreamParams>(
   params: T,
   source: string,
-  _thinking?: ThinkingConfig,
 ): AsyncIterable<LLMStreamEvent> {
   return streamTextGenerationEvents(params, source);
 }
@@ -604,12 +566,10 @@ export function streamLLMEvents<T extends LLMStreamParams>(
 export async function collectStreamLLMText<T extends LLMStreamParams>(
   params: T,
   source: string,
-  thinking?: ThinkingConfig,
 ): Promise<string> {
   let text = '';
   for await (const chunk of streamTextGeneration(params, source)) {
     text += chunk;
   }
-  void thinking;
   return text;
 }

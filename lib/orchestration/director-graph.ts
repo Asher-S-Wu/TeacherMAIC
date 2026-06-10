@@ -25,7 +25,6 @@ import type { ChatCompletionsModel } from '@/lib/ai/providers';
 import { ChatCompletionsLangGraphAdapter } from './chat-completions-adapter';
 import type { StatelessEvent } from '@/lib/types/chat';
 import type { StatelessChatRequest } from '@/lib/types/chat';
-import type { ThinkingConfig } from '@/lib/types/provider';
 import type { AgentConfig } from '@/lib/orchestration/registry/types';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { buildStructuredPrompt } from './prompt-builder';
@@ -54,7 +53,6 @@ const OrchestratorState = Annotation.Root({
   availableAgentIds: Annotation<string[]>,
   maxTurns: Annotation<number>,
   languageModel: Annotation<ChatCompletionsModel>,
-  thinkingConfig: Annotation<ThinkingConfig | null>,
   discussionContext: Annotation<{ topic: string; prompt?: string } | null>,
   triggerAgentId: Annotation<string | null>,
   userProfile: Annotation<{ nickname?: string; bio?: string } | null>,
@@ -183,10 +181,7 @@ async function directorNode(
     state.storeState.whiteboardOpen,
   );
 
-  const adapter = new ChatCompletionsLangGraphAdapter(
-    state.languageModel,
-    state.thinkingConfig ?? undefined,
-  );
+  const adapter = new ChatCompletionsLangGraphAdapter(state.languageModel);
 
   try {
     const result = await adapter._generate(
@@ -299,10 +294,7 @@ async function runAgentGeneration(
     state.agentResponses,
   );
   const llmMessages = convertMessagesToLLMHistory(state.messages, agentId);
-  const adapter = new ChatCompletionsLangGraphAdapter(
-    state.languageModel,
-    state.thinkingConfig ?? undefined,
-  );
+  const adapter = new ChatCompletionsLangGraphAdapter(state.languageModel);
 
   const lcMessages = [
     new SystemMessage(systemPrompt),
@@ -496,7 +488,6 @@ export function createOrchestrationGraph() {
 export function buildInitialState(
   request: StatelessChatRequest,
   languageModel: ChatCompletionsModel,
-  thinkingConfig?: ThinkingConfig,
 ): typeof OrchestratorState.State {
   // Build request-scoped agent config overrides for generated agents.
   // These travel with each request — no server-side persistence needed.
@@ -528,7 +519,6 @@ export function buildInitialState(
     availableAgentIds: request.config.agentIds,
     maxTurns: turnCount + 1, // Allow exactly one more director→agent cycle
     languageModel,
-    thinkingConfig: thinkingConfig ?? null,
     discussionContext,
     triggerAgentId: request.config.triggerAgentId || null,
     userProfile: request.userProfile || null,

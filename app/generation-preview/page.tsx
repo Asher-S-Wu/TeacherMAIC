@@ -97,10 +97,6 @@ function GenerationPreviewContent() {
     };
   };
 
-  const withThinkingConfig = <T extends Record<string, unknown>>(body: T) => {
-    return body;
-  };
-
   const throwIfAborted = (signal: AbortSignal) => {
     if (signal.aborted) {
       throw new DOMException('Generation aborted', 'AbortError');
@@ -362,12 +358,10 @@ function GenerationPreviewContent() {
         const res = await fetch('/api/web-search', {
           method: 'POST',
           headers: getApiHeaders(),
-          body: JSON.stringify(
-            withThinkingConfig({
-              query: currentSession.requirements.requirement,
-              pdfText: currentSession.pdfText || undefined,
-            }),
-          ),
+          body: JSON.stringify({
+            query: currentSession.requirements.requirement,
+            pdfText: currentSession.pdfText || undefined,
+          }),
           signal,
         });
 
@@ -427,14 +421,12 @@ function GenerationPreviewContent() {
           fetch('/api/generate/scene-outlines-stream', {
             method: 'POST',
             headers: getApiHeaders(),
-            body: JSON.stringify(
-              withThinkingConfig({
-                requirements: currentSession.requirements,
-                pdfText: currentSession.pdfText,
-                pdfImages: currentSession.pdfImages,
-                researchContext: currentSession.researchContext,
-              }),
-            ),
+            body: JSON.stringify({
+              requirements: currentSession.requirements,
+              pdfText: currentSession.pdfText,
+              pdfImages: currentSession.pdfImages,
+              researchContext: currentSession.researchContext,
+            }),
             signal,
           })
             .then((res) => {
@@ -608,19 +600,17 @@ function GenerationPreviewContent() {
           const agentResp = await fetch('/api/generate/agent-profiles', {
             method: 'POST',
             headers: getApiHeaders(),
-            body: JSON.stringify(
-              withThinkingConfig({
-                stageInfo: { name: stage.name, description: stage.description },
-                sceneOutlines: outlines.map((o) => ({
-                  title: o.title,
-                  description: o.description,
-                })),
-                languageDirective,
-                availableAvatars: allAvatars.map((a) => a.path),
-                avatarDescriptions: allAvatars.map((a) => ({ path: a.path, desc: a.desc })),
-                availableVoices: getAvailableVoicesForGeneration(),
-              }),
-            ),
+            body: JSON.stringify({
+              stageInfo: { name: stage.name, description: stage.description },
+              sceneOutlines: outlines.map((o) => ({
+                title: o.title,
+                description: o.description,
+              })),
+              languageDirective,
+              availableAvatars: allAvatars.map((a) => a.path),
+              avatarDescriptions: allAvatars.map((a) => ({ path: a.path, desc: a.desc })),
+              availableVoices: getAvailableVoicesForGeneration(),
+            }),
             signal,
           });
 
@@ -732,7 +722,7 @@ function GenerationPreviewContent() {
             error?: string;
           }>(
             '/api/generate/scene-content',
-            withThinkingConfig({
+            {
               outline,
               allOutlines: outlines,
               pdfImages: currentSession.pdfImages,
@@ -740,7 +730,7 @@ function GenerationPreviewContent() {
               stageId: stage.id,
               agents,
               languageDirective,
-            }),
+            },
             signal,
             '页面生成失败',
           );
@@ -759,7 +749,7 @@ function GenerationPreviewContent() {
             error?: string;
           }>(
             '/api/generate/scene-actions',
-            withThinkingConfig({
+            {
               outline: contentData.effectiveOutline || outline,
               allOutlines: outlines,
               content: contentData.content,
@@ -768,7 +758,7 @@ function GenerationPreviewContent() {
               previousSpeeches: [],
               userProfile,
               languageDirective,
-            }),
+            },
             signal,
             '页面生成失败',
           );

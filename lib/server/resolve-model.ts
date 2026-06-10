@@ -12,7 +12,6 @@ import {
   getModel,
   type ModelWithInfo,
 } from '@/lib/ai/providers';
-import type { ThinkingConfig } from '@/lib/types/provider';
 import { resolveApiKey, resolveBaseUrl } from '@/lib/server/provider-config';
 import { getCurrentUser } from '@/lib/server/auth';
 
@@ -23,8 +22,6 @@ export interface ResolvedModel extends ModelWithInfo {
   providerId: string;
   /** API key resolved from server environment variables. */
   apiKey: string;
-  /** Thinking config passed to the LLM adapter. Undefined uses the model's official default. */
-  thinkingConfig?: ThinkingConfig;
 }
 
 /**
@@ -51,7 +48,6 @@ export async function resolveModel(): Promise<ResolvedModel> {
     modelString,
     providerId,
     apiKey,
-    thinkingConfig: undefined,
   };
 }
 

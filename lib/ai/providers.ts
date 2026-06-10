@@ -12,7 +12,6 @@ import type {
   ModelInfo,
   ModelConfig,
 } from '@/lib/types/provider';
-import { applyModelMetadata } from './model-metadata';
 import {
   BAILIAN_COMPATIBLE_BASE_URL_TEMPLATE,
   QWEN_3_7_PLUS_MODEL_ID,
@@ -50,8 +49,6 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
     ],
   },
 };
-
-applyModelMetadata(PROVIDERS);
 
 function getProviderConfig(providerId: string): ProviderConfig | null {
   return PROVIDERS[providerId as BuiltInProviderId] ?? null;

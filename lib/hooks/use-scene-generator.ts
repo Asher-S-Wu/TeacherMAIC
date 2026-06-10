@@ -40,10 +40,6 @@ function getApiHeaders(): HeadersInit {
   };
 }
 
-function withThinkingConfig<T extends Record<string, unknown>>(body: T): T {
-  return body;
-}
-
 /** Call POST /api/generate/scene-content (step 1) */
 async function fetchSceneContent(
   params: {
@@ -65,7 +61,7 @@ async function fetchSceneContent(
   const response = await fetch('/api/generate/scene-content', {
     method: 'POST',
     headers: getApiHeaders(),
-    body: JSON.stringify(withThinkingConfig(params)),
+    body: JSON.stringify(params),
     signal,
   });
 
@@ -94,7 +90,7 @@ async function fetchSceneActions(
   const response = await fetch('/api/generate/scene-actions', {
     method: 'POST',
     headers: getApiHeaders(),
-    body: JSON.stringify(withThinkingConfig(params)),
+    body: JSON.stringify(params),
     signal,
   });
 

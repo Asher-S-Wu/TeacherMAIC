@@ -46,17 +46,11 @@ export async function POST(req: NextRequest) {
     // Clamp rewrite input at the route boundary; framework body limits still apply to total request size.
     const boundedPdfText = pdfText?.slice(0, SEARCH_QUERY_REWRITE_EXCERPT_LENGTH);
 
-    const { model: languageModel, thinkingConfig } = await resolveModelFromRequest(req, body);
+    const { model: languageModel } = await resolveModelFromRequest(req, body);
     const createAiCall = (operation: string): AICallFn => async (systemPrompt, userPrompt) => {
       // 多轮检索里的关键词改写与充足性判定 token 需求小，汇总单独放宽
       const isSummary = operation === 'web-search-research-summary';
       const maxOutputTokens = isSummary ? 1600 : 256;
-      // 非汇总任务限制了最大 256 tokens。如果开启了思考（Thinking），其推理过程产生的 token
-      // 会瞬间超出 256 tokens 上限导致整个响应被强行截断，进而导致 JSON 结构损坏报错。
-      // 因此针对非汇总的小型判断与改写任务，强制禁用思考。
-      const finalThinkingConfig = isSummary
-        ? thinkingConfig
-        : { mode: 'disabled' as const, enabled: false };
 
       // 联网搜索仍返回完整 JSON 给前端；内部模型步骤走流式，避免请求头等待超时。
       return collectStreamLLMText(
@@ -67,9 +61,12 @@ export async function POST(req: NextRequest) {
             { role: 'user', content: userPrompt },
           ],
           maxOutputTokens,
+          // 非汇总任务限制了最大 256 tokens。如果开启了思考（Thinking），其推理过程产生的 token
+          // 会瞬间超出 256 tokens 上限导致整个响应被强行截断，进而导致 JSON 结构损坏报错。
+          // 因此针对非汇总的小型判断与改写任务，强制禁用思考。
+          ...(isSummary ? {} : { enableThinking: false }),
         },
         operation,
-        finalThinkingConfig,
       );
     };
     log.info('Running XCrawl web research API request', {

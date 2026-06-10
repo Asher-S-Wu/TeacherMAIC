@@ -126,12 +126,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // Get API configuration from request headers/body
-    const {
-      model: languageModel,
-      modelInfo,
-      modelString,
-      thinkingConfig,
-    } = await resolveModelFromRequest(req, body);
+    const { model: languageModel, modelInfo, modelString } = await resolveModelFromRequest(
+      req,
+      body,
+    );
     resolvedModelString = modelString;
 
     if (!body.requirements) {
@@ -282,7 +280,7 @@ export async function POST(req: NextRequest) {
                     prompt: userPrompt,
                     maxOutputTokens: modelInfo?.outputWindow,
                   };
-              const result = streamLLM(streamParams, 'scene-outlines-stream', thinkingConfig);
+              const result = streamLLM(streamParams, 'scene-outlines-stream');
 
               parsedOutlines = [];
               languageDirective = null;

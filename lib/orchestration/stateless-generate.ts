@@ -15,7 +15,6 @@
 
 import type { ChatCompletionsModel } from '@/lib/ai/providers';
 import type { StatelessChatRequest, StatelessEvent } from '@/lib/types/chat';
-import type { ThinkingConfig } from '@/lib/types/provider';
 import type { WhiteboardActionRecord } from './types';
 import { createOrchestrationGraph, buildInitialState } from './director-graph';
 import { createLogger } from '@/lib/logger';
@@ -35,7 +34,6 @@ export async function* statelessGenerate(
   request: StatelessChatRequest,
   abortSignal: AbortSignal,
   languageModel: ChatCompletionsModel,
-  thinkingConfig?: ThinkingConfig,
 ): AsyncGenerator<StatelessEvent> {
   log.info(
     `[StatelessGenerate] Starting orchestration for agents: ${request.config.agentIds.join(', ')}`,
@@ -46,7 +44,7 @@ export async function* statelessGenerate(
 
   try {
     const graph = createOrchestrationGraph();
-    const initialState = buildInitialState(request, languageModel, thinkingConfig);
+    const initialState = buildInitialState(request, languageModel);
 
     const stream = await graph.stream(initialState, {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

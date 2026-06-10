@@ -63,12 +63,7 @@ async function runSceneActionsGeneration(
   } = body;
 
   // ── 从请求体里解析当前使用的模型配置 ──
-  const {
-    model: languageModel,
-    modelInfo,
-    modelString,
-    thinkingConfig,
-  } = await resolveModelFromRequest(req, body);
+  const { model: languageModel, modelInfo, modelString } = await resolveModelFromRequest(req, body);
 
   // 判断当前模型是否支持图片输入。
   const hasVision = !!modelInfo?.capabilities?.vision;
@@ -99,7 +94,7 @@ async function runSceneActionsGeneration(
             maxOutputTokens: modelInfo?.outputWindow,
           };
 
-    const result = await callLLM(params, 'scene-actions', undefined, thinkingConfig);
+    const result = await callLLM(params, 'scene-actions');
     return result.text;
   };
 

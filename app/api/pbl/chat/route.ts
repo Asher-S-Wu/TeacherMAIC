@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get model config from request headers/body
-    const { model, thinkingConfig } = await resolveModelFromRequest(req, body);
+    const { model } = await resolveModelFromRequest(req, body);
 
     // Build context for the agent, differentiating question vs judge
     let issueContext = '';
@@ -68,8 +68,6 @@ export async function POST(req: NextRequest) {
         prompt: message,
       },
       'pbl-chat',
-      undefined,
-      thinkingConfig,
     );
 
     return apiSuccess({ message: result.text, agentName: agent.name });

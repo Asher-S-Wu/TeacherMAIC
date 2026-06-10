@@ -20,7 +20,6 @@ import type {
   OpenAIChatTool,
 } from '@/lib/ai/llm';
 import type { ChatCompletionsModel } from '@/lib/ai/providers';
-import type { ThinkingConfig } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ChatCompletionsAdapter');
@@ -38,12 +37,10 @@ export type StreamChunk =
  */
 export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
   private languageModel: ChatCompletionsModel;
-  private thinking?: ThinkingConfig;
 
-  constructor(languageModel: ChatCompletionsModel, thinking?: ThinkingConfig) {
+  constructor(languageModel: ChatCompletionsModel) {
     super({});
     this.languageModel = languageModel;
-    this.thinking = thinking;
   }
 
   _llmType(): string {
@@ -91,8 +88,6 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
           abortSignal,
         },
         'chat-adapter',
-        undefined,
-        this.thinking,
       );
 
       const content = result.text || '';
@@ -138,7 +133,6 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
         abortSignal: options?.signal,
       },
       'chat-adapter-stream',
-      this.thinking,
     );
 
     let fullContent = '';
@@ -178,7 +172,6 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
         abortSignal: options?.signal,
       },
       'chat-adapter-tool-stream',
-      this.thinking,
     );
 
     let fullContent = '';

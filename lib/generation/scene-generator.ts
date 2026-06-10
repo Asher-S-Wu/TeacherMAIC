@@ -58,7 +58,6 @@ import type {
   GenerationResult,
   GenerationCallbacks,
 } from './pipeline-types';
-import type { ThinkingConfig } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
 const log = createLogger('Generation');
 
@@ -72,7 +71,6 @@ export interface SceneContentOptions {
   generatedMediaMapping?: ImageMapping;
   agents?: AgentInfo[];
   languageDirective?: string;
-  thinkingConfig?: ThinkingConfig;
 }
 
 export interface SceneActionsOptions {
@@ -196,7 +194,6 @@ export async function generateSceneContent(
     generatedMediaMapping,
     agents,
     languageDirective,
-    thinkingConfig,
   } = options;
 
   if (outline.type === 'interactive') {
@@ -223,7 +220,7 @@ export async function generateSceneContent(
     case 'quiz':
       return generateQuizContent(outline, aiCall, languageDirective);
     case 'pbl':
-      return generatePBLSceneContent(outline, languageModel, languageDirective, thinkingConfig);
+      return generatePBLSceneContent(outline, languageModel, languageDirective);
     default:
       return null;
   }
@@ -842,7 +839,6 @@ async function generatePBLSceneContent(
   outline: SceneOutline,
   languageModel?: ChatCompletionsModel,
   languageDirective?: string,
-  thinkingConfig?: ThinkingConfig,
 ): Promise<GeneratedPBLContent | null> {
   if (!languageModel) {
     log.error('Chat Completions model required for PBL generation');
@@ -870,7 +866,6 @@ async function generatePBLSceneContent(
       {
         onProgress: (msg) => log.info(`${msg}`),
       },
-      thinkingConfig,
     );
     log.info(
       `PBL generated: ${projectConfig.agents.length} agents, ${projectConfig.issueboard.issues.length} issues`,

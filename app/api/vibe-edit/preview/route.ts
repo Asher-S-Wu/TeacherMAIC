@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, '请先输入修改要求');
     }
 
-    const { model, modelInfo, thinkingConfig } = await resolveModelFromRequest(req, body);
+    const { model, modelInfo } = await resolveModelFromRequest(req, body);
     const draft = await createVibeEditDraft({
       scene: body.scene,
       outline: body.outline,
@@ -36,7 +36,6 @@ export async function POST(req: NextRequest) {
       allowVideoGeneration: body.allowVideoGeneration,
       model,
       modelOutputWindow: modelInfo?.outputWindow,
-      thinkingConfig,
     });
 
     return apiSuccess({ draft });

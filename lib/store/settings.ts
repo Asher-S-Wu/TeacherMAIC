@@ -8,8 +8,6 @@ import { createJSONStorage, persist, type StateStorage } from 'zustand/middlewar
 import type { ProviderId } from '@/lib/ai/providers';
 import type { ProvidersConfig } from '@/lib/types/settings';
 import { DEFAULT_MODEL_ID, DEFAULT_PROVIDER_ID, PROVIDERS } from '@/lib/ai/providers';
-import type { ThinkingConfig } from '@/lib/types/provider';
-import { getThinkingConfigKey, supportsConfigurableThinking } from '@/lib/ai/thinking-config';
 import type { TTSProviderId, ASRProviderId, BuiltInTTSProviderId } from '@/lib/audio/types';
 import {
   ASR_PROVIDERS,
@@ -61,26 +59,6 @@ const accountSettingsStorage: StateStorage = {
   },
 };
 
-function pruneThinkingConfigs(
-  thinkingConfigs: Record<string, ThinkingConfig> | undefined,
-  providersConfig: ProvidersConfig | undefined,
-): Record<string, ThinkingConfig> {
-  if (!thinkingConfigs || !providersConfig) return {};
-
-  const validKeys = new Set<string>();
-  for (const [providerId, providerConfig] of Object.entries(providersConfig)) {
-    for (const model of providerConfig.models) {
-      if (supportsConfigurableThinking(model.capabilities?.thinking)) {
-        validKeys.add(getThinkingConfigKey(providerId, model.id));
-      }
-    }
-  }
-
-  return Object.fromEntries(
-    Object.entries(thinkingConfigs).filter(([key]) => validKeys.has(key)),
-  ) as Record<string, ThinkingConfig>;
-}
-
 function isValidTTSVoice(providerId: TTSProviderId, voice: string | undefined): voice is string {
   if (!voice) return false;
   return TTS_PROVIDERS[providerId]?.voices.some((item) => item.id === voice) ?? false;
@@ -99,7 +77,6 @@ export interface SettingsState {
   // Model selection
   providerId: ProviderId;
   modelId: string;
-  thinkingConfigs: Record<string, ThinkingConfig>;
 
   // Provider configurations (unified JSON storage)
   providersConfig: ProvidersConfig;
@@ -218,16 +195,6 @@ export interface SettingsState {
 
   // Actions
   setModel: (providerId: ProviderId, modelId: string) => void;
-  setModelWithThinkingConfig: (
-    providerId: ProviderId,
-    modelId: string,
-    config: ThinkingConfig,
-  ) => void;
-  setThinkingConfig: (
-    providerId: ProviderId,
-    modelId: string,
-    config: ThinkingConfig | undefined,
-  ) => void;
   setProviderConfig: (providerId: ProviderId, config: Partial<ProvidersConfig[ProviderId]>) => void;
   setTTSMuted: (muted: boolean) => void;
   setTTSVolume: (volume: number) => void;
@@ -398,7 +365,6 @@ export const useSettingsStore = create<SettingsState>()(
       return {
         providerId: DEFAULT_PROVIDER_ID,
         modelId: DEFAULT_MODEL_ID,
-        thinkingConfigs: {},
         providersConfig: initialProvidersConfig,
         selectedAgentIds: ['default-1', 'default-2', 'default-3'],
         maxTurns: '10',
@@ -442,31 +408,6 @@ export const useSettingsStore = create<SettingsState>()(
         // Actions
         setModel: () => set({ providerId: DEFAULT_PROVIDER_ID, modelId: DEFAULT_MODEL_ID }),
 
-        setModelWithThinkingConfig: (_providerId, _modelId, config) =>
-          set((state) => {
-            const key = getThinkingConfigKey(DEFAULT_PROVIDER_ID, DEFAULT_MODEL_ID);
-            return {
-              providerId: DEFAULT_PROVIDER_ID,
-              modelId: DEFAULT_MODEL_ID,
-              thinkingConfigs: {
-                ...state.thinkingConfigs,
-                [key]: config,
-              },
-            };
-          }),
-
-        setThinkingConfig: (providerId, modelId, config) =>
-          set((state) => {
-            const key = getThinkingConfigKey(providerId, modelId);
-            const next = { ...state.thinkingConfigs };
-            if (config) {
-              next[key] = config;
-            } else {
-              delete next[key];
-            }
-            return { thinkingConfigs: next };
-          }),
-
         setProviderConfig: (providerId, config) =>
           set((state) => {
             const { apiKey: _apiKey, ...safeConfig } = config;
@@ -478,10 +419,7 @@ export const useSettingsStore = create<SettingsState>()(
                 apiKey: '',
               },
             };
-            return {
-              providersConfig,
-              thinkingConfigs: pruneThinkingConfigs(state.thinkingConfigs, providersConfig),
-            };
+            return { providersConfig };
           }),
         setTTSMuted: (muted) => set({ ttsMuted: muted }),
 
@@ -775,7 +713,6 @@ export const useSettingsStore = create<SettingsState>()(
 
               return {
                 providersConfig: newProvidersConfig,
-                thinkingConfigs: pruneThinkingConfigs(state.thinkingConfigs, newProvidersConfig),
                 ttsProvidersConfig: newTTSConfig,
                 asrProvidersConfig: newASRConfig,
                 pdfProvidersConfig: newPDFConfig,
@@ -811,12 +748,12 @@ export const useSettingsStore = create<SettingsState>()(
       storage: createJSONStorage(() => accountSettingsStorage),
       skipHydration: true,
       merge: (persistedState, currentState) => {
-        const persisted = (persistedState ?? {}) as Partial<SettingsState>;
+        // 历史版本曾持久化 thinkingConfigs，丢弃这个遗留键，下次写入时即被清除
+        const persisted = {
+          ...((persistedState ?? {}) as Partial<SettingsState> & { thinkingConfigs?: unknown }),
+        };
+        delete persisted.thinkingConfigs;
         const merged = { ...currentState, ...persisted };
-        const thinkingConfigs = pruneThinkingConfigs(
-          persisted.thinkingConfigs,
-          currentState.providersConfig,
-        );
         const ttsVoice = isValidTTSVoice('bailian-tts', persisted.ttsVoice)
           ? persisted.ttsVoice
           : DEFAULT_TTS_VOICES['bailian-tts'];
@@ -841,7 +778,6 @@ export const useSettingsStore = create<SettingsState>()(
           videoProviderId: 'bailian-video' as VideoProviderId,
           videoModelId: BAILIAN_VIDEO_MODEL_ID,
           webSearchProviderId: 'xcrawl' as WebSearchProviderId,
-          thinkingConfigs,
         } as SettingsState;
       },
     },

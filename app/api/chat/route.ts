@@ -106,12 +106,7 @@ export async function POST(req: NextRequest) {
       try {
         startHeartbeat();
 
-        const generator = statelessGenerate(
-          body,
-          signal,
-          languageModel,
-          undefined,
-        );
+        const generator = statelessGenerate(body, signal, languageModel);
 
         for await (const event of generator) {
           if (signal.aborted) {
