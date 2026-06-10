@@ -36,7 +36,7 @@ import {
 import { buildDirectorPrompt, parseDirectorDecision } from './director-prompt';
 import { getActionTools, getEffectiveActions } from './tool-schemas';
 import type { AgentTurnSummary, WhiteboardActionRecord } from './types';
-import type { LLMToolResult, LLMToolUse } from '@/lib/ai/llm';
+import type { LLMToolResult, LLMToolUse, OpenAIChatMessage } from '@/lib/ai/llm';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('DirectorGraph');
@@ -391,7 +391,11 @@ async function runAgentGeneration(
           type: 'message_history',
           data: {
             messageId,
-            messages: chunk.messages,
+            // 生成的模型历史只含 assistant/tool 消息，这里收窄掉 system 角色以匹配事件协议
+            messages: chunk.messages.filter(
+              (m): m is OpenAIChatMessage & { role: 'user' | 'assistant' | 'tool' } =>
+                m.role !== 'system',
+            ),
           },
         });
       }
