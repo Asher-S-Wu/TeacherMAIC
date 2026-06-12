@@ -16,7 +16,7 @@ export type ProviderId = BuiltInProviderId;
  * Provider API types
  */
 export type ProviderType =
-  | 'openai-chat';
+  | 'openai-responses';
 
 /**
  * Model information

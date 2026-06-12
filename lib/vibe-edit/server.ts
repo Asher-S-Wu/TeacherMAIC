@@ -1,5 +1,5 @@
 import { callLLM } from '@/lib/ai/llm';
-import type { ChatCompletionsModel } from '@/lib/ai/providers';
+import type { ResponsesModel } from '@/lib/ai/providers';
 import { BAILIAN_IMAGE_MODEL_ID, BAILIAN_VIDEO_MODEL_ID } from '@/lib/ai/bailian-models';
 import {
   buildPrompt,
@@ -64,8 +64,7 @@ interface CreateVibeEditDraftParams {
   languageDirective?: string;
   allowImageGeneration: boolean;
   allowVideoGeneration: boolean;
-  model: ChatCompletionsModel;
-  modelOutputWindow?: number;
+  model: ResponsesModel;
 }
 
 export async function createVibeEditDraft(
@@ -76,7 +75,7 @@ export async function createVibeEditDraft(
     outline.id === params.outline.id ? nextOutline : outline,
   );
 
-  const aiCall = createAiCall(params.model, params.modelOutputWindow, 'vibe-edit-content');
+  const aiCall = createAiCall(params.model, 'vibe-edit-content');
 
   const content = await generateSceneContent(nextOutline, aiCall, {
     languageModel: nextOutline.type === 'pbl' ? params.model : undefined,
@@ -138,7 +137,6 @@ async function generateEditedOutline(
       model: params.model,
       system: prompt.system,
       prompt: prompt.user,
-      maxOutputTokens: params.modelOutputWindow,
     },
     'vibe-edit-outline',
   );
@@ -205,8 +203,7 @@ function assertRequestedMediaAllowed(
 }
 
 function createAiCall(
-  model: ChatCompletionsModel,
-  modelOutputWindow: number | undefined,
+  model: ResponsesModel,
   source: string,
 ): AICallFn {
   return async (systemPrompt, userPrompt) => {
@@ -215,7 +212,6 @@ function createAiCall(
         model,
         system: systemPrompt,
         prompt: userPrompt,
-        maxOutputTokens: modelOutputWindow,
       },
       source,
     );

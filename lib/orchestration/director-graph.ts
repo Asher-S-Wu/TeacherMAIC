@@ -20,9 +20,9 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { SystemMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
-import type { ChatCompletionsModel } from '@/lib/ai/providers';
+import type { ResponsesModel } from '@/lib/ai/providers';
 
-import { ChatCompletionsLangGraphAdapter } from './chat-completions-adapter';
+import { ResponsesLangGraphAdapter } from './responses-adapter';
 import type { StatelessEvent } from '@/lib/types/chat';
 import type { StatelessChatRequest } from '@/lib/types/chat';
 import type { AgentConfig } from '@/lib/orchestration/registry/types';
@@ -31,12 +31,12 @@ import { buildStructuredPrompt } from './prompt-builder';
 import { summarizeConversation } from './summarizers/conversation-summary';
 import {
   convertMessagesToLLMHistory,
-  convertMessagesToOpenAI,
+  convertMessagesToResponsesInput,
 } from './summarizers/message-converter';
 import { buildDirectorPrompt, parseDirectorDecision } from './director-prompt';
 import { getActionTools, getEffectiveActions } from './tool-schemas';
 import type { AgentTurnSummary, WhiteboardActionRecord } from './types';
-import type { LLMToolResult, LLMToolUse, OpenAIChatMessage } from '@/lib/ai/llm';
+import type { LLMToolResult, LLMToolUse } from '@/lib/ai/llm';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('DirectorGraph');
@@ -52,7 +52,7 @@ const OrchestratorState = Annotation.Root({
   storeState: Annotation<StatelessChatRequest['storeState']>,
   availableAgentIds: Annotation<string[]>,
   maxTurns: Annotation<number>,
-  languageModel: Annotation<ChatCompletionsModel>,
+  languageModel: Annotation<ResponsesModel>,
   discussionContext: Annotation<{ topic: string; prompt?: string } | null>,
   triggerAgentId: Annotation<string | null>,
   userProfile: Annotation<{ nickname?: string; bio?: string } | null>,
@@ -166,8 +166,8 @@ async function directorNode(
 
   write({ type: 'thinking', data: { stage: 'director' } });
 
-  const openaiMessages = convertMessagesToOpenAI(state.messages);
-  const conversationSummary = summarizeConversation(openaiMessages);
+  const responseInputMessages = convertMessagesToResponsesInput(state.messages);
+  const conversationSummary = summarizeConversation(responseInputMessages);
 
   const prompt = buildDirectorPrompt(
     agents,
@@ -181,7 +181,7 @@ async function directorNode(
     state.storeState.whiteboardOpen,
   );
 
-  const adapter = new ChatCompletionsLangGraphAdapter(state.languageModel);
+  const adapter = new ResponsesLangGraphAdapter(state.languageModel);
 
   try {
     const result = await adapter._generate(
@@ -293,8 +293,11 @@ async function runAgentGeneration(
     state.userProfile || undefined,
     state.agentResponses,
   );
-  const llmMessages = convertMessagesToLLMHistory(state.messages, agentId);
-  const adapter = new ChatCompletionsLangGraphAdapter(state.languageModel);
+  const { messages: llmMessages, previousResponseId } = convertMessagesToLLMHistory(
+    state.messages,
+    agentId,
+  );
+  const adapter = new ResponsesLangGraphAdapter(state.languageModel);
 
   const lcMessages = [
     new SystemMessage(systemPrompt),
@@ -372,9 +375,11 @@ async function runAgentGeneration(
       actionTools.length > 0
         ? adapter.streamGenerateWithTools(lcMessages, actionTools, onToolUse, {
             signal: config.signal,
+            previousResponseId,
           })
         : adapter.streamGenerate(lcMessages, {
             signal: config.signal,
+            previousResponseId,
           });
 
     for await (const chunk of agentStream) {
@@ -386,16 +391,12 @@ async function runAgentGeneration(
           type: 'text_delta',
           data: { content: text, messageId },
         });
-      } else if (chunk.type === 'message_history') {
+      } else if (chunk.type === 'model_response') {
         write({
-          type: 'message_history',
+          type: 'model_response',
           data: {
             messageId,
-            // 生成的模型历史只含 assistant/tool 消息，这里收窄掉 system 角色以匹配事件协议
-            messages: chunk.messages.filter(
-              (m): m is OpenAIChatMessage & { role: 'user' | 'assistant' | 'tool' } =>
-                m.role !== 'system',
-            ),
+            responseId: chunk.responseId,
           },
         });
       }
@@ -487,11 +488,11 @@ export function createOrchestrationGraph() {
 
 /**
  * Build initial state for the orchestration graph from a StatelessChatRequest
- * and a pre-created Chat Completions model instance.
+ * and a pre-created Responses model instance.
  */
 export function buildInitialState(
   request: StatelessChatRequest,
-  languageModel: ChatCompletionsModel,
+  languageModel: ResponsesModel,
 ): typeof OrchestratorState.State {
   // Build request-scoped agent config overrides for generated agents.
   // These travel with each request — no server-side persistence needed.

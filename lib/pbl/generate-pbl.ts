@@ -1,11 +1,11 @@
 /**
- * PBL Generation using Chat Completions API
+ * PBL Generation using Responses API
  *
  * Core generation engine that designs a complete PBL project as JSON.
  */
 
 import { callLLM } from '@/lib/ai/llm';
-import type { ChatCompletionsModel } from '@/lib/ai/providers';
+import type { ResponsesModel } from '@/lib/ai/providers';
 import type { PBLProjectConfig } from './types';
 import { buildPBLSystemPrompt } from './pbl-system-prompt';
 import {
@@ -140,7 +140,7 @@ function validateProjectConfig(config: PBLProjectConfig, expectedIssueCount: num
  */
 export async function generatePBLContent(
   config: GeneratePBLConfig,
-  model: ChatCompletionsModel,
+  model: ResponsesModel,
   callbacks?: GeneratePBLCallbacks,
 ): Promise<PBLProjectConfig> {
   const { languageDirective } = config;
@@ -169,7 +169,7 @@ Return a JSON object with this exact top-level shape:
       "system_prompt": "string",
       "default_mode": "chat",
       "delay_time": 0,
-      "env": { "chat": { "max_tokens": 4096, "system_prompt": "same as system_prompt" } },
+      "env": { "chat": { "system_prompt": "same as system_prompt" } },
       "is_user_role": false,
       "is_active": false,
       "is_system_agent": false
@@ -265,7 +265,7 @@ Return ONLY valid JSON. Do not use markdown fences or explanatory text.`,
  */
 async function postProcessPBL(
   config: PBLProjectConfig,
-  model: ChatCompletionsModel,
+  model: ResponsesModel,
   languageDirective: string,
   callbacks?: GeneratePBLCallbacks,
 ): Promise<void> {

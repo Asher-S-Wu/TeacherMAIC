@@ -272,13 +272,11 @@ export async function POST(req: NextRequest) {
                         content: buildVisionUserContent(userPrompt, visionImages),
                       },
                     ],
-                    maxOutputTokens: modelInfo?.outputWindow,
                   }
                 : {
                     model: languageModel,
                     system: prompts.system,
                     prompt: userPrompt,
-                    maxOutputTokens: modelInfo?.outputWindow,
                   };
               const result = streamLLM(streamParams, 'scene-outlines-stream');
 

@@ -4,10 +4,11 @@ import type { LLMMessage } from '@/lib/ai/llm';
 // ==================== Message Conversion ====================
 
 /**
- * Convert UI messages to OpenAI format
- * Includes tool call information so the model knows what actions were taken
+ * Convert UI messages to Responses input messages.
+ * Action badges are summarized as plain text because tool state is now kept
+ * by the Responses API session through previous_response_id.
  */
-export function convertMessagesToOpenAI(
+export function convertMessagesToResponsesInput(
   messages: StatelessChatRequest['messages'],
   currentAgentId?: string,
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
@@ -111,38 +112,36 @@ export function convertMessagesToOpenAI(
 export function convertMessagesToLLMHistory(
   messages: StatelessChatRequest['messages'],
   currentAgentId?: string,
-): LLMMessage[] {
+): { messages: LLMMessage[]; previousResponseId?: string } {
+  const anchorIndex = findPreviousResponseAnchor(messages, currentAgentId);
+  const previousResponseId =
+    anchorIndex >= 0 ? messages[anchorIndex].metadata?.modelResponseId : undefined;
+  const messagesAfterAnchor = anchorIndex >= 0 ? messages.slice(anchorIndex + 1) : messages;
   const converted: LLMMessage[] = [];
 
-  for (const msg of messages) {
+  for (const msg of messagesAfterAnchor) {
     if (msg.role !== 'user' && msg.role !== 'assistant') continue;
-
-    const isInterrupted =
-      (msg as unknown as Record<string, unknown>).metadata &&
-      ((msg as unknown as Record<string, unknown>).metadata as Record<string, unknown>)
-        ?.interrupted;
-
-    if (
-      msg.role === 'assistant' &&
-      !isInterrupted &&
-      msg.metadata?.modelHistory?.length &&
-      (!currentAgentId || !msg.metadata.agentId || msg.metadata.agentId === currentAgentId)
-    ) {
-      for (const historyMessage of msg.metadata.modelHistory) {
-        converted.push({
-          role: historyMessage.role,
-          content: historyMessage.content as LLMMessage['content'],
-          toolCalls: historyMessage.tool_calls as LLMMessage['toolCalls'],
-          toolCallId: historyMessage.tool_call_id,
-          name: historyMessage.name,
-        });
-      }
-      continue;
-    }
-
-    const fallback = convertMessagesToOpenAI([msg], currentAgentId);
+    const fallback = convertMessagesToResponsesInput([msg], currentAgentId);
     converted.push(...fallback);
   }
 
-  return converted;
+  return { messages: converted, previousResponseId };
+}
+
+function findPreviousResponseAnchor(
+  messages: StatelessChatRequest['messages'],
+  currentAgentId?: string,
+): number {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== 'assistant') continue;
+    if (msg.metadata?.interrupted) continue;
+    if (!msg.metadata?.modelResponseId) continue;
+    if (currentAgentId && msg.metadata?.agentId !== currentAgentId) {
+      continue;
+    }
+    return i;
+  }
+
+  return -1;
 }

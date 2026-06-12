@@ -241,7 +241,6 @@ export async function generateClassroom(
 
   const {
     model: languageModel,
-    modelInfo,
     modelString,
     providerId,
     apiKey,
@@ -270,7 +269,6 @@ export async function generateClassroom(
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        maxOutputTokens: modelInfo?.outputWindow,
       },
       'generate-classroom',
     );
@@ -281,9 +279,6 @@ export async function generateClassroom(
     userPrompt,
     _images,
   ) => {
-    const isSummary = operation === 'web-search-research-summary';
-    const maxOutputTokens = isSummary ? 1600 : 256;
-
     // 后台联网搜索中的模型步骤也走流式，返回值仍是完整文本。
     return collectStreamLLMText(
       {
@@ -292,11 +287,6 @@ export async function generateClassroom(
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        maxOutputTokens,
-        // 非汇总任务限制了最大 256 tokens。如果开启了思考（Thinking），其推理过程产生的 token
-        // 会瞬间超出 256 tokens 上限导致整个响应被强行截断，进而导致 JSON 结构损坏报错。
-        // 因此针对非汇总的小型判断与改写任务，强制禁用思考。
-        ...(isSummary ? {} : { enableThinking: false }),
       },
       operation,
     );

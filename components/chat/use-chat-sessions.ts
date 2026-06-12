@@ -7,7 +7,6 @@ import type {
   SessionStatus,
   ChatMessageMetadata,
   DirectorState,
-  ModelHistoryMessage,
 } from '@/lib/types/chat';
 import type { DiscussionRequest } from '@/components/roundtable';
 import type { Action, SpotlightAction, DiscussionAction } from '@/lib/types/action';
@@ -346,7 +345,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
             }
           },
 
-          onMessageHistory(messageId: string, messages: ModelHistoryMessage[]) {
+          onModelResponse(messageId: string, responseId: string) {
             setSessions((prev) =>
               prev.map((s) => {
                 if (s.id !== sessionId) return s;
@@ -358,7 +357,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
                           ...m,
                           metadata: {
                             ...m.metadata,
-                            modelHistory: messages,
+                            modelResponseId: responseId,
                           },
                         }
                       : m,
@@ -570,12 +569,12 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
                 });
                 break;
               }
-              case 'message_history': {
+              case 'model_response': {
                 const targetId = event.data.messageId ?? currentMessageId;
                 if (!targetId) break;
-                currentBuffer.pushMessageHistory({
+                currentBuffer.pushModelResponse({
                   messageId: targetId,
-                  messages: event.data.messages,
+                  responseId: event.data.responseId,
                 });
                 break;
               }

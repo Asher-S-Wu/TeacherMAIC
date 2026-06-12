@@ -15,12 +15,8 @@ export function buildBailianDashScopeApiBaseUrl(): string {
 
 export const QWEN_3_7_PLUS_MODEL_ID = 'qwen3.7-plus';
 export const QWEN_3_7_PLUS_MODEL_NAME = 'Qwen 3.7 Plus';
-export const QWEN_3_7_PLUS_CHAT_PARAMETERS = {
-  enable_thinking: true,
-  preserve_thinking: true,
+export const QWEN_3_7_PLUS_RESPONSES_PARAMETERS = {
   temperature: 0.6,
-  top_p: 0.95,
-  top_k: 20,
 } as const;
 
 export const BAILIAN_IMAGE_MODEL_ID = 'wan2.7-image-pro';

@@ -1,10 +1,10 @@
 /**
  * Action tool schemas for stateless generation.
  *
- * Bailian receives classroom actions as OpenAI-compatible function tool definitions.
+ * Bailian receives classroom actions as Responses function tool definitions.
  */
 
-import type { OpenAIChatTool } from '@/lib/ai/llm';
+import type { ResponsesTool } from '@/lib/ai/llm';
 import { SLIDE_ONLY_ACTIONS } from '@/lib/types/action';
 
 // ==================== Effective Actions ====================
@@ -263,16 +263,14 @@ const toolSchemas: Record<string, JsonSchema> = {
   ),
 };
 
-export function getActionTools(allowedActions: string[]): OpenAIChatTool[] {
+export function getActionTools(allowedActions: string[]): ResponsesTool[] {
   return allowedActions
     .filter((action) => toolDescriptions[action] && toolSchemas[action])
     .map((action) => ({
       type: 'function',
-      function: {
-        name: action,
-        description: toolDescriptions[action],
-        parameters: toolSchemas[action],
-      },
+      name: action,
+      description: toolDescriptions[action],
+      parameters: toolSchemas[action],
     }));
 }
 

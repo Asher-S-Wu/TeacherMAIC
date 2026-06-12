@@ -68,7 +68,6 @@ export class AgentMCP {
       delay_time,
       env: {
         chat: {
-          max_tokens: 4096,
           system_prompt,
         },
       },

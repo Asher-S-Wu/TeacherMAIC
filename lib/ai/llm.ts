@@ -1,76 +1,89 @@
 /**
  * Unified LLM Call Layer
  *
- * Text generation uses Alibaba Cloud Bailian through the OpenAI-compatible Chat API.
+ * Text generation uses Alibaba Cloud Bailian through the OpenAI-compatible
+ * Responses API.
  */
 
 import OpenAI from 'openai';
 import { createLogger } from '@/lib/logger';
-import { QWEN_3_7_PLUS_CHAT_PARAMETERS, QWEN_3_7_PLUS_MODEL_ID } from './bailian-models';
-import type { ChatCompletionsModel } from './providers';
+import {
+  QWEN_3_7_PLUS_MODEL_ID,
+  QWEN_3_7_PLUS_RESPONSES_PARAMETERS,
+} from './bailian-models';
+import type { ResponsesModel } from './providers';
 
 const log = createLogger('LLM');
 
+export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high';
+
 type TextPart = { type: 'text'; text: string };
 type ImagePart = { type: 'image'; image: string; mimeType?: string };
-type VideoPart = {
-  type: 'video';
-  video: string | string[];
-  mimeType?: string;
-  fps?: number;
-  maxLongSidePixel?: number;
-  detail?: 'low' | 'default' | 'high';
-};
-
-export type OpenAIContentPart =
-  | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string } }
-  | { type: 'video'; video: string[] }
+type UnsupportedMediaPart =
+  | { type: 'video'; video: string | string[]; mimeType?: string }
   | { type: 'input_audio'; input_audio: { data: string } };
 
-export type OpenAIToolCall = {
-  id: string;
+export type ResponsesContentPart =
+  | { type: 'input_text'; text: string }
+  | { type: 'input_image'; image_url: string }
+  | { type: 'output_text'; text: string; annotations?: unknown[] };
+
+type TextLikeContentPart =
+  | TextPart
+  | Extract<ResponsesContentPart, { type: 'input_text' | 'output_text' }>;
+
+export type ResponsesMessage = {
+  type?: 'message';
+  role: 'system' | 'developer' | 'user' | 'assistant';
+  content: string | ResponsesContentPart[];
+};
+
+export type ResponsesFunctionCall = {
+  type: 'function_call';
+  id?: string;
+  name: string;
+  arguments: string;
+  call_id: string;
+  status?: 'in_progress' | 'completed' | 'incomplete';
+};
+
+export type ResponsesFunctionCallOutput = {
+  type: 'function_call_output';
+  id?: string;
+  call_id: string;
+  output: string;
+  status?: 'in_progress' | 'completed' | 'incomplete';
+};
+
+export type ResponsesInputItem =
+  | ResponsesMessage
+  | ResponsesFunctionCall
+  | ResponsesFunctionCallOutput;
+
+export type ResponsesTool = {
   type: 'function';
-  function: {
-    name: string;
-    arguments: string;
-  };
+  name: string;
+  description?: string;
+  parameters?: Record<string, unknown>;
 };
 
-export type OpenAIChatMessage = {
-  role: 'system' | 'user' | 'assistant' | 'tool';
-  content?: string | OpenAIContentPart[] | null;
-  tool_calls?: OpenAIToolCall[];
-  tool_call_id?: string;
-  name?: string;
-};
+export type LLMMessageContent =
+  | string
+  | null
+  | Array<TextPart | ImagePart | ResponsesContentPart | UnsupportedMediaPart>;
 
-export type OpenAIChatTool = {
-  type: 'function';
-  function: {
-    name: string;
-    description?: string;
-    parameters?: Record<string, unknown>;
-  };
-};
-
-export type LLMMessageContent = string | null | Array<TextPart | ImagePart | VideoPart | OpenAIContentPart>;
 export type LLMMessage = {
-  role: OpenAIChatMessage['role'];
+  role: ResponsesMessage['role'];
   content: LLMMessageContent;
-  toolCalls?: OpenAIToolCall[];
-  toolCallId?: string;
-  name?: string;
 };
 
 export interface LLMGenerateParams {
-  model: ChatCompletionsModel;
+  model: ResponsesModel;
   system?: string;
   prompt?: string;
   messages?: LLMMessage[];
-  maxOutputTokens?: number;
-  /** 思考模式开关：不传 = 模型默认（qwen3.7-plus 开启）；false = 强制关闭 */
-  enableThinking?: boolean;
+  reasoningEffort?: ReasoningEffort;
+  previousResponseId?: string;
   abortSignal?: AbortSignal;
 }
 
@@ -78,6 +91,7 @@ export type LLMStreamParams = LLMGenerateParams;
 
 export interface LLMTextResult {
   text: string;
+  responseId?: string;
 }
 
 export class LLMTransportError extends Error {
@@ -113,49 +127,58 @@ export interface LLMToolResult {
 
 export type LLMToolStreamEvent =
   | { type: 'text_delta'; text: string }
-  | { type: 'message_history'; messages: OpenAIChatMessage[] };
+  | { type: 'model_response'; responseId: string };
 
 export type LLMStreamEvent =
   | { type: 'text_delta'; text: string }
-  | { type: 'message_history'; messages: OpenAIChatMessage[] };
+  | { type: 'model_response'; responseId: string };
 
 export interface LLMToolLoopParams extends LLMStreamParams {
-  tools: OpenAIChatTool[];
+  tools: ResponsesTool[];
   onToolUse: (toolUse: LLMToolUse) => Promise<LLMToolResult> | LLMToolResult;
   maxToolIterations?: number;
 }
 
-type ChatCompletionChunk = {
-  choices?: Array<{
-    delta?: {
-      role?: string;
-      content?: string | null;
-      tool_calls?: Array<{
-        index?: number;
-        id?: string;
-        type?: 'function';
-        function?: {
-          name?: string;
-          arguments?: string;
-        };
-      }>;
-    };
-    finish_reason?: string | null;
-  }>;
-  usage?: unknown;
+type ResponsesOutputMessage = {
+  type: 'message';
+  content?: Array<{ type?: string; text?: string }>;
+};
+
+type ResponsesOutputItem =
+  | ResponsesOutputMessage
+  | ResponsesFunctionCall
+  | Record<string, unknown>;
+
+type ResponsesObject = {
+  id?: string;
+  output?: ResponsesOutputItem[];
+  output_text?: string;
+  error?: unknown;
+  status?: string;
+};
+
+type ResponsesStreamEvent = {
+  type?: string;
+  delta?: string;
+  text?: string;
+  response?: ResponsesObject;
+  item?: ResponsesOutputItem;
   code?: string;
   message?: string;
+  error?: unknown;
 };
 
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
+const DEFAULT_REASONING_EFFORT: ReasoningEffort = 'high';
 const DEFAULT_MAX_TOOL_ITERATIONS = 16;
+const SESSION_CACHE_HEADER = 'x-dashscope-session-cache';
 const clientCache = new Map<string, OpenAI>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function getOpenAIClient(model: ChatCompletionsModel): OpenAI {
+function getOpenAIClient(model: ResponsesModel): OpenAI {
   const baseURL = model.baseUrl.replace(/\/$/, '');
   const cacheKey = `${baseURL}\n${model.apiKey}`;
   const cached = clientCache.get(cacheKey);
@@ -164,6 +187,9 @@ function getOpenAIClient(model: ChatCompletionsModel): OpenAI {
   const client = new OpenAI({
     apiKey: model.apiKey,
     baseURL,
+    defaultHeaders: {
+      [SESSION_CACHE_HEADER]: 'enable',
+    },
   });
   clientCache.set(cacheKey, client);
   return client;
@@ -218,13 +244,12 @@ function withMimeDataUri(value: string, mimeType?: string): string {
   return `data:${mimeType || 'image/png'};base64,${value}`;
 }
 
-function isOpenAIContentPart(part: unknown): part is OpenAIContentPart {
+function isResponsesContentPart(part: unknown): part is ResponsesContentPart {
   if (!isRecord(part) || typeof part.type !== 'string') return false;
   return (
-    part.type === 'text' ||
-    part.type === 'image_url' ||
-    part.type === 'video' ||
-    part.type === 'input_audio'
+    part.type === 'input_text' ||
+    part.type === 'input_image' ||
+    part.type === 'output_text'
   );
 }
 
@@ -232,47 +257,58 @@ function contentToPlainText(content: LLMMessageContent): string {
   if (typeof content === 'string') return content;
   if (!content) return '';
   return content
-    .filter((part): part is TextPart => part.type === 'text' && 'text' in part)
+    .filter(
+      (part): part is TextLikeContentPart =>
+        (part.type === 'text' && 'text' in part) ||
+        part.type === 'input_text' ||
+        part.type === 'output_text',
+    )
     .map((part) => part.text)
     .join('\n');
 }
 
-function contentToOpenAIContent(
+function contentToResponsesContent(
   content: LLMMessageContent,
-  role: OpenAIChatMessage['role'],
-): string | OpenAIContentPart[] | null {
-  if (typeof content === 'string' || content === null) return content;
-
-  if (role !== 'user') {
-    return contentToPlainText(content);
+  role: ResponsesMessage['role'],
+): string | ResponsesContentPart[] | null {
+  if (typeof content === 'string') {
+    return role === 'assistant' ? [{ type: 'output_text', text: content }] : content;
   }
+  if (content === null) return null;
 
-  const parts: OpenAIContentPart[] = [];
+  const parts: ResponsesContentPart[] = [];
   for (const part of content) {
+    if (part.type === 'video' || part.type === 'input_audio') {
+      throw new Error('Responses API text generation does not support video or audio input.');
+    }
+
     if (part.type === 'text') {
-      if (part.text) parts.push({ type: 'text', text: part.text });
+      if (!part.text) continue;
+      parts.push({
+        type: role === 'assistant' ? 'output_text' : 'input_text',
+        text: part.text,
+      });
       continue;
     }
 
     if (part.type === 'image') {
+      if (role !== 'user') continue;
       parts.push({
-        type: 'image_url',
-        image_url: { url: withMimeDataUri(part.image, part.mimeType) },
+        type: 'input_image',
+        image_url: withMimeDataUri(part.image, part.mimeType),
       });
       continue;
     }
 
-    if (part.type === 'video') {
-      const videos = Array.isArray(part.video) ? part.video : [part.video];
-      const mimeType = 'mimeType' in part ? part.mimeType : undefined;
-      parts.push({
-        type: 'video',
-        video: videos.map((item) => withMimeDataUri(item, mimeType || 'video/mp4')),
-      });
-      continue;
-    }
-
-    if (isOpenAIContentPart(part)) {
+    if (isResponsesContentPart(part)) {
+      if (role === 'assistant' && part.type !== 'output_text') {
+        parts.push({ type: 'output_text', text: contentToPlainText([part]) });
+        continue;
+      }
+      if (role !== 'assistant' && part.type === 'output_text') {
+        parts.push({ type: 'input_text', text: part.text });
+        continue;
+      }
       parts.push(part);
     }
   }
@@ -280,79 +316,107 @@ function contentToOpenAIContent(
   return parts.length > 0 ? parts : null;
 }
 
-function buildOpenAIInput(params: LLMGenerateParams): OpenAIChatMessage[] {
-  const messages: OpenAIChatMessage[] = [];
+function buildResponsesInput(params: LLMGenerateParams): ResponsesInputItem[] {
+  const input: ResponsesInputItem[] = [];
 
   if (params.system?.trim()) {
-    messages.push({ role: 'system', content: params.system.trim() });
+    input.push({ type: 'message', role: 'system', content: params.system.trim() });
   }
 
   for (const message of params.messages ?? []) {
-    const content = contentToOpenAIContent(message.content, message.role);
-    if (
-      content === null &&
-      message.role !== 'assistant' &&
-      message.role !== 'tool' &&
-      !message.toolCalls?.length
-    ) {
-      continue;
-    }
-
-    messages.push({
+    const content = contentToResponsesContent(message.content, message.role);
+    if (content === null) continue;
+    input.push({
+      type: 'message',
       role: message.role,
       content,
-      ...(message.toolCalls?.length ? { tool_calls: message.toolCalls } : {}),
-      ...(message.toolCallId ? { tool_call_id: message.toolCallId } : {}),
-      ...(message.name ? { name: message.name } : {}),
     });
   }
 
   if (params.prompt !== undefined) {
-    messages.push({ role: 'user', content: params.prompt });
+    input.push({ type: 'message', role: 'user', content: params.prompt });
   }
 
-  if (messages.length === 0) {
+  if (input.length === 0) {
     throw new Error('LLM request missing input');
   }
 
-  return messages;
+  return input;
 }
 
 function buildRequestBody(
   params: LLMGenerateParams,
-  options?: { stream?: boolean; tools?: OpenAIChatTool[] },
+  options?: {
+    stream?: boolean;
+    tools?: ResponsesTool[];
+    input?: ResponsesInputItem[];
+    previousResponseId?: string;
+  },
 ): Record<string, unknown> {
   const isQwen37Plus = params.model.modelId === QWEN_3_7_PLUS_MODEL_ID;
-  const modelParameters: Record<string, unknown> = isQwen37Plus
-    ? { ...QWEN_3_7_PLUS_CHAT_PARAMETERS }
-    : {};
-
-  if (isQwen37Plus && params.enableThinking === false) {
-    modelParameters.enable_thinking = false;
-    delete modelParameters.preserve_thinking;
-  }
+  const previousResponseId = options?.previousResponseId ?? params.previousResponseId;
 
   return {
     model: params.model.modelId,
-    messages: buildOpenAIInput(params),
-    ...modelParameters,
-    ...(options?.stream ? { stream: true, stream_options: { include_usage: true } } : {}),
-    ...(typeof params.maxOutputTokens === 'number' ? { max_tokens: params.maxOutputTokens } : {}),
+    input: options?.input ?? buildResponsesInput(params),
+    reasoning: { effort: params.reasoningEffort ?? DEFAULT_REASONING_EFFORT },
+    ...(isQwen37Plus ? QWEN_3_7_PLUS_RESPONSES_PARAMETERS : {}),
+    ...(previousResponseId ? { previous_response_id: previousResponseId } : {}),
+    ...(options?.stream ? { stream: true } : {}),
     ...(options?.tools?.length ? { tools: options.tools, tool_choice: 'auto' } : {}),
   };
 }
 
-async function createChatCompletionStream(
+async function createResponsesStream(
   params: LLMGenerateParams,
   source: string,
   body: Record<string, unknown>,
-): Promise<AsyncIterable<ChatCompletionChunk>> {
+): Promise<AsyncIterable<ResponsesStreamEvent>> {
   try {
-    return (await getOpenAIClient(params.model).chat.completions.create(body as any, {
+    return (await getOpenAIClient(params.model).responses.create(body as any, {
       signal: params.abortSignal,
-    })) as unknown as AsyncIterable<ChatCompletionChunk>;
+    })) as unknown as AsyncIterable<ResponsesStreamEvent>;
   } catch (error) {
     throw wrapLLMError(error, source, params.model.modelId);
+  }
+}
+
+function throwIfResponseError(
+  event: ResponsesStreamEvent,
+  source: string,
+  modelId: string,
+): void {
+  if (event.code || event.error) {
+    throw wrapLLMError(event, source, modelId);
+  }
+  if (event.response?.error || event.response?.status === 'failed') {
+    throw wrapLLMError(event.response.error ?? event.response, source, modelId);
+  }
+}
+
+async function* streamResponseEvents(
+  params: LLMStreamParams,
+  source: string,
+  body: Record<string, unknown>,
+): AsyncIterable<LLMStreamEvent> {
+  const stream = await createResponsesStream(params, source, body);
+  let responseId: string | undefined;
+
+  for await (const event of stream) {
+    throwIfResponseError(event, source, params.model.modelId);
+
+    if (event.type === 'response.output_text.delta' && event.delta) {
+      yield { type: 'text_delta', text: event.delta };
+      continue;
+    }
+
+    if (event.type === 'response.completed') {
+      responseId = event.response?.id;
+    }
+  }
+
+  if (responseId) {
+    yield { type: 'model_response', responseId };
   }
 }
 
@@ -360,18 +424,8 @@ async function* streamTextGeneration(
   params: LLMStreamParams,
   source: string,
 ): AsyncIterable<string> {
-  const stream = await createChatCompletionStream(
-    params,
-    source,
-    buildRequestBody(params, { stream: true }),
-  );
-
-  for await (const chunk of stream) {
-    if (chunk.code) {
-      throw wrapLLMError(chunk, source, params.model.modelId);
-    }
-    const delta = chunk.choices?.[0]?.delta?.content;
-    if (delta) yield delta;
+  for await (const event of streamTextGenerationEvents(params, source)) {
+    if (event.type === 'text_delta') yield event.text;
   }
 }
 
@@ -379,131 +433,132 @@ async function* streamTextGenerationEvents(
   params: LLMStreamParams,
   source: string,
 ): AsyncIterable<LLMStreamEvent> {
-  let fullText = '';
-  for await (const text of streamTextGeneration(params, source)) {
-    fullText += text;
-    yield { type: 'text_delta', text };
-  }
-  yield {
-    type: 'message_history',
-    messages: [{ role: 'assistant', content: fullText }],
-  };
+  yield* streamResponseEvents(
+    params,
+    source,
+    buildRequestBody(params, { stream: true }),
+  );
 }
 
 function parseToolArguments(raw: string): unknown {
   return JSON.parse(raw.trim() || '{}');
 }
 
-function mergeToolCallDelta(
-  toolCalls: Map<number, OpenAIToolCall>,
-  delta: NonNullable<NonNullable<ChatCompletionChunk['choices']>[number]['delta']>['tool_calls'],
-): void {
-  for (const item of delta ?? []) {
-    const index = item.index ?? toolCalls.size;
-    const existing =
-      toolCalls.get(index) ??
-      ({
-        id: item.id || `call_${index}`,
-        type: 'function',
-        function: { name: '', arguments: '' },
-      } satisfies OpenAIToolCall);
-
-    toolCalls.set(index, {
-      id: item.id || existing.id,
-      type: 'function',
-      function: {
-        name: item.function?.name || existing.function.name,
-        arguments: existing.function.arguments + (item.function?.arguments || ''),
-      },
-    });
+function getFunctionCallsFromOutput(
+  output: ResponsesOutputItem[] | undefined,
+): ResponsesFunctionCall[] {
+  const functionCalls: ResponsesFunctionCall[] = [];
+  for (const item of output ?? []) {
+    if (
+      isRecord(item) &&
+      item.type === 'function_call' &&
+      typeof item.name === 'string' &&
+      typeof item.arguments === 'string' &&
+      typeof item.call_id === 'string'
+    ) {
+      functionCalls.push(item as ResponsesFunctionCall);
+    }
   }
+  return functionCalls;
 }
 
-function buildToolResultMessages(results: LLMToolResult[]): OpenAIChatMessage[] {
-  return results.map((result) => ({
-    role: 'tool',
-    tool_call_id: result.toolUseId,
-    content: result.isError ? `Error: ${result.content}` : result.content,
-  }));
+function buildFunctionCallOutputItems(
+  functionCalls: ResponsesFunctionCall[],
+  results: LLMToolResult[],
+): ResponsesInputItem[] {
+  const resultById = new Map(results.map((result) => [result.toolUseId, result]));
+  const items: ResponsesInputItem[] = [];
+  for (const functionCall of functionCalls) {
+    const result = resultById.get(functionCall.call_id);
+    if (!result) {
+      throw new Error(`Missing tool result for call_id: ${functionCall.call_id}`);
+    }
+    items.push({
+      type: 'function_call_output',
+      call_id: functionCall.call_id,
+      output: result.isError ? `Error: ${result.content}` : result.content,
+    });
+  }
+  return items;
 }
 
 export async function* streamLLMWithTools(
   params: LLMToolLoopParams,
   source: string,
 ): AsyncIterable<LLMToolStreamEvent> {
-  const messages = buildOpenAIInput(params);
   const maxIterations = params.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
-  const generatedHistory: OpenAIChatMessage[] = [];
+  let input = buildResponsesInput(params);
+  let previousResponseId = params.previousResponseId;
+  let completed = false;
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
-    const request = {
-      ...buildRequestBody(
-        {
-          ...params,
-          messages: messages.map((message) => ({
-            role: message.role,
-            content: (message.content ?? null) as LLMMessageContent,
-            toolCalls: message.tool_calls,
-            toolCallId: message.tool_call_id,
-            name: message.name,
-          })),
-          system: undefined,
-          prompt: undefined,
-        },
-        { stream: true, tools: params.tools },
-      ),
-    };
+    const stream = await createResponsesStream(
+      params,
+      source,
+      buildRequestBody(params, {
+        input,
+        previousResponseId,
+        stream: true,
+        tools: params.tools,
+      }),
+    );
 
-    const stream = await createChatCompletionStream(params, source, request);
-    let assistantText = '';
-    const toolCallsByIndex = new Map<number, OpenAIToolCall>();
+    let responseId: string | undefined;
+    const functionCallsByCallId = new Map<string, ResponsesFunctionCall>();
 
-    for await (const chunk of stream) {
-      if (chunk.code) {
-        throw wrapLLMError(chunk, source, params.model.modelId);
-      }
-      const delta = chunk.choices?.[0]?.delta;
-      if (!delta) continue;
+    for await (const event of stream) {
+      throwIfResponseError(event, source, params.model.modelId);
 
-      if (delta.content) {
-        assistantText += delta.content;
-        yield { type: 'text_delta', text: delta.content };
+      if (event.type === 'response.output_text.delta' && event.delta) {
+        yield { type: 'text_delta', text: event.delta };
+        continue;
       }
 
-      mergeToolCallDelta(toolCallsByIndex, delta.tool_calls);
+      if (event.type === 'response.output_item.done') {
+        const functionCalls = getFunctionCallsFromOutput(event.item ? [event.item] : undefined);
+        for (const functionCall of functionCalls) {
+          functionCallsByCallId.set(functionCall.call_id, functionCall);
+        }
+        continue;
+      }
+
+      if (event.type === 'response.completed') {
+        responseId = event.response?.id;
+        if (functionCallsByCallId.size === 0) {
+          for (const functionCall of getFunctionCallsFromOutput(event.response?.output)) {
+            functionCallsByCallId.set(functionCall.call_id, functionCall);
+          }
+        }
+      }
     }
 
-    const toolCalls = [...toolCallsByIndex.values()].filter(
-      (toolCall) => toolCall.id && toolCall.function.name,
-    );
-    const assistantMessage: OpenAIChatMessage = {
-      role: 'assistant',
-      content: assistantText || null,
-      ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
-    };
+    const functionCalls = [...functionCallsByCallId.values()];
+    if (functionCalls.length === 0) {
+      if (responseId) yield { type: 'model_response', responseId };
+      completed = true;
+      break;
+    }
 
-    messages.push(assistantMessage);
-    generatedHistory.push(assistantMessage);
-
-    if (toolCalls.length === 0) break;
+    if (!responseId) {
+      throw new Error('Responses API tool call response is missing response id.');
+    }
 
     const toolResults: LLMToolResult[] = [];
-    for (const toolCall of toolCalls) {
+    for (const functionCall of functionCalls) {
       const toolUse: LLMToolUse = {
-        id: toolCall.id,
-        name: toolCall.function.name,
-        input: parseToolArguments(toolCall.function.arguments),
+        id: functionCall.call_id,
+        name: functionCall.name,
+        input: parseToolArguments(functionCall.arguments),
       };
       toolResults.push(await params.onToolUse(toolUse));
     }
 
-    const toolResultMessages = buildToolResultMessages(toolResults);
-    messages.push(...toolResultMessages);
-    generatedHistory.push(...toolResultMessages);
+    input = buildFunctionCallOutputItems(functionCalls, toolResults);
+    previousResponseId = responseId;
   }
 
-  if (generatedHistory.length > 0) {
-    yield { type: 'message_history', messages: generatedHistory };
+  if (!completed) {
+    throw new Error(`Responses API tool loop exceeded ${maxIterations} iterations.`);
   }
 }
 
@@ -520,12 +575,16 @@ export async function callLLM<T extends LLMGenerateParams>(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      // 思考模式要求流式调用，因此内部统一走流式接收并聚合为完整文本
       let text = '';
-      for await (const chunk of streamTextGeneration(params, source)) {
-        text += chunk;
+      let responseId: string | undefined;
+      for await (const event of streamTextGenerationEvents(params, source)) {
+        if (event.type === 'text_delta') {
+          text += event.text;
+        } else if (event.type === 'model_response') {
+          responseId = event.responseId;
+        }
       }
-      const result: LLMTextResult = { text };
+      const result: LLMTextResult = { text, responseId };
 
       if (validate && !validate(result.text)) {
         log.warn(

@@ -1,7 +1,7 @@
 /**
  * Unified AI Provider Configuration
  *
- * Text generation is fixed to the server-configured Bailian OpenAI-compatible provider.
+ * Text generation is fixed to the server-configured Bailian OpenAI-compatible Responses provider.
  */
 
 import type {
@@ -32,7 +32,7 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
   bailian: {
     id: 'bailian',
     name: '阿里云百炼',
-    type: 'openai-chat',
+    type: 'openai-responses',
     defaultBaseUrl: BAILIAN_COMPATIBLE_BASE_URL_TEMPLATE,
     requiresApiKey: true,
     models: [
@@ -55,11 +55,11 @@ function getProviderConfig(providerId: string): ProviderConfig | null {
 }
 
 export interface ModelWithInfo {
-  model: ChatCompletionsModel;
+  model: ResponsesModel;
   modelInfo: ModelInfo | null;
 }
 
-export interface ChatCompletionsModel {
+export interface ResponsesModel {
   providerId: ProviderId;
   providerType: ProviderType;
   modelId: string;

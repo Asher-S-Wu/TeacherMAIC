@@ -3,7 +3,7 @@
  *
  * Key design decisions:
  * - Backend is stateless (all state in request/response)
- * - Agent classroom actions use native OpenAI-compatible tool calls
+ * - Agent classroom actions use native Responses tool calls
  * - Text is natural teacher speech, NOT meta-commentary
  * - Tool calls are silent actions - students see results only
  *
@@ -13,7 +13,7 @@
  * - Events are streamed via LangGraph's custom stream mode
  */
 
-import type { ChatCompletionsModel } from '@/lib/ai/providers';
+import type { ResponsesModel } from '@/lib/ai/providers';
 import type { StatelessChatRequest, StatelessEvent } from '@/lib/types/chat';
 import type { WhiteboardActionRecord } from './types';
 import { createOrchestrationGraph, buildInitialState } from './director-graph';
@@ -33,7 +33,7 @@ const log = createLogger('StatelessGenerate');
 export async function* statelessGenerate(
   request: StatelessChatRequest,
   abortSignal: AbortSignal,
-  languageModel: ChatCompletionsModel,
+  languageModel: ResponsesModel,
 ): AsyncGenerator<StatelessEvent> {
   log.info(
     `[StatelessGenerate] Starting orchestration for agents: ${request.config.agentIds.join(', ')}`,

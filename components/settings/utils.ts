@@ -21,7 +21,7 @@ export function formatContextWindow(size?: number): string {
 }
 
 const PROVIDER_TYPE_LABELS: Record<string, string> = {
-  'openai-chat': 'OpenAI兼容 Chat',
+  'openai-responses': 'OpenAI兼容 Responses',
 };
 
 export function getProviderTypeLabel(type: string): string {

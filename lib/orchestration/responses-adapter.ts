@@ -16,35 +16,34 @@ import type {
   LLMMessageContent,
   LLMToolResult,
   LLMToolUse,
-  OpenAIChatMessage,
-  OpenAIChatTool,
+  ResponsesTool,
 } from '@/lib/ai/llm';
-import type { ChatCompletionsModel } from '@/lib/ai/providers';
+import type { ResponsesModel } from '@/lib/ai/providers';
 import { createLogger } from '@/lib/logger';
 
-const log = createLogger('ChatCompletionsAdapter');
+const log = createLogger('ResponsesAdapter');
 
 /**
  * Stream chunk types for streaming generation
  */
 export type StreamChunk =
   | { type: 'delta'; content: string }
-  | { type: 'message_history'; messages: OpenAIChatMessage[] }
+  | { type: 'model_response'; responseId: string }
   | { type: 'done'; content: string };
 
 /**
- * Adapter to use the configured Chat Completions model with LangGraph.
+ * Adapter to use the configured Responses model with LangGraph.
  */
-export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
-  private languageModel: ChatCompletionsModel;
+export class ResponsesLangGraphAdapter extends BaseChatModel {
+  private languageModel: ResponsesModel;
 
-  constructor(languageModel: ChatCompletionsModel) {
+  constructor(languageModel: ResponsesModel) {
     super({});
     this.languageModel = languageModel;
   }
 
   _llmType(): string {
-    return 'chat-completions';
+    return 'responses';
   }
 
   _combineLLMOutput() {
@@ -87,12 +86,12 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
           messages: aiMessages,
           abortSignal,
         },
-        'chat-adapter',
+        'responses-adapter',
       );
 
       const content = result.text || '';
 
-      log.info('[Chat Completions Adapter] Response:', {
+      log.info('[Responses Adapter] Response:', {
         textLength: content.length,
       });
 
@@ -109,7 +108,7 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
         llmOutput: {},
       };
     } catch (error) {
-      log.error('[Chat Completions Adapter Error]', error);
+      log.error('[Responses Adapter Error]', error);
       throw error;
     }
   }
@@ -118,11 +117,10 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
    * Stream generate with text deltas
    *
    * Yields chunks of text as they arrive, then yields done with full content.
-   * Uses streamLLM for Chat Completions streaming.
    */
   async *streamGenerate(
     messages: BaseMessage[],
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; previousResponseId?: string },
   ): AsyncGenerator<StreamChunk> {
     const aiMessages = this.convertMessages(messages);
 
@@ -130,16 +128,17 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
       {
         model: this.languageModel,
         messages: aiMessages,
+        previousResponseId: options?.previousResponseId,
         abortSignal: options?.signal,
       },
-      'chat-adapter-stream',
+      'responses-adapter-stream',
     );
 
     let fullContent = '';
 
     for await (const event of result) {
-      if (event.type === 'message_history') {
-        yield { type: 'message_history', messages: event.messages };
+      if (event.type === 'model_response') {
+        yield { type: 'model_response', responseId: event.responseId };
         continue;
       }
 
@@ -158,9 +157,9 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
    */
   async *streamGenerateWithTools(
     messages: BaseMessage[],
-    tools: OpenAIChatTool[],
+    tools: ResponsesTool[],
     onToolUse: (toolUse: LLMToolUse) => Promise<LLMToolResult> | LLMToolResult,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; previousResponseId?: string },
   ): AsyncGenerator<StreamChunk> {
     const aiMessages = this.convertMessages(messages);
     const textAndToolStream = streamLLMWithTools(
@@ -169,16 +168,17 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
         messages: aiMessages,
         tools,
         onToolUse,
+        previousResponseId: options?.previousResponseId,
         abortSignal: options?.signal,
       },
-      'chat-adapter-tool-stream',
+      'responses-adapter-tool-stream',
     );
 
     let fullContent = '';
 
     for await (const event of textAndToolStream) {
-      if (event.type === 'message_history') {
-        yield { type: 'message_history', messages: event.messages };
+      if (event.type === 'model_response') {
+        yield { type: 'model_response', responseId: event.responseId };
         continue;
       }
 

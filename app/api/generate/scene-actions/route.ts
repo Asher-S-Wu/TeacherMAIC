@@ -85,13 +85,11 @@ async function runSceneActionsGeneration(
                 content: buildVisionUserContent(userPrompt, images),
               },
             ],
-            maxOutputTokens: modelInfo?.outputWindow,
           }
         : {
             model: languageModel,
             system: systemPrompt,
             prompt: userPrompt,
-            maxOutputTokens: modelInfo?.outputWindow,
           };
 
     const result = await callLLM(params, 'scene-actions');
