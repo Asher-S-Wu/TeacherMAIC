@@ -340,7 +340,9 @@ function HomePage() {
         }
       }
 
-      let presetAgents;
+      let presetAgents:
+        | Array<{ id: string; name: string; role: string; persona: string }>
+        | undefined = undefined;
       if (settings.agentMode === 'preset') {
         const registry = useAgentRegistry.getState();
         const presetAgentIds = settings.selectedAgentIds.filter((id) => {
