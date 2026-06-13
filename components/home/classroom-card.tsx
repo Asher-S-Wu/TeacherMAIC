@@ -6,14 +6,26 @@ import { Copy, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { ThumbnailSlide } from '@/components/slide-renderer/components/ThumbnailSlide';
 import type { StageListItem } from '@/lib/utils/stage-storage';
 import type { Slide } from '@/lib/types/slides';
+
+export interface ClassroomGenerationOverlay {
+  jobId: string;
+  status: 'queued' | 'running' | 'failed';
+  progress: number;
+  message: string;
+  scenesGenerated: number;
+  totalScenes?: number;
+  error?: string;
+}
 
 interface ClassroomCardProps {
   readonly classroom: StageListItem;
   readonly slide?: Slide;
   readonly formatDate: (ts: number) => string;
+  readonly generation?: ClassroomGenerationOverlay;
   readonly onDelete: (id: string, e: MouseEvent) => void;
   readonly onRename: (id: string, newName: string) => void;
   readonly confirmingDelete: boolean;
@@ -32,7 +44,10 @@ export function ClassroomCard({
   onConfirmDelete,
   onCancelDelete,
   onClick,
+  generation,
 }: ClassroomCardProps) {
+  const isGenerating = generation?.status === 'queued' || generation?.status === 'running';
+  const isFailed = generation?.status === 'failed';
   const thumbRef = useRef<HTMLDivElement>(null);
   const [thumbWidth, setThumbWidth] = useState(0);
   const [editing, setEditing] = useState(false);
@@ -74,6 +89,10 @@ export function ClassroomCard({
         ref={thumbRef}
         className="relative w-full aspect-[16/9] rounded-2xl bg-slate-100 dark:bg-slate-800/80 overflow-hidden transition-transform duration-200 group-hover:scale-[1.02]"
       >
+        {isGenerating && (
+          <div className="absolute inset-0 z-[1] bg-black/20 pointer-events-none" />
+        )}
+
         {slide && thumbWidth > 0 ? (
           <ThumbnailSlide
             slide={slide}
@@ -89,8 +108,30 @@ export function ClassroomCard({
           </div>
         ) : null}
 
+        {generation && (isGenerating || isFailed) && (
+          <div className="absolute inset-x-0 bottom-0 z-[2] px-3 pb-3 pt-8 bg-gradient-to-t from-black/70 via-black/40 to-transparent pointer-events-none">
+            {isGenerating ? (
+              <>
+                <p className="text-[11px] text-white/90 truncate mb-1.5">
+                  {generation.message}
+                </p>
+                <div className="h-1 rounded-full bg-white/20 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-violet-400 transition-all duration-500"
+                    style={{ width: `${generation.progress}%` }}
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="text-[11px] text-red-200 truncate">
+                {generation.error || '生成失败'}
+              </p>
+            )}
+          </div>
+        )}
+
         <AnimatePresence>
-          {!confirmingDelete && (
+          {!confirmingDelete && !isGenerating && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -153,8 +194,23 @@ export function ClassroomCard({
       </div>
 
       <div className="mt-2.5 px-1 flex items-center gap-2">
-        <span className="shrink-0 inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/30 px-2 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
-          {classroom.sceneCount} 页 · {formatDate(classroom.updatedAt)}
+        <span
+          className={cn(
+            'shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+            isGenerating
+              ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400'
+              : isFailed
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400',
+          )}
+        >
+          {isGenerating
+            ? generation.totalScenes
+              ? `生成中 ${generation.scenesGenerated}/${generation.totalScenes} 页`
+              : '生成中'
+            : isFailed
+              ? '生成失败'
+              : `${classroom.sceneCount} 页 · ${formatDate(classroom.updatedAt)}`}
         </span>
         {editing ? (
           <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>

@@ -6,6 +6,7 @@ import {
   markClassroomGenerationJobFailed,
   markClassroomGenerationJobRunning,
   markClassroomGenerationJobSucceeded,
+  updateClassroomGenerationJobClassroomId,
   updateClassroomGenerationJobProgress,
 } from '@/lib/server/classroom-job-store';
 
@@ -30,8 +31,12 @@ export function runClassroomGenerationJob(
       const result = await generateClassroom(input, {
         baseUrl,
         userId,
+        jobId,
         onProgress: async (progress) => {
           await updateClassroomGenerationJobProgress(jobId, progress);
+        },
+        onClassroomCreated: async (classroomId) => {
+          await updateClassroomGenerationJobClassroomId(jobId, classroomId);
         },
       });
 

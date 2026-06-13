@@ -100,7 +100,9 @@ export async function generateClassroom(
   options: {
     baseUrl: string;
     userId: ObjectId;
+    jobId?: string;
     onProgress?: (progress: ClassroomGenerationProgress) => Promise<void> | void;
+    onClassroomCreated?: (classroomId: string) => Promise<void> | void;
   },
 ): Promise<GenerateClassroomResult> {
   const { requirement, pdfContent, pdfImages: inputPdfImages } = input;
@@ -361,6 +363,7 @@ export async function generateClassroom(
     },
     options.baseUrl,
   );
+  await options.onClassroomCreated?.(stageId);
 
   const store = createInMemoryStore(stage);
   const api = createStageAPI(store);

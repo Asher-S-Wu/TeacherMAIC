@@ -30,6 +30,7 @@ export interface ClassroomGenerationJob {
     webSearch: boolean;
     agentMode: 'preset' | 'auto';
   };
+  classroomId?: string;
   scenesGenerated: number;
   totalScenes?: number;
   result?: {
@@ -86,6 +87,7 @@ function toPublicJob(job: ClassroomJobDoc): ClassroomGenerationJob {
     ...(job.completedAt ? { completedAt: job.completedAt.toISOString() } : {}),
     inputSummary,
     displayContext,
+    ...(job.classroomId ? { classroomId: job.classroomId } : {}),
     scenesGenerated: job.scenesGenerated,
     ...(job.totalScenes !== undefined ? { totalScenes: job.totalScenes } : {}),
     ...(job.result ? { result: job.result } : {}),
@@ -227,6 +229,13 @@ export async function updateClassroomGenerationJobProgress(
   });
 }
 
+export async function updateClassroomGenerationJobClassroomId(
+  jobId: string,
+  classroomId: string,
+): Promise<ClassroomGenerationJob> {
+  return updateClassroomGenerationJob(jobId, { classroomId });
+}
+
 export async function markClassroomGenerationJobSucceeded(
   jobId: string,
   result: GenerateClassroomResult,
@@ -238,6 +247,7 @@ export async function markClassroomGenerationJobSucceeded(
     message: '课堂生成完成',
     completedAt: new Date(),
     scenesGenerated: result.scenesCount,
+    classroomId: result.id,
     result: {
       classroomId: result.id,
       url: result.url,

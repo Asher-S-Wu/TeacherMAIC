@@ -41,6 +41,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ jobId: 
       scenesGenerated: job.scenesGenerated,
       totalScenes: job.totalScenes,
       displayContext: job.displayContext,
+      classroomId: job.classroomId,
       result: job.result,
       error: job.error,
       done: job.status === 'succeeded' || job.status === 'failed',

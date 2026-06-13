@@ -111,6 +111,7 @@ export interface ClassroomJobDoc {
     pdfImageCount: number;
   };
   input: GenerateClassroomInput;
+  classroomId?: string;
   scenesGenerated: number;
   totalScenes?: number;
   result?: {

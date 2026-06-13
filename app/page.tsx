@@ -53,7 +53,7 @@ import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { SpeechButton } from '@/components/audio/speech-button';
 import { useImportClassroom } from '@/lib/import/use-import-classroom';
 import { AccountMenu } from '@/components/auth/account-menu';
-import { ClassroomCard } from '@/components/home/classroom-card';
+import { ClassroomCard, type ClassroomGenerationOverlay } from '@/components/home/classroom-card';
 
 const log = createLogger('Home');
 
@@ -67,10 +67,23 @@ interface PendingGenerationJob {
   };
   scenesGenerated: number;
   totalScenes?: number;
+  classroomId?: string;
   result?: {
     classroomId: string;
   };
   error?: string;
+}
+
+function jobToOverlay(job: PendingGenerationJob): ClassroomGenerationOverlay {
+  return {
+    jobId: job.id,
+    status: job.status,
+    progress: job.progress,
+    message: job.message,
+    scenesGenerated: job.scenesGenerated,
+    totalScenes: job.totalScenes,
+    error: job.error,
+  };
 }
 
 interface FormState {
@@ -192,6 +205,15 @@ function HomePage() {
     loadGenerationJobs();
   }, []);
 
+  useEffect(() => {
+    if (pendingJobs.length === 0) return;
+    const timer = setInterval(() => {
+      void loadGenerationJobs();
+      void loadClassrooms();
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [pendingJobs.length]);
+
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setPendingDeleteId(id);
@@ -228,6 +250,38 @@ function HomePage() {
       return name.includes(q) || desc.includes(q);
     });
   }, [classrooms, deferredSearchQuery]);
+
+  const jobByClassroomId = useMemo(() => {
+    const map = new Map<string, PendingGenerationJob>();
+    for (const job of [...pendingJobs, ...failedJobs]) {
+      const classroomId = job.classroomId ?? job.result?.classroomId;
+      if (classroomId) {
+        map.set(classroomId, job);
+      }
+    }
+    return map;
+  }, [pendingJobs, failedJobs]);
+
+  const orphanJobs = useMemo(() => {
+    const classroomIds = new Set(classrooms.map((c) => c.id));
+    const byId = new Map<string, PendingGenerationJob>();
+    for (const job of [...pendingJobs, ...failedJobs]) {
+      byId.set(job.id, job);
+    }
+    return [...byId.values()].filter((job) => {
+      const classroomId = job.classroomId ?? job.result?.classroomId;
+      if (!classroomId) return true;
+      return !classroomIds.has(classroomId);
+    });
+  }, [pendingJobs, failedJobs, classrooms]);
+
+  const visibleOrphanJobs = useMemo(() => {
+    const q = deferredSearchQuery.trim().toLowerCase();
+    if (!q) return orphanJobs;
+    return orphanJobs.filter((job) =>
+      job.inputSummary.requirementPreview.toLowerCase().includes(q),
+    );
+  }, [orphanJobs, deferredSearchQuery]);
 
   const updateForm = <K extends keyof FormState>(field: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -405,27 +459,6 @@ function HomePage() {
   };
 
   const canGenerate = !!form.requirement.trim() && !isSubmitting;
-
-  const handleRetryJob = async (jobId: string) => {
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/generate-classroom', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ retryFromJobId: jobId }),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.success) {
-        throw new Error(data?.error || '重新生成失败');
-      }
-      router.push(`/generation-job/${data.jobId}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '重新生成失败');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -690,62 +723,6 @@ function HomePage() {
           )}
         </AnimatePresence>
 
-        {/* ── Pending background jobs ── */}
-        {(pendingJobs.length > 0 || failedJobs.length > 0) && (
-          <div className="mt-6 w-full space-y-3">
-            {pendingJobs.map((job) => (
-              <button
-                key={job.id}
-                type="button"
-                onClick={() => router.push(`/generation-job/${job.id}`)}
-                className="w-full rounded-xl border border-violet-200/60 bg-violet-50/50 dark:border-violet-800/40 dark:bg-violet-950/20 px-4 py-3 text-left hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {job.inputSummary.requirementPreview}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">{job.message}</p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-medium tabular-nums">{job.progress}%</p>
-                    {job.totalScenes ? (
-                      <p className="text-xs text-muted-foreground">
-                        {job.scenesGenerated}/{job.totalScenes} 页
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="mt-2 h-1.5 rounded-full bg-violet-200/50 dark:bg-violet-900/50 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-violet-500 transition-all"
-                    style={{ width: `${job.progress}%` }}
-                  />
-                </div>
-              </button>
-            ))}
-            {failedJobs.map((job) => (
-              <div
-                key={job.id}
-                className="w-full rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3"
-              >
-                <p className="text-sm font-medium truncate">
-                  {job.inputSummary.requirementPreview}
-                </p>
-                <p className="text-xs text-destructive mt-1">{job.error || '生成失败'}</p>
-                <button
-                  type="button"
-                  onClick={() => handleRetryJob(job.id)}
-                  disabled={isSubmitting}
-                  className="mt-2 text-xs font-medium text-primary hover:underline disabled:opacity-50"
-                >
-                  重新生成
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* ── Import button (empty state) ── */}
         {classrooms.length === 0 && (
           <button
@@ -760,7 +737,7 @@ function HomePage() {
       </motion.div>
 
       {/* ═══ Recent classrooms — collapsible ═══ */}
-      {classrooms.length > 0 && (
+      {(classrooms.length > 0 || orphanJobs.length > 0) && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -777,7 +754,9 @@ function HomePage() {
               >
                 <Clock className="size-3.5" />
                 最近学习
-                <span className="text-xs tabular-nums opacity-60">{classrooms.length}</span>
+                <span className="text-xs tabular-nums opacity-60">
+                  {classrooms.length + visibleOrphanJobs.length}
+                </span>
                 <motion.div
                   animate={{ rotate: recentOpen ? 180 : 0 }}
                   transition={{ duration: 0.3, ease: 'easeInOut' }}
@@ -892,15 +871,15 @@ function HomePage() {
                 transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
                 className="w-full overflow-hidden"
               >
-                {searchQuery.trim() && filteredClassrooms.length === 0 ? (
+                {searchQuery.trim() && filteredClassrooms.length === 0 && visibleOrphanJobs.length === 0 ? (
                   <div className="pt-8 pb-2 text-center text-sm text-muted-foreground/60">
                     没有找到匹配的课程
                   </div>
                 ) : (
                   <div className="pt-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8">
-                    {filteredClassrooms.map((classroom, i) => (
+                    {visibleOrphanJobs.map((job, i) => (
                       <motion.div
-                        key={classroom.id}
+                        key={`job-${job.id}`}
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{
@@ -910,18 +889,63 @@ function HomePage() {
                         }}
                       >
                         <ClassroomCard
+                          classroom={{
+                            id: `job-${job.id}`,
+                            name: job.inputSummary.requirementPreview,
+                            sceneCount: job.scenesGenerated,
+                            createdAt: Date.now(),
+                            updatedAt: Date.now(),
+                          }}
+                          formatDate={formatDate}
+                          generation={jobToOverlay(job)}
+                          onDelete={(_id, e) => e.stopPropagation()}
+                          onRename={() => {}}
+                          confirmingDelete={false}
+                          onConfirmDelete={() => {}}
+                          onCancelDelete={() => {}}
+                          onClick={() => router.push(`/generation-job/${job.id}`)}
+                        />
+                      </motion.div>
+                    ))}
+                    {filteredClassrooms.map((classroom, i) => {
+                      const job = jobByClassroomId.get(classroom.id);
+                      const generation = job ? jobToOverlay(job) : undefined;
+                      const isActiveJob =
+                        job &&
+                        (job.status === 'queued' ||
+                          job.status === 'running' ||
+                          job.status === 'failed');
+
+                      return (
+                      <motion.div
+                        key={classroom.id}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          delay: (visibleOrphanJobs.length + i) * 0.04,
+                          duration: 0.35,
+                          ease: 'easeOut',
+                        }}
+                      >
+                        <ClassroomCard
                           classroom={classroom}
                           slide={thumbnails[classroom.id]}
                           formatDate={formatDate}
+                          generation={generation}
                           onDelete={handleDelete}
                           onRename={handleRename}
                           confirmingDelete={pendingDeleteId === classroom.id}
                           onConfirmDelete={() => confirmDelete(classroom.id)}
                           onCancelDelete={() => setPendingDeleteId(null)}
-                          onClick={() => router.push(`/classroom/${classroom.id}`)}
+                          onClick={() =>
+                            isActiveJob
+                              ? router.push(`/generation-job/${job!.id}`)
+                              : router.push(`/classroom/${classroom.id}`)
+                          }
                         />
                       </motion.div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </motion.div>
