@@ -74,7 +74,8 @@ interface PendingGenerationJob {
   error?: string;
 }
 
-function jobToOverlay(job: PendingGenerationJob): ClassroomGenerationOverlay {
+function jobToOverlay(job: PendingGenerationJob): ClassroomGenerationOverlay | undefined {
+  if (job.status === 'succeeded') return undefined;
   return {
     jobId: job.id,
     status: job.status,
