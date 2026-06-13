@@ -1,4 +1,5 @@
 export const ZENMUX_BASE_URL = 'https://zenmux.ai/api/v1';
+export const ZENMUX_ANTHROPIC_BASE_URL = 'https://zenmux.ai/api/anthropic';
 export const ZENMUX_VERTEX_BASE_URL = 'https://zenmux.ai/api/vertex-ai';
 
 export const KIMI_K2_7_CODE_MODEL_ID = 'moonshotai/kimi-k2.7-code';

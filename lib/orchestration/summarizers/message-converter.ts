@@ -112,7 +112,17 @@ export function convertMessagesToResponsesInput(
 export function convertMessagesToLLMHistory(
   messages: StatelessChatRequest['messages'],
   currentAgentId?: string,
+  options?: { anchorOnPreviousResponse?: boolean },
 ): { messages: LLMMessage[]; previousResponseId?: string } {
+  const anchorOnPreviousResponse = options?.anchorOnPreviousResponse ?? true;
+
+  if (!anchorOnPreviousResponse) {
+    return {
+      messages: convertMessagesToResponsesInput(messages, currentAgentId),
+      previousResponseId: undefined,
+    };
+  }
+
   const anchorIndex = findPreviousResponseAnchor(messages, currentAgentId);
   const previousResponseId =
     anchorIndex >= 0 ? messages[anchorIndex].metadata?.modelResponseId : undefined;

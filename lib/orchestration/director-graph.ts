@@ -296,6 +296,7 @@ async function runAgentGeneration(
   const { messages: llmMessages, previousResponseId } = convertMessagesToLLMHistory(
     state.messages,
     agentId,
+    { anchorOnPreviousResponse: state.languageModel.providerType === 'openai-responses' },
   );
   const adapter = new ResponsesLangGraphAdapter(state.languageModel);
 

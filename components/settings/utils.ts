@@ -22,6 +22,7 @@ export function formatContextWindow(size?: number): string {
 
 const PROVIDER_TYPE_LABELS: Record<string, string> = {
   'openai-responses': 'OpenAI兼容 Responses',
+  'anthropic-messages': 'Anthropic Messages',
 };
 
 export function getProviderTypeLabel(type: string): string {

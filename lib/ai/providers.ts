@@ -1,7 +1,7 @@
 /**
  * Unified AI Provider Configuration
  *
- * Text generation is fixed to the server-configured ZenMux OpenAI-compatible Responses provider.
+ * Text generation is fixed to the server-configured ZenMux Anthropic Messages provider.
  */
 
 import type {
@@ -13,7 +13,7 @@ import type {
   ModelConfig,
 } from '@/lib/types/provider';
 import {
-  ZENMUX_BASE_URL,
+  ZENMUX_ANTHROPIC_BASE_URL,
   KIMI_K2_7_CODE_MODEL_ID,
   KIMI_K2_7_CODE_MODEL_NAME,
 } from './zenmux-models';
@@ -32,8 +32,8 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
   zenmux: {
     id: 'zenmux',
     name: 'ZenMux',
-    type: 'openai-responses',
-    defaultBaseUrl: ZENMUX_BASE_URL,
+    type: 'anthropic-messages',
+    defaultBaseUrl: ZENMUX_ANTHROPIC_BASE_URL,
     requiresApiKey: true,
     models: [
       {

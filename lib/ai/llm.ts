@@ -1,11 +1,17 @@
 /**
  * Unified LLM Call Layer
  *
- * Text generation uses ZenMux through the OpenAI-compatible Responses API.
+ * Text generation uses ZenMux through the Anthropic Messages API.
  */
 
 import OpenAI from 'openai';
 import { createLogger } from '@/lib/logger';
+import {
+  isAnthropicMessagesModel,
+  streamAnthropicLLMWithTools,
+  streamAnthropicTextGenerationEvents,
+} from './anthropic-messages';
+import { LLMTransportError } from './llm-transport-error';
 import type { ResponsesModel } from './providers';
 
 const log = createLogger('LLM');
@@ -89,15 +95,7 @@ export interface LLMTextResult {
   responseId?: string;
 }
 
-export class LLMTransportError extends Error {
-  cause?: unknown;
-
-  constructor(message: string, cause?: unknown) {
-    super(message);
-    this.name = 'LLMTransportError';
-    this.cause = cause;
-  }
-}
+export { LLMTransportError } from './llm-transport-error';
 
 export interface LLMStreamResult {
   textStream: AsyncIterable<string>;
@@ -420,6 +418,11 @@ async function* streamTextGenerationEvents(
   params: LLMStreamParams,
   source: string,
 ): AsyncIterable<LLMStreamEvent> {
+  if (isAnthropicMessagesModel(params.model)) {
+    yield* streamAnthropicTextGenerationEvents(params, source);
+    return;
+  }
+
   yield* streamResponseEvents(
     params,
     source,
@@ -473,6 +476,11 @@ export async function* streamLLMWithTools(
   params: LLMToolLoopParams,
   source: string,
 ): AsyncIterable<LLMToolStreamEvent> {
+  if (isAnthropicMessagesModel(params.model)) {
+    yield* streamAnthropicLLMWithTools(params, source);
+    return;
+  }
+
   const maxIterations = params.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
   let input = buildResponsesInput(params);
   let previousResponseId = params.previousResponseId;
