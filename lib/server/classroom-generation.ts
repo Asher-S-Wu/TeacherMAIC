@@ -1,77 +1,55 @@
 import { nanoid } from 'nanoid';
-import { collectStreamLLMText } from '@/lib/ai/llm';
+import { collectStreamLLMText, type LLMGenerateParams } from '@/lib/ai/llm';
 import { createStageAPI } from '@/lib/api/stage-api';
 import type { StageStore } from '@/lib/api/stage-api-types';
+import { TTS_PROVIDERS } from '@/lib/audio/constants';
+import {
+  generateAgentProfilesForCourse,
+  type GeneratedAgentProfile,
+} from '@/lib/generation/agent-profiles-generator';
 import { generateSceneOutlinesFromRequirements } from '@/lib/generation/outline-generator';
+import { buildVisionUserContent } from '@/lib/generation/prompt-formatters';
 import {
   createSceneWithActions,
   generateSceneActions,
   generateSceneContent,
 } from '@/lib/generation/scene-generator';
-import type { AICallFn } from '@/lib/generation/pipeline-types';
-import type { AgentInfo } from '@/lib/generation/pipeline-types';
-import { getDefaultAgents } from '@/lib/orchestration/registry/store';
+import type { AICallFn, AgentInfo } from '@/lib/generation/pipeline-types';
 import { createLogger } from '@/lib/logger';
 import { isProviderKeyRequired } from '@/lib/ai/providers';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { resolveModel } from '@/lib/server/resolve-model';
 import { runAgentDrivenWebResearch } from '@/lib/server/web-research';
 import { persistClassroom } from '@/lib/server/classroom-storage';
+import { loadImageMappingForUser } from '@/lib/server/file-storage';
+import { getCollections, getMongo } from '@/lib/server/mongodb';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
 import {
   CLASSROOM_GENERATION_CONCURRENCY,
-  formatConcurrencyLabel,
+  formatSceneGenerationProgressMessage,
 } from '@/lib/constants/classroom-generation';
 import {
   generateMediaForClassroom,
   replaceMediaPlaceholders,
   generateTTSForClassroom,
 } from '@/lib/server/classroom-media-generation';
-import type { UserRequirements } from '@/lib/types/generation';
+import type { PdfImage, UserRequirements } from '@/lib/types/generation';
 import type { Scene, Stage } from '@/lib/types/stage';
 import type { ObjectId } from 'mongodb';
-import { AGENT_COLOR_PALETTE, AGENT_DEFAULT_AVATARS } from '@/lib/constants/agent-defaults';
-import { MAX_GENERATION_ATTEMPTS } from '@/lib/generation/retry';
+import type {
+  ClassroomGenerationProgress,
+  GenerateClassroomInput,
+  GenerateClassroomResult,
+} from '@/lib/server/classroom-generation-types';
+
+export type {
+  ClassroomGenerationProgress,
+  ClassroomGenerationStep,
+  GenerateClassroomInput,
+  GenerateClassroomResult,
+} from '@/lib/server/classroom-generation-types';
 
 const log = createLogger('Classroom');
-const MAX_AGENT_PROFILE_ATTEMPTS = MAX_GENERATION_ATTEMPTS;
-
-export interface GenerateClassroomInput {
-  requirement: string;
-  pdfContent?: { text: string; images: string[] };
-  enableWebSearch?: boolean;
-  enableImageGeneration?: boolean;
-  enableVideoGeneration?: boolean;
-  enableTTS?: boolean;
-  agentMode?: 'default' | 'generate';
-}
-
-export type ClassroomGenerationStep =
-  | 'initializing'
-  | 'researching'
-  | 'generating_outlines'
-  | 'generating_scenes'
-  | 'generating_media'
-  | 'generating_tts'
-  | 'persisting'
-  | 'completed';
-
-export interface ClassroomGenerationProgress {
-  step: ClassroomGenerationStep;
-  progress: number;
-  message: string;
-  scenesGenerated: number;
-  totalScenes?: number;
-}
-
-export interface GenerateClassroomResult {
-  id: string;
-  url: string;
-  stage: Stage;
-  scenes: Scene[];
-  scenesCount: number;
-  createdAt: string;
-}
 
 function createInMemoryStore(stage: Stage): StageStore {
   let state = {
@@ -100,125 +78,20 @@ function createInMemoryStore(stage: Stage): StageStore {
   };
 }
 
-function stripCodeFences(text: string): string {
-  let cleaned = text.trim();
-  if (cleaned.startsWith('```')) {
-    cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-  }
-  return cleaned.trim();
-}
-
-type ParsedServerAgentProfiles = {
-  agents: Array<{ name: string; role: string; persona: string }>;
-};
-
-function buildAgentProfileRetryPrompt(
-  userPrompt: string,
-  previousResponse: string,
-  reason: string,
-): string {
-  return `${userPrompt}
-
-The previous response could not be used.
-
-Problem:
-${reason}
-
-Previous response:
-${previousResponse.slice(0, 8000)}
-
-Regenerate the entire response now. Return ONLY one complete valid JSON object that exactly matches the requested schema. Do not include markdown, comments, trailing commas, or any text outside JSON.`;
-}
-
-function parseAndValidateServerAgentProfiles(rawText: string): ParsedServerAgentProfiles {
-  const parsed = JSON.parse(rawText) as ParsedServerAgentProfiles;
-
-  if (!parsed.agents || !Array.isArray(parsed.agents) || parsed.agents.length < 2) {
-    throw new Error(`Expected at least 2 agents, got ${parsed.agents?.length ?? 0}`);
-  }
-
-  const teacherCount = parsed.agents.filter((a) => a.role === 'teacher').length;
-  if (teacherCount !== 1) {
-    throw new Error(`Expected exactly 1 teacher, got ${teacherCount}`);
-  }
-
-  return parsed;
-}
-
-async function generateAgentProfiles(
-  requirement: string,
-  languageDirective: string,
-  aiCall: AICallFn,
-): Promise<AgentInfo[]> {
-  const systemPrompt =
-    'You are an expert instructional designer. Generate agent profiles for a multi-agent classroom simulation. Return ONLY valid JSON, no markdown or explanation.';
-
-  const userPrompt = `Generate agent profiles for a course with this requirement:
-${requirement}
-
-Requirements:
-- Decide the appropriate number of agents based on the course content (typically 3-5)
-- Exactly 1 agent must have role "teacher", the rest can be "assistant" or "student"
-- Each agent needs: name, role, persona (2-3 sentences describing personality and teaching/learning style)
-- Language directive for this course: ${languageDirective}
-  Agent names and personas must follow this language directive.
-
-Return a JSON object with this exact structure:
-{
-  "agents": [
-    {
-      "name": "string",
-      "role": "teacher" | "assistant" | "student",
-      "persona": "string (2-3 sentences)"
-    }
-  ]
-}`;
-
-  let parsed: ParsedServerAgentProfiles | null = null;
-  let lastRawText = '';
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= MAX_AGENT_PROFILE_ATTEMPTS; attempt += 1) {
-    const prompt =
-      attempt === 1
-        ? userPrompt
-        : buildAgentProfileRetryPrompt(
-            userPrompt,
-            lastRawText,
-            lastError?.message ?? 'The previous response was invalid JSON.',
-          );
-    try {
-      const response = await aiCall(systemPrompt, prompt);
-      const rawText = stripCodeFences(response);
-      lastRawText = rawText;
-      parsed = parseAndValidateServerAgentProfiles(rawText);
-      if (attempt > 1) {
-        log.info(`Agent profiles JSON fixed after retry ${attempt - 1}`);
-      }
-      break;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      const message = `Agent profiles response invalid (attempt ${attempt}/${MAX_AGENT_PROFILE_ATTEMPTS}): ${lastError.message}`;
-
-      if (attempt < MAX_AGENT_PROFILE_ATTEMPTS) {
-        log.warn(message, 'Retrying with correction prompt.');
-      } else {
-        log.error(message, lastRawText.substring(0, 500));
-      }
-    }
-  }
-
-  if (!parsed) {
-    throw new Error(
-      `Failed to parse agent profiles from LLM response after ${MAX_AGENT_PROFILE_ATTEMPTS} attempts`,
-    );
-  }
-
-  return parsed.agents.map((a, i) => ({
-    id: `gen-server-${i}`,
+function toAgentInfoList(agents: GeneratedAgentProfile[]): AgentInfo[] {
+  return agents.map((a) => ({
+    id: a.id,
     name: a.name,
     role: a.role,
     persona: a.persona,
+  }));
+}
+
+function buildServerAvailableVoices() {
+  return TTS_PROVIDERS['bailian-tts'].voices.map((voice) => ({
+    providerId: 'bailian-tts' as const,
+    voiceId: voice.id,
+    voiceName: voice.name,
   }));
 }
 
@@ -230,29 +103,36 @@ export async function generateClassroom(
     onProgress?: (progress: ClassroomGenerationProgress) => Promise<void> | void;
   },
 ): Promise<GenerateClassroomResult> {
-  const { requirement, pdfContent } = input;
+  const { requirement, pdfContent, pdfImages: inputPdfImages } = input;
 
   await options.onProgress?.({
     step: 'initializing',
     progress: 5,
-    message: 'Initializing classroom generation',
+    message: '正在准备生成课程',
     scenesGenerated: 0,
   });
+
+  const { db } = await getMongo();
+  const user = await getCollections(db).users.findOne({ _id: options.userId });
+  if (!user) {
+    throw new Error('用户不存在');
+  }
 
   const {
     model: languageModel,
     modelString,
     providerId,
     apiKey,
+    modelInfo,
   } = await resolveModel();
   const languageModelWithMetadata = {
     ...languageModel,
     metadataUserId: options.userId.toString(),
   };
   const interactiveMode = false;
+  const hasVision = !!modelInfo?.capabilities?.vision;
   log.info(`Using server-configured model: ${modelString}`);
 
-  // Fail fast if the resolved provider has no API key configured
   if (isProviderKeyRequired(providerId) && !apiKey) {
     throw new Error(
       `No API key configured for provider "${providerId}". ` +
@@ -260,18 +140,35 @@ export async function generateClassroom(
     );
   }
 
-  const aiCall: AICallFn = async (systemPrompt, userPrompt, _images) => {
-    // 后台课堂生成需要完整文本再解析；底层走流式，避免等待响应头超时。
-    return collectStreamLLMText(
-      {
-        model: languageModelWithMetadata,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-      },
-      'generate-classroom',
-    );
+  const pdfImages: PdfImage[] | undefined = inputPdfImages?.length
+    ? inputPdfImages
+    : undefined;
+  const pdfText = pdfContent?.text || undefined;
+  const outlineImageMapping =
+    hasVision && pdfImages?.length ? await loadImageMappingForUser(pdfImages, user) : {};
+
+  const aiCall: AICallFn = async (systemPrompt, userPrompt, images) => {
+    const params: LLMGenerateParams =
+      images?.length && hasVision
+        ? {
+            model: languageModelWithMetadata,
+            system: systemPrompt,
+            messages: [
+              {
+                role: 'user' as const,
+                content: buildVisionUserContent(userPrompt, images),
+              },
+            ],
+          }
+        : {
+            model: languageModelWithMetadata,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+          };
+
+    return collectStreamLLMText(params, 'generate-classroom');
   };
 
   const createSearchAiCall = (operation: string): AICallFn => async (
@@ -279,7 +176,6 @@ export async function generateClassroom(
     userPrompt,
     _images,
   ) => {
-    // 后台联网搜索中的模型步骤也走流式，返回值仍是完整文本。
     return collectStreamLLMText(
       {
         model: languageModelWithMetadata,
@@ -295,17 +191,17 @@ export async function generateClassroom(
   const requirements: UserRequirements = {
     requirement,
     interactiveMode,
+    ...(input.userNickname ? { userNickname: input.userNickname } : {}),
+    ...(input.userBio ? { userBio: input.userBio } : {}),
   };
-  const pdfText = pdfContent?.text || undefined;
 
   await options.onProgress?.({
     step: 'researching',
     progress: 10,
-    message: 'Researching topic',
+    message: '正在检索相关资料',
     scenesGenerated: 0,
   });
 
-  // Web search
   let researchContext: string | undefined;
   if (input.enableWebSearch ?? true) {
     const xcrawlApiKey = resolveWebSearchApiKey();
@@ -317,8 +213,6 @@ export async function generateClassroom(
       pdfText,
       apiKey: xcrawlApiKey,
       createAiCall: createSearchAiCall,
-      // 把多轮检索的进度桥接到上层 onProgress：每轮开始时刷新一次文案，
-      // progress 限制在 10..14，紧贴下一阶段 generating_outlines 的 15
       onProgress: (event) => {
         if (event.phase === 'round_start') {
           void options.onProgress?.({
@@ -345,21 +239,22 @@ export async function generateClassroom(
   await options.onProgress?.({
     step: 'generating_outlines',
     progress: 15,
-    message: 'Generating scene outlines',
+    message: '正在生成课程大纲',
     scenesGenerated: 0,
   });
 
   const outlinesResult = await generateSceneOutlinesFromRequirements(
     requirements,
     pdfText,
-    undefined,
+    pdfImages,
     aiCall,
     undefined,
     {
+      visionEnabled: hasVision,
+      imageMapping: outlineImageMapping,
       imageGenerationEnabled: input.enableImageGeneration,
       videoGenerationEnabled: input.enableVideoGeneration,
       researchContext,
-      // NO teacherContext — agents haven't been generated yet
     },
   );
 
@@ -373,22 +268,60 @@ export async function generateClassroom(
 
   await options.onProgress?.({
     step: 'generating_outlines',
-    progress: 30,
-    message: `Generated ${outlines.length} scene outlines`,
+    progress: 25,
+    message: `已生成 ${outlines.length} 页课程大纲`,
     scenesGenerated: 0,
     totalScenes: outlines.length,
   });
 
-  // Resolve agents based on agentMode — now AFTER outlines so we can use languageDirective
+  const agentMode = input.agentMode || 'auto';
   let agents: AgentInfo[];
-  const agentMode = input.agentMode || 'default';
-  if (agentMode === 'generate') {
-    log.info('Generating custom agent profiles via LLM...');
-    agents = await generateAgentProfiles(requirement, languageDirective, aiCall);
-    log.info(`Generated ${agents.length} agent profiles`);
+  let generatedAgentConfigs: GeneratedAgentProfile[] | undefined;
+
+  if (agentMode === 'preset') {
+    if (!input.presetAgents?.length) {
+      throw new Error('预设角色模式下必须提供角色信息');
+    }
+    agents = input.presetAgents;
+    log.info(`Using ${agents.length} preset agents`);
   } else {
-    agents = getDefaultAgents();
+    await options.onProgress?.({
+      step: 'generating_agents',
+      progress: 28,
+      message: '正在根据课程内容生成角色...',
+      scenesGenerated: 0,
+      totalScenes: outlines.length,
+    });
+
+    log.info('Generating custom agent profiles via LLM...');
+    generatedAgentConfigs = await generateAgentProfilesForCourse(
+      {
+        stageInfo: {
+          name: outlines[0]?.title || requirement.slice(0, 50),
+          description: requirement.slice(0, 200),
+        },
+        sceneOutlines: outlines.map((o) => ({
+          title: o.title,
+          description: o.description,
+        })),
+        languageDirective,
+        availableAvatars: undefined,
+        availableVoices: buildServerAvailableVoices(),
+      },
+      languageModelWithMetadata,
+      'generate-classroom-agents',
+    );
+    agents = toAgentInfoList(generatedAgentConfigs);
+    log.info(`Generated ${agents.length} agent profiles`);
   }
+
+  await options.onProgress?.({
+    step: 'generating_scenes',
+    progress: 30,
+    message: '准备生成页面内容',
+    scenesGenerated: 0,
+    totalScenes: outlines.length,
+  });
 
   const stageId = nanoid(10);
   const stage: Stage = {
@@ -400,48 +333,74 @@ export async function generateClassroom(
     interactiveMode,
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    // For LLM-generated agents, embed full configs so the client can
-    // hydrate the agent registry from the saved classroom data.
-    // For default agents, just record IDs — the client already has them.
-    ...(agentMode === 'generate'
+    ...(agentMode === 'auto' && generatedAgentConfigs
       ? {
-          generatedAgentConfigs: agents.map((a, i) => ({
+          generatedAgentConfigs: generatedAgentConfigs.map((a) => ({
             id: a.id,
             name: a.name,
             role: a.role,
-            persona: a.persona || '',
-            avatar: AGENT_DEFAULT_AVATARS[i % AGENT_DEFAULT_AVATARS.length],
-            color: AGENT_COLOR_PALETTE[i % AGENT_COLOR_PALETTE.length],
-            priority: a.role === 'teacher' ? 10 : a.role === 'assistant' ? 7 : 5,
+            persona: a.persona,
+            avatar: a.avatar,
+            color: a.color,
+            priority: a.priority,
           })),
+          agentIds: generatedAgentConfigs.map((a) => a.id),
         }
       : {
           agentIds: agents.map((a) => a.id),
         }),
   };
 
+  await persistClassroom(
+    options.userId,
+    {
+      id: stageId,
+      stage,
+      scenes: [],
+      outlines,
+    },
+    options.baseUrl,
+  );
+
   const store = createInMemoryStore(stage);
   const api = createStageAPI(store);
 
   log.info('Stage 2: Generating scene content and actions...');
   let generatedScenes = 0;
-
   const generationConcurrency = CLASSROOM_GENERATION_CONCURRENCY;
-  const concurrencyLabel = formatConcurrencyLabel(generationConcurrency);
 
   await options.onProgress?.({
     step: 'generating_scenes',
     progress: 31,
-    message: `正在${concurrencyLabel}并行生成页面：已完成 0/${outlines.length}`,
+    message: formatSceneGenerationProgressMessage(0, outlines.length),
     scenesGenerated: generatedScenes,
     totalScenes: outlines.length,
   });
 
   await runConcurrentQueue(outlines, generationConcurrency, async (outline) => {
+    let assignedImages: PdfImage[] | undefined;
+    if (
+      pdfImages &&
+      pdfImages.length > 0 &&
+      outline.suggestedImageIds &&
+      outline.suggestedImageIds.length > 0
+    ) {
+      const suggestedIds = new Set(outline.suggestedImageIds);
+      assignedImages = pdfImages.filter((img) => suggestedIds.has(img.id));
+    }
+    const imageMapping =
+      hasVision && assignedImages?.length
+        ? await loadImageMappingForUser(assignedImages, user)
+        : {};
+
     const content = await generateSceneContent(outline, aiCall, {
+      assignedImages,
+      imageMapping,
+      languageModel: outline.type === 'pbl' ? languageModel : undefined,
+      visionEnabled: hasVision,
+      generatedMediaMapping: {},
       agents,
       languageDirective,
-      languageModel: outline.type === 'pbl' ? languageModel : undefined,
     });
     if (!content) {
       throw new Error(`Scene content generation failed: ${outline.title}`);
@@ -465,7 +424,7 @@ export async function generateClassroom(
         30 + Math.floor((generatedScenes / Math.max(outlines.length, 1)) * 60),
         90,
       ),
-      message: `正在${concurrencyLabel}并行生成页面：已完成 ${generatedScenes}/${outlines.length}`,
+      message: formatSceneGenerationProgressMessage(generatedScenes, outlines.length),
       scenesGenerated: generatedScenes,
       totalScenes: outlines.length,
     });
@@ -478,12 +437,11 @@ export async function generateClassroom(
     throw new Error('No scenes were generated');
   }
 
-  // Phase: Media generation (after all scenes generated)
   if (input.enableImageGeneration || input.enableVideoGeneration) {
     await options.onProgress?.({
       step: 'generating_media',
       progress: 90,
-      message: 'Generating media files',
+      message: '正在生成图片和视频',
       scenesGenerated: scenes.length,
       totalScenes: outlines.length,
     });
@@ -498,12 +456,11 @@ export async function generateClassroom(
     log.info(`Media generation complete: ${Object.keys(mediaMap).length} files`);
   }
 
-  // Phase: TTS generation
   if (input.enableTTS) {
     await options.onProgress?.({
       step: 'generating_tts',
       progress: 94,
-      message: 'Generating TTS audio',
+      message: '正在生成语音讲解',
       scenesGenerated: scenes.length,
       totalScenes: outlines.length,
     });
@@ -515,7 +472,7 @@ export async function generateClassroom(
   await options.onProgress?.({
     step: 'persisting',
     progress: 98,
-    message: 'Persisting classroom data',
+    message: '正在保存课程',
     scenesGenerated: scenes.length,
     totalScenes: outlines.length,
   });
@@ -526,6 +483,7 @@ export async function generateClassroom(
       id: stageId,
       stage,
       scenes,
+      outlines,
     },
     options.baseUrl,
   );
@@ -535,7 +493,7 @@ export async function generateClassroom(
   await options.onProgress?.({
     step: 'completed',
     progress: 100,
-    message: 'Classroom generation completed',
+    message: '课程生成完成',
     scenesGenerated: scenes.length,
     totalScenes: outlines.length,
   });

@@ -18,7 +18,10 @@ import { cleanupOldImages } from '@/lib/utils/image-storage';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
-import { CLASSROOM_GENERATION_CONCURRENCY, formatConcurrencyLabel } from '@/lib/constants/classroom-generation';
+import {
+  CLASSROOM_GENERATION_CONCURRENCY,
+  formatSceneGenerationProgressMessage,
+} from '@/lib/constants/classroom-generation';
 import { nanoid } from 'nanoid';
 import type { Stage, Scene } from '@/lib/types/stage';
 import type { SceneOutline, PdfImage } from '@/lib/types/generation';
@@ -671,18 +674,6 @@ function GenerationPreviewContent() {
         throw new Error('模型未返回有效的大纲内容，请检查模型配置后重试');
       }
 
-      const store = useStageStore.getState();
-      store.setAutoSaveSuspended(true);
-      useMediaGenerationStore.setState({ tasks: {} });
-      store.setStage(stage);
-      store.setOutlines(outlines);
-      store.setGeneratingOutlines(outlines);
-      store.setGenerationStatus('generating');
-
-      const contentStepIdx = activeSteps.findIndex((s) => s.id === 'slide-content');
-      const actionsStepIdx = activeSteps.findIndex((s) => s.id === 'actions');
-      const totalPages = outlines.length;
-
       const stageInfo = {
         name: stage.name,
         description: stage.description,
@@ -694,13 +685,34 @@ function GenerationPreviewContent() {
           ? `Student: ${currentSession.requirements.userNickname || 'Unknown'}${currentSession.requirements.userBio ? ` — ${currentSession.requirements.userBio}` : ''}`
           : undefined;
 
+      const store = useStageStore.getState();
+      useMediaGenerationStore.setState({ tasks: {} });
+      store.setStage(stage);
+      store.setOutlines(outlines);
+      store.setGeneratingOutlines(outlines);
+      store.setGenerationStatus('generating');
+      await store.saveToStorage();
+
+      sessionStorage.setItem(
+        'generationParams',
+        JSON.stringify({
+          pdfImages: currentSession.pdfImages,
+          agents,
+          userProfile,
+          languageDirective,
+        }),
+      );
+
+      store.setAutoSaveSuspended(true);
+
+      const contentStepIdx = activeSteps.findIndex((s) => s.id === 'slide-content');
+      const actionsStepIdx = activeSteps.findIndex((s) => s.id === 'actions');
+      const totalPages = outlines.length;
+
       let completedPages = 0;
       const generationConcurrency = CLASSROOM_GENERATION_CONCURRENCY;
-      const concurrencyLabel = formatConcurrencyLabel(generationConcurrency);
       const updateParallelStatus = () => {
-        setStatusMessage(
-          `正在${concurrencyLabel}并行生成页面：已完成 ${completedPages}/${totalPages}`,
-        );
+        setStatusMessage(formatSceneGenerationProgressMessage(completedPages, totalPages));
       };
 
       if (contentStepIdx >= 0) setCurrentStepIndex(contentStepIdx);
@@ -774,6 +786,7 @@ function GenerationPreviewContent() {
 
           throwIfAborted(signal);
           store.addScene(scene);
+          await store.saveToStorage();
           completedPages += 1;
           updateParallelStatus();
         },

@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import type { ObjectId } from 'mongodb';
+import type { SceneOutline } from '@/lib/types/generation';
 import type { Scene, Stage } from '@/lib/types/stage';
 import {
   readClassroomForUser,
@@ -43,6 +44,7 @@ export async function persistClassroom(
     id: string;
     stage: Stage;
     scenes: Scene[];
+    outlines?: SceneOutline[];
   },
   baseUrl: string,
 ): Promise<PersistedClassroomData & { url: string }> {
@@ -50,6 +52,7 @@ export async function persistClassroom(
     id: data.id,
     stage: data.stage,
     scenes: data.scenes,
+    outlines: data.outlines,
   });
 
   return {

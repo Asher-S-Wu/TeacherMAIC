@@ -2,6 +2,7 @@ import { MongoClient, type Collection, type Db, type ObjectId } from 'mongodb';
 import type { Stage, Scene } from '@/lib/types/stage';
 import type { ChatSession } from '@/lib/types/chat';
 import type { SceneOutline } from '@/lib/types/generation';
+import type { GenerateClassroomInput } from '@/lib/server/classroom-generation-types';
 
 declare global {
   var __teacherMaicMongo:
@@ -109,6 +110,7 @@ export interface ClassroomJobDoc {
     pdfTextLength: number;
     pdfImageCount: number;
   };
+  input: GenerateClassroomInput;
   scenesGenerated: number;
   totalScenes?: number;
   result?: {

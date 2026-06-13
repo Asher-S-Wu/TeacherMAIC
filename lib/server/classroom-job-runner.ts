@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logger';
-import { generateClassroom, type GenerateClassroomInput } from '@/lib/server/classroom-generation';
+import { generateClassroom } from '@/lib/server/classroom-generation';
+import type { GenerateClassroomInput } from '@/lib/server/classroom-generation-types';
 import type { ObjectId } from 'mongodb';
 import {
   markClassroomGenerationJobFailed,

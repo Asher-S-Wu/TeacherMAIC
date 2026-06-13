@@ -4,7 +4,7 @@ import type {
   ClassroomGenerationStep,
   GenerateClassroomInput,
   GenerateClassroomResult,
-} from '@/lib/server/classroom-generation';
+} from '@/lib/server/classroom-generation-types';
 import { getCollections, getMongo, type ClassroomJobDoc } from '@/lib/server/mongodb';
 
 export type ClassroomGenerationJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
@@ -25,6 +25,11 @@ export interface ClassroomGenerationJob {
     pdfTextLength: number;
     pdfImageCount: number;
   };
+  displayContext: {
+    hasPdf: boolean;
+    webSearch: boolean;
+    agentMode: 'preset' | 'auto';
+  };
   scenesGenerated: number;
   totalScenes?: number;
   result?: {
@@ -36,18 +41,39 @@ export interface ClassroomGenerationJob {
 }
 
 function buildInputSummary(input: GenerateClassroomInput): ClassroomGenerationJob['inputSummary'] {
+  const pdfImageCount = input.pdfImages?.length ?? input.pdfContent?.images?.length ?? 0;
   return {
     requirementPreview:
       input.requirement.length > 200 ? `${input.requirement.slice(0, 197)}...` : input.requirement,
-    hasPdf: !!input.pdfContent,
+    hasPdf: !!(input.pdfContent?.text || input.pdfImages?.length),
     pdfTextLength: input.pdfContent?.text.length || 0,
-    pdfImageCount: input.pdfContent?.images.length || 0,
+    pdfImageCount,
   };
 }
 
 const STALE_JOB_TIMEOUT_MS = 30 * 60 * 1000;
 
+function buildDisplayContext(
+  input: GenerateClassroomInput,
+  inputSummary: ClassroomGenerationJob['inputSummary'],
+): ClassroomGenerationJob['displayContext'] {
+  return {
+    hasPdf: inputSummary.hasPdf,
+    webSearch: input.enableWebSearch ?? true,
+    agentMode: input.agentMode ?? 'auto',
+  };
+}
+
 function toPublicJob(job: ClassroomJobDoc): ClassroomGenerationJob {
+  const inputSummary = job.inputSummary;
+  const displayContext = job.input
+    ? buildDisplayContext(job.input, inputSummary)
+    : {
+        hasPdf: inputSummary.hasPdf,
+        webSearch: true,
+        agentMode: 'auto' as const,
+      };
+
   return {
     id: job.id,
     status: job.status,
@@ -58,7 +84,8 @@ function toPublicJob(job: ClassroomJobDoc): ClassroomGenerationJob {
     updatedAt: job.updatedAt.toISOString(),
     ...(job.startedAt ? { startedAt: job.startedAt.toISOString() } : {}),
     ...(job.completedAt ? { completedAt: job.completedAt.toISOString() } : {}),
-    inputSummary: job.inputSummary,
+    inputSummary,
+    displayContext,
     scenesGenerated: job.scenesGenerated,
     ...(job.totalScenes !== undefined ? { totalScenes: job.totalScenes } : {}),
     ...(job.result ? { result: job.result } : {}),
@@ -107,6 +134,7 @@ export async function createClassroomGenerationJob(
     createdAt: now,
     updatedAt: now,
     inputSummary: buildInputSummary(input),
+    input,
     scenesGenerated: 0,
   };
 
@@ -122,6 +150,19 @@ export async function readClassroomGenerationJob(
   const job = await getCollections(db).classroomJobs.findOne({ id: jobId, userId });
   if (!job) return null;
   return toPublicJob(await markStaleIfNeeded(job));
+}
+
+export async function readClassroomGenerationJobInput(
+  jobId: string,
+  userId: ObjectId,
+): Promise<{ status: ClassroomGenerationJobStatus; input: GenerateClassroomInput } | null> {
+  const { db } = await getMongo();
+  const job = await getCollections(db).classroomJobs.findOne({ id: jobId, userId });
+  if (!job) return null;
+  return {
+    status: job.status,
+    input: job.input,
+  };
 }
 
 async function updateClassroomGenerationJob(
@@ -225,4 +266,28 @@ export async function readClassroomGenerationJobOwner(jobId: string): Promise<Ob
     { projection: { userId: 1 } },
   );
   return job?.userId ?? null;
+}
+
+export async function listClassroomGenerationJobs(
+  userId: ObjectId,
+  options?: { limit?: number; status?: ClassroomGenerationJobStatus[] },
+): Promise<ClassroomGenerationJob[]> {
+  const { db } = await getMongo();
+  const limit = options?.limit ?? 20;
+  const filter: Record<string, unknown> = { userId };
+  if (options?.status?.length) {
+    filter.status = { $in: options.status };
+  }
+
+  const jobs = await getCollections(db)
+    .classroomJobs.find(filter)
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .toArray();
+
+  const results: ClassroomGenerationJob[] = [];
+  for (const job of jobs) {
+    results.push(toPublicJob(await markStaleIfNeeded(job)));
+  }
+  return results;
 }

@@ -21,6 +21,7 @@ import {
   Sparkles,
   X,
   ArrowUpRight,
+  Loader2,
 } from 'lucide-react';
 import { createLogger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
@@ -31,9 +32,10 @@ import { SettingsDialog } from '@/components/settings';
 import { GenerationToolbar } from '@/components/generation/generation-toolbar';
 import { AgentBar } from '@/components/agent/agent-bar';
 import { useTheme } from '@/lib/hooks/use-theme';
-import { nanoid } from 'nanoid';
 import { storePdfBlob } from '@/lib/utils/image-storage';
-import type { UserRequirements } from '@/lib/types/generation';
+import type { PdfImage } from '@/lib/types/generation';
+import { MAX_PDF_CONTENT_CHARS } from '@/lib/constants/generation';
+import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useUserProfileStore, AVATAR_OPTIONS } from '@/lib/store/user-profile';
 import {
@@ -54,6 +56,22 @@ import { AccountMenu } from '@/components/auth/account-menu';
 import { ClassroomCard } from '@/components/home/classroom-card';
 
 const log = createLogger('Home');
+
+interface PendingGenerationJob {
+  id: string;
+  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  progress: number;
+  message: string;
+  inputSummary: {
+    requirementPreview: string;
+  };
+  scenesGenerated: number;
+  totalScenes?: number;
+  result?: {
+    classroomId: string;
+  };
+  error?: string;
+}
 
 interface FormState {
   pdfFile: File | null;
@@ -82,6 +100,9 @@ function HomePage() {
 
   // Model setup state
   const currentModelId = useSettingsStore((s) => s.modelId);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingJobs, setPendingJobs] = useState<PendingGenerationJob[]>([]);
+  const [failedJobs, setFailedJobs] = useState<PendingGenerationJob[]>([]);
   const [recentOpen, setRecentOpen] = useState(true);
   const persistRecentOpen = (next: boolean) => {
     setRecentOpen(next);
@@ -134,6 +155,25 @@ function HomePage() {
     }
   };
 
+  const loadGenerationJobs = async () => {
+    try {
+      const [activeRes, failedRes] = await Promise.all([
+        fetch('/api/generate-classroom?status=queued,running&limit=10'),
+        fetch('/api/generate-classroom?status=failed&limit=5'),
+      ]);
+      const activeData = await activeRes.json().catch(() => null);
+      const failedData = await failedRes.json().catch(() => null);
+      if (activeData?.success) {
+        setPendingJobs(activeData.jobs || []);
+      }
+      if (failedData?.success) {
+        setFailedJobs(failedData.jobs || []);
+      }
+    } catch (err) {
+      log.error('Failed to load generation jobs:', err);
+    }
+  };
+
   const { importing, fileInputRef, triggerFileSelect, handleFileChange } = useImportClassroom(
     () => {
       loadClassrooms();
@@ -149,6 +189,7 @@ function HomePage() {
 
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Store hydration on mount
     loadClassrooms();
+    loadGenerationJobs();
   }, []);
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
@@ -243,47 +284,109 @@ function HomePage() {
     }
 
     setError(null);
+    setIsSubmitting(true);
 
     try {
       const userProfile = useUserProfileStore.getState();
       const settings = useSettingsStore.getState();
-      const requirements: UserRequirements = {
-        requirement: form.requirement,
-        userNickname: userProfile.nickname || undefined,
-        userBio: userProfile.bio || undefined,
-        webSearch: form.webSearch || undefined,
-        interactiveMode: false,
-      };
 
-      let pdfStorageKey: string | undefined;
-      let pdfFileName: string | undefined;
-      let pdfProviderId: string | undefined;
+      let pdfContent: { text: string } | undefined;
+      let pdfImages: PdfImage[] | undefined;
 
       if (form.pdfFile) {
-        pdfStorageKey = await storePdfBlob(form.pdfFile);
-        pdfFileName = form.pdfFile.name;
+        const pdfStorageKey = await storePdfBlob(form.pdfFile);
+        const parseResponse = await fetch('/api/parse-pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileId: pdfStorageKey }),
+        });
 
-        pdfProviderId = settings.pdfProviderId;
+        if (!parseResponse.ok) {
+          const errorData = await parseResponse.json();
+          throw new Error(errorData.error || 'PDF 解析失败');
+        }
+
+        const parseResult = await parseResponse.json();
+        if (!parseResult.success || !parseResult.data) {
+          throw new Error('PDF 解析失败');
+        }
+
+        let pdfText = parseResult.data.text as string;
+        if (pdfText.length > MAX_PDF_CONTENT_CHARS) {
+          pdfText = pdfText.substring(0, MAX_PDF_CONTENT_CHARS);
+        }
+        pdfContent = { text: pdfText };
+
+        const rawPdfImages = parseResult.data.metadata?.pdfImages;
+        if (rawPdfImages) {
+          pdfImages = rawPdfImages.map(
+            (img: {
+              id: string;
+              pageNumber?: number;
+              description?: string;
+              width?: number;
+              height?: number;
+              storageId?: string;
+            }) => ({
+              id: img.id,
+              src: '',
+              pageNumber: img.pageNumber || 1,
+              description: img.description,
+              width: img.width,
+              height: img.height,
+              storageId: img.storageId,
+            }),
+          );
+        }
       }
 
-      const sessionState = {
-        sessionId: nanoid(),
-        requirements,
-        pdfText: '',
-        pdfImages: [],
-        imageStorageIds: [],
-        pdfStorageKey,
-        pdfFileName,
-        pdfProviderId,
-        sceneOutlines: null,
-        currentStep: 'generating' as const,
-      };
-      sessionStorage.setItem('generationSession', JSON.stringify(sessionState));
+      let presetAgents;
+      if (settings.agentMode === 'preset') {
+        const registry = useAgentRegistry.getState();
+        const presetAgentIds = settings.selectedAgentIds.filter((id) => {
+          const agent = registry.getAgent(id);
+          return agent && !agent.isGenerated;
+        });
+        presetAgents = presetAgentIds
+          .map((id) => registry.getAgent(id))
+          .filter(Boolean)
+          .map((agent) => ({
+            id: agent!.id,
+            name: agent!.name,
+            role: agent!.role,
+            persona: agent!.persona,
+          }));
+      }
 
-      router.push('/generation-preview');
+      const jobResponse = await fetch('/api/generate-classroom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requirement: form.requirement,
+          ...(pdfContent ? { pdfContent } : {}),
+          ...(pdfImages?.length ? { pdfImages } : {}),
+          userNickname: userProfile.nickname || undefined,
+          userBio: userProfile.bio || undefined,
+          enableWebSearch: form.webSearch,
+          enableImageGeneration: settings.imageGenerationEnabled,
+          enableVideoGeneration: settings.videoGenerationEnabled,
+          enableTTS: settings.ttsEnabled,
+          agentMode: settings.agentMode,
+          ...(presetAgents?.length ? { presetAgents } : {}),
+        }),
+      });
+
+      const jobData = await jobResponse.json().catch(() => null);
+      if (!jobResponse.ok || !jobData?.success) {
+        throw new Error(jobData?.error || '提交生成失败');
+      }
+
+      router.push(`/generation-job/${jobData.jobId}`);
     } catch (err) {
       log.error('Error preparing generation:', err);
       setError(err instanceof Error ? err.message : '生成课堂失败，请重试');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -299,7 +402,28 @@ function HomePage() {
     return date.toLocaleDateString();
   };
 
-  const canGenerate = !!form.requirement.trim();
+  const canGenerate = !!form.requirement.trim() && !isSubmitting;
+
+  const handleRetryJob = async (jobId: string) => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/generate-classroom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ retryFromJobId: jobId }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || '重新生成失败');
+      }
+      router.push(`/generation-job/${data.jobId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '重新生成失败');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -533,8 +657,17 @@ function HomePage() {
                       : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
                   )}
                 >
-                  <span>进入课堂</span>
-                  <ArrowUp className="size-[14px]" />
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="size-[14px] animate-spin" />
+                      <span>提交中</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>开始生成</span>
+                      <ArrowUp className="size-[14px]" />
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -554,6 +687,62 @@ function HomePage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* ── Pending background jobs ── */}
+        {(pendingJobs.length > 0 || failedJobs.length > 0) && (
+          <div className="mt-6 w-full space-y-3">
+            {pendingJobs.map((job) => (
+              <button
+                key={job.id}
+                type="button"
+                onClick={() => router.push(`/generation-job/${job.id}`)}
+                className="w-full rounded-xl border border-violet-200/60 bg-violet-50/50 dark:border-violet-800/40 dark:bg-violet-950/20 px-4 py-3 text-left hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {job.inputSummary.requirementPreview}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{job.message}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm font-medium tabular-nums">{job.progress}%</p>
+                    {job.totalScenes ? (
+                      <p className="text-xs text-muted-foreground">
+                        {job.scenesGenerated}/{job.totalScenes} 页
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="mt-2 h-1.5 rounded-full bg-violet-200/50 dark:bg-violet-900/50 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-violet-500 transition-all"
+                    style={{ width: `${job.progress}%` }}
+                  />
+                </div>
+              </button>
+            ))}
+            {failedJobs.map((job) => (
+              <div
+                key={job.id}
+                className="w-full rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3"
+              >
+                <p className="text-sm font-medium truncate">
+                  {job.inputSummary.requirementPreview}
+                </p>
+                <p className="text-xs text-destructive mt-1">{job.error || '生成失败'}</p>
+                <button
+                  type="button"
+                  onClick={() => handleRetryJob(job.id)}
+                  disabled={isSubmitting}
+                  className="mt-2 text-xs font-medium text-primary hover:underline disabled:opacity-50"
+                >
+                  重新生成
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ── Import button (empty state) ── */}
         {classrooms.length === 0 && (

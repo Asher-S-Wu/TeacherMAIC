@@ -27,7 +27,10 @@ import { generatePBLContent } from '@/lib/pbl/generate-pbl';
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompts';
 import { extractWidgetConfigFromHtml } from '@/lib/utils/interactive-html';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
-import { CLASSROOM_GENERATION_CONCURRENCY } from '@/lib/constants/classroom-generation';
+import {
+  CLASSROOM_GENERATION_CONCURRENCY,
+  formatSceneGenerationProgressMessage,
+} from '@/lib/constants/classroom-generation';
 import { postProcessInteractiveHtml } from './interactive-post-processor';
 import { parseActionsFromStructuredOutput } from './action-parser';
 import { parseJsonResponse } from './json-repair';
@@ -106,7 +109,7 @@ export async function generateFullScenes(
     currentStage: 3,
     overallProgress: 66,
     stageProgress: 0,
-    statusMessage: `正在最多五路并行生成页面：已完成 0/${totalScenes}`,
+    statusMessage: formatSceneGenerationProgressMessage(0, totalScenes),
     scenesGenerated: 0,
     totalScenes,
   });
@@ -125,7 +128,7 @@ export async function generateFullScenes(
         currentStage: 3,
         overallProgress: 66 + Math.floor((completedCount / totalScenes) * 34),
         stageProgress: Math.floor((completedCount / totalScenes) * 100),
-        statusMessage: `正在最多五路并行生成页面：已完成 ${completedCount}/${totalScenes}`,
+        statusMessage: formatSceneGenerationProgressMessage(completedCount, totalScenes),
         scenesGenerated: completedCount,
         totalScenes,
       });
