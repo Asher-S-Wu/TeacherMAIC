@@ -1,16 +1,11 @@
 /**
  * Unified LLM Call Layer
  *
- * Text generation uses Alibaba Cloud Bailian through the OpenAI-compatible
- * Responses API.
+ * Text generation uses ZenMux through the OpenAI-compatible Responses API.
  */
 
 import OpenAI from 'openai';
 import { createLogger } from '@/lib/logger';
-import {
-  QWEN_3_7_PLUS_MODEL_ID,
-  QWEN_3_7_PLUS_RESPONSES_PARAMETERS,
-} from './bailian-models';
 import type { ResponsesModel } from './providers';
 
 const log = createLogger('LLM');
@@ -169,9 +164,7 @@ type ResponsesStreamEvent = {
 };
 
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
-const DEFAULT_REASONING_EFFORT: ReasoningEffort = 'high';
 const DEFAULT_MAX_TOOL_ITERATIONS = 16;
-const SESSION_CACHE_HEADER = 'x-dashscope-session-cache';
 const clientCache = new Map<string, OpenAI>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -187,9 +180,6 @@ function getOpenAIClient(model: ResponsesModel): OpenAI {
   const client = new OpenAI({
     apiKey: model.apiKey,
     baseURL,
-    defaultHeaders: {
-      [SESSION_CACHE_HEADER]: 'enable',
-    },
   });
   clientCache.set(cacheKey, client);
   return client;
@@ -353,14 +343,11 @@ function buildRequestBody(
     previousResponseId?: string;
   },
 ): Record<string, unknown> {
-  const isQwen37Plus = params.model.modelId === QWEN_3_7_PLUS_MODEL_ID;
   const previousResponseId = options?.previousResponseId ?? params.previousResponseId;
 
   return {
     model: params.model.modelId,
     input: options?.input ?? buildResponsesInput(params),
-    reasoning: { effort: params.reasoningEffort ?? DEFAULT_REASONING_EFFORT },
-    ...(isQwen37Plus ? QWEN_3_7_PLUS_RESPONSES_PARAMETERS : {}),
     ...(previousResponseId ? { previous_response_id: previousResponseId } : {}),
     ...(options?.stream ? { stream: true } : {}),
     ...(options?.tools?.length ? { tools: options.tools, tool_choice: 'auto' } : {}),

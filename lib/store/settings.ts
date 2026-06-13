@@ -16,7 +16,10 @@ import {
   DEFAULT_TTS_VOICES,
   TTS_PROVIDERS,
 } from '@/lib/audio/constants';
-import { BAILIAN_IMAGE_MODEL_ID, BAILIAN_VIDEO_MODEL_ID } from '@/lib/ai/bailian-models';
+import {
+  GPT_IMAGE_2_MODEL_ID,
+  DOUBAO_SEEDANCE_2_MODEL_ID,
+} from '@/lib/ai/zenmux-models';
 import type { PDFProviderId } from '@/lib/pdf/types';
 import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
@@ -328,19 +331,19 @@ const getDefaultPDFConfig = () => ({
 
 // Initialize default Image config
 const getDefaultImageConfig = () => ({
-  imageProviderId: 'bailian-image' as ImageProviderId,
-  imageModelId: BAILIAN_IMAGE_MODEL_ID,
+  imageProviderId: 'zenmux-image' as ImageProviderId,
+  imageModelId: GPT_IMAGE_2_MODEL_ID,
   imageProvidersConfig: {
-    'bailian-image': { apiKey: '', baseUrl: '', enabled: false },
+    'zenmux-image': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<ImageProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
 // Initialize default Video config
 const getDefaultVideoConfig = () => ({
-  videoProviderId: 'bailian-video' as VideoProviderId,
-  videoModelId: BAILIAN_VIDEO_MODEL_ID,
+  videoProviderId: 'zenmux-video' as VideoProviderId,
+  videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID,
   videoProvidersConfig: {
-    'bailian-video': { apiKey: '', baseUrl: '', enabled: false },
+    'zenmux-video': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<VideoProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -527,8 +530,8 @@ export const useSettingsStore = create<SettingsState>()(
           })),
 
         // Image Generation actions
-        setImageProvider: () => set({ imageProviderId: 'bailian-image' as ImageProviderId }),
-        setImageModelId: () => set({ imageModelId: BAILIAN_IMAGE_MODEL_ID }),
+        setImageProvider: () => set({ imageProviderId: 'zenmux-image' as ImageProviderId }),
+        setImageModelId: () => set({ imageModelId: GPT_IMAGE_2_MODEL_ID }),
 
         setImageProviderConfig: (providerId, config) =>
           set((state) => {
@@ -547,8 +550,8 @@ export const useSettingsStore = create<SettingsState>()(
           }),
 
         // Video Generation actions
-        setVideoProvider: () => set({ videoProviderId: 'bailian-video' as VideoProviderId }),
-        setVideoModelId: () => set({ videoModelId: BAILIAN_VIDEO_MODEL_ID }),
+        setVideoProvider: () => set({ videoProviderId: 'zenmux-video' as VideoProviderId }),
+        setVideoModelId: () => set({ videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID }),
 
         setVideoProviderConfig: (providerId, config) =>
           set((state) => {
@@ -621,10 +624,10 @@ export const useSettingsStore = create<SettingsState>()(
 
             set((state) => {
               const newProvidersConfig = getDefaultProvidersConfig();
-              newProvidersConfig.bailian = {
-                ...newProvidersConfig.bailian,
+              newProvidersConfig.zenmux = {
+                ...newProvidersConfig.zenmux,
                 apiKey: '',
-                isServerConfigured: !!data.providers.bailian,
+                isServerConfigured: !!data.providers.zenmux,
               };
 
               const defaultAudio = getDefaultAudioConfig();
@@ -663,11 +666,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['pdfProvidersConfig'];
 
               const defaultImage = getDefaultImageConfig();
-              const imageServerConfig = data.image['bailian-image'];
+              const imageServerConfig = data.image['zenmux-image'];
               const newImageConfig = {
-                'bailian-image': {
-                  ...defaultImage.imageProvidersConfig['bailian-image'],
-                  enabled: state.imageProvidersConfig['bailian-image']?.enabled ?? false,
+                'zenmux-image': {
+                  ...defaultImage.imageProvidersConfig['zenmux-image'],
+                  enabled: state.imageProvidersConfig['zenmux-image']?.enabled ?? false,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!imageServerConfig,
@@ -676,11 +679,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['imageProvidersConfig'];
 
               const defaultVideo = getDefaultVideoConfig();
-              const videoServerConfig = data.video['bailian-video'];
+              const videoServerConfig = data.video['zenmux-video'];
               const newVideoConfig = {
-                'bailian-video': {
-                  ...defaultVideo.videoProvidersConfig['bailian-video'],
-                  enabled: state.videoProvidersConfig['bailian-video']?.enabled ?? false,
+                'zenmux-video': {
+                  ...defaultVideo.videoProvidersConfig['zenmux-video'],
+                  enabled: state.videoProvidersConfig['zenmux-video']?.enabled ?? false,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!videoServerConfig,
@@ -702,9 +705,9 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['webSearchProvidersConfig'];
 
               const imageGenerationEnabled =
-                state.imageGenerationEnabled && !!newImageConfig['bailian-image'].isServerConfigured;
+                state.imageGenerationEnabled && !!newImageConfig['zenmux-image'].isServerConfigured;
               const videoGenerationEnabled =
-                state.videoGenerationEnabled && !!newVideoConfig['bailian-video'].isServerConfigured;
+                state.videoGenerationEnabled && !!newVideoConfig['zenmux-video'].isServerConfigured;
               const ttsVoice = isValidTTSVoice('bailian-tts', state.ttsVoice)
                 ? state.ttsVoice
                 : DEFAULT_TTS_VOICES['bailian-tts'];
@@ -727,11 +730,11 @@ export const useSettingsStore = create<SettingsState>()(
                 asrProviderId: 'bailian-asr' as ASRProviderId,
                 asrLanguage: normalizeASRLanguage(state.asrLanguage),
                 pdfProviderId: 'mineru-cloud' as PDFProviderId,
-                imageProviderId: 'bailian-image' as ImageProviderId,
-                imageModelId: BAILIAN_IMAGE_MODEL_ID,
+                imageProviderId: 'zenmux-image' as ImageProviderId,
+                imageModelId: GPT_IMAGE_2_MODEL_ID,
                 imageGenerationEnabled,
-                videoProviderId: 'bailian-video' as VideoProviderId,
-                videoModelId: BAILIAN_VIDEO_MODEL_ID,
+                videoProviderId: 'zenmux-video' as VideoProviderId,
+                videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID,
                 videoGenerationEnabled,
                 webSearchProviderId: 'xcrawl' as WebSearchProviderId,
               };
@@ -773,10 +776,10 @@ export const useSettingsStore = create<SettingsState>()(
           asrProviderId: 'bailian-asr' as ASRProviderId,
           asrLanguage: normalizeASRLanguage(persisted.asrLanguage),
           pdfProviderId: currentState.pdfProviderId,
-          imageProviderId: 'bailian-image' as ImageProviderId,
-          imageModelId: BAILIAN_IMAGE_MODEL_ID,
-          videoProviderId: 'bailian-video' as VideoProviderId,
-          videoModelId: BAILIAN_VIDEO_MODEL_ID,
+          imageProviderId: 'zenmux-image' as ImageProviderId,
+          imageModelId: GPT_IMAGE_2_MODEL_ID,
+          videoProviderId: 'zenmux-video' as VideoProviderId,
+          videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID,
           webSearchProviderId: 'xcrawl' as WebSearchProviderId,
         } as SettingsState;
       },

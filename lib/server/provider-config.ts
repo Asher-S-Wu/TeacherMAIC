@@ -10,6 +10,7 @@ import {
   buildBailianCompatibleBaseUrl,
   buildBailianDashScopeApiBaseUrl,
 } from '@/lib/ai/bailian-models';
+import { ZENMUX_BASE_URL, ZENMUX_VERTEX_BASE_URL } from '@/lib/ai/zenmux-models';
 
 const log = createLogger('ServerProviderConfig');
 
@@ -38,6 +39,7 @@ interface ServerConfig {
 // ---------------------------------------------------------------------------
 
 const DASHSCOPE_API_KEY_ENV = 'DASHSCOPE_API_KEY';
+const ZENMUX_API_KEY_ENV = 'ZENMUX_API_KEY';
 const XCRAWL_API_KEY_ENV = 'XCRAWL_API_KEY';
 
 const PDF_ENV_MAP: Record<string, string> = {
@@ -64,7 +66,21 @@ function loadEnvSection(envMap: Record<string, string>): Record<string, ServerPr
 }
 
 function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
-  return loadBailianSection('bailian', buildBailianCompatibleBaseUrl);
+  return loadZenMuxSection('zenmux', ZENMUX_BASE_URL);
+}
+
+function loadZenMuxSection(
+  providerId: string,
+  baseUrl: string,
+): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[ZENMUX_API_KEY_ENV] || undefined;
+  if (!apiKey) return {};
+  return {
+    [providerId]: {
+      apiKey,
+      baseUrl,
+    },
+  };
 }
 
 function loadBailianSection(
@@ -98,8 +114,8 @@ function buildConfig(): ServerConfig {
     tts: loadBailianSection('bailian-tts', buildBailianDashScopeApiBaseUrl),
     asr: loadBailianSection('bailian-asr', buildBailianCompatibleBaseUrl),
     pdf: loadEnvSection(PDF_ENV_MAP),
-    image: loadBailianSection('bailian-image', buildBailianDashScopeApiBaseUrl),
-    video: loadBailianSection('bailian-video', buildBailianDashScopeApiBaseUrl),
+    image: loadZenMuxSection('zenmux-image', ZENMUX_BASE_URL),
+    video: loadZenMuxSection('zenmux-video', ZENMUX_VERTEX_BASE_URL),
     webSearch: loadXCrawlSection(),
   };
 }

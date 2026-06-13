@@ -1,6 +1,9 @@
 import { callLLM } from '@/lib/ai/llm';
 import type { ResponsesModel } from '@/lib/ai/providers';
-import { BAILIAN_IMAGE_MODEL_ID, BAILIAN_VIDEO_MODEL_ID } from '@/lib/ai/bailian-models';
+import {
+  GPT_IMAGE_2_MODEL_ID,
+  DOUBAO_SEEDANCE_2_MODEL_ID,
+} from '@/lib/ai/zenmux-models';
 import {
   buildPrompt,
   PROMPT_IDS,
@@ -273,7 +276,7 @@ async function generatePreviewMedia(
 
   for (const request of requests) {
     if (request.type === 'image') {
-      const providerId = 'bailian-image';
+      const providerId = 'zenmux-image';
       const apiKey = resolveImageApiKey(providerId);
       const baseUrl = resolveImageBaseUrl(providerId);
       if (!apiKey) {
@@ -284,7 +287,7 @@ async function generatePreviewMedia(
           providerId,
           apiKey,
           baseUrl,
-          model: BAILIAN_IMAGE_MODEL_ID,
+          model: GPT_IMAGE_2_MODEL_ID,
         },
         {
           prompt: request.prompt,
@@ -302,7 +305,7 @@ async function generatePreviewMedia(
       continue;
     }
 
-    const providerId = 'bailian-video';
+    const providerId = 'zenmux-video';
     const apiKey = resolveVideoApiKey(providerId);
     const baseUrl = resolveVideoBaseUrl(providerId);
     if (!apiKey) {
@@ -313,17 +316,17 @@ async function generatePreviewMedia(
         providerId,
         apiKey,
         baseUrl,
-        model: BAILIAN_VIDEO_MODEL_ID,
+        model: DOUBAO_SEEDANCE_2_MODEL_ID,
       },
       normalizeVideoOptions(providerId, {
         prompt: request.prompt,
         aspectRatio: request.aspectRatio,
       }),
     );
-    if (!result.url) {
+    if (!result.url && !result.base64) {
       throw new Error(`视频预览生成失败：${request.elementId}`);
     }
-    mediaMap[request.elementId] = result.url;
+    mediaMap[request.elementId] = result.url || `data:video/mp4;base64,${result.base64}`;
   }
 
   return mediaMap;

@@ -158,18 +158,37 @@ export async function generateMediaForClassroom(
       );
 
       const filename = `${req.elementId}.mp4`;
-      const saved = await saveRemoteFileForUser(
-        userId,
-        result.url,
-        filename,
-        'video/mp4',
-        'video',
-        {
-          classroomId,
-          elementId: req.elementId,
-          mediaType: 'video',
-        },
-      );
+      const saved = result.base64
+        ? await saveBufferForUser(
+            userId,
+            Buffer.from(result.base64, 'base64'),
+            filename,
+            'video/mp4',
+            'video',
+            {
+              classroomId,
+              elementId: req.elementId,
+              mediaType: 'video',
+            },
+          )
+        : result.url
+          ? await saveRemoteFileForUser(
+              userId,
+              result.url,
+              filename,
+              'video/mp4',
+              'video',
+              {
+                classroomId,
+                elementId: req.elementId,
+                mediaType: 'video',
+              },
+            )
+          : null;
+
+      if (!saved) {
+        throw new Error(`视频生成没有返回文件：${req.elementId}`);
+      }
       mediaMap[req.elementId] = `${baseUrl}${saved.url}`;
       log.info(`Generated video: ${filename}`);
     }

@@ -5,7 +5,7 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId = 'bailian';
+export type BuiltInProviderId = 'zenmux';
 
 /**
  * Provider ID

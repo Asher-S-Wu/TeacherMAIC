@@ -13,18 +13,6 @@ export function buildBailianDashScopeApiBaseUrl(): string {
   return BAILIAN_DASHSCOPE_API_BASE_URL_TEMPLATE;
 }
 
-export const QWEN_3_7_PLUS_MODEL_ID = 'qwen3.7-plus';
-export const QWEN_3_7_PLUS_MODEL_NAME = 'Qwen 3.7 Plus';
-export const QWEN_3_7_PLUS_RESPONSES_PARAMETERS = {
-  temperature: 0.6,
-} as const;
-
-export const BAILIAN_IMAGE_MODEL_ID = 'wan2.7-image-pro';
-export const BAILIAN_IMAGE_MODEL_NAME = 'Wan2.7 Image Pro';
-
-export const BAILIAN_VIDEO_MODEL_ID = 'happyhorse-1.0-t2v';
-export const BAILIAN_VIDEO_MODEL_NAME = 'HappyHorse 1.0 T2V';
-
 export const BAILIAN_TTS_MODEL_ID = 'qwen3-tts-flash';
 export const BAILIAN_TTS_MODEL_NAME = 'Qwen3 TTS Flash';
 

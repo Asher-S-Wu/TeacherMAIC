@@ -4,10 +4,10 @@
  * Unified types for image generation and video generation.
  *
  * Currently Supported Image Providers:
- * - Bailian Image
+ * - ZenMux Image
  *
  * Currently Supported Video Providers:
- * - Bailian HappyHorse
+ * - ZenMux Doubao Seedance
  *
  */
 
@@ -21,7 +21,7 @@
  * Add new image providers here as union members.
  * Keep in sync with IMAGE_PROVIDERS registry in constants.ts
  */
-export type ImageProviderId = 'bailian-image';
+export type ImageProviderId = 'zenmux-image';
 
 /**
  * Image Provider Configuration
@@ -126,7 +126,7 @@ export interface ImageGenerationResult {
  * Add new video providers here as union members.
  * Keep in sync with VIDEO_PROVIDERS registry in constants.ts
  */
-export type VideoProviderId = 'bailian-video';
+export type VideoProviderId = 'zenmux-video';
 
 /**
  * Video Provider Configuration
@@ -155,7 +155,7 @@ export interface VideoProviderConfig {
   /** Supported video durations in seconds */
   supportedDurations?: number[];
   /** Supported output resolutions */
-  supportedResolutions?: Array<'720P' | '1080P'>;
+  supportedResolutions?: Array<'720p' | '1080p'>;
   /** Maximum video duration in seconds */
   maxVideoDuration?: number;
 }
@@ -191,7 +191,7 @@ export interface VideoGenerationOptions {
   /** Desired aspect ratio */
   aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16' | '3:4';
   /** Desired output resolution */
-  resolution?: '720P' | '1080P';
+  resolution?: '720p' | '1080p';
 }
 
 /**
@@ -201,8 +201,10 @@ export interface VideoGenerationOptions {
  * Contains the URL to the generated video along with metadata.
  */
 export interface VideoGenerationResult {
-  /** URL to the generated video */
-  url: string;
+  /** URL to the generated video (if hosted by the provider) */
+  url?: string;
+  /** Base64-encoded video data (if returned inline) */
+  base64?: string;
   /** Duration of the generated video in seconds */
   duration: number;
   /** Width of the generated video in pixels */

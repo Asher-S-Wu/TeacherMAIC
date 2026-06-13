@@ -1,7 +1,7 @@
 /**
  * Unified AI Provider Configuration
  *
- * Text generation is fixed to the server-configured Bailian OpenAI-compatible Responses provider.
+ * Text generation is fixed to the server-configured ZenMux OpenAI-compatible Responses provider.
  */
 
 import type {
@@ -13,14 +13,14 @@ import type {
   ModelConfig,
 } from '@/lib/types/provider';
 import {
-  BAILIAN_COMPATIBLE_BASE_URL_TEMPLATE,
-  QWEN_3_7_PLUS_MODEL_ID,
-  QWEN_3_7_PLUS_MODEL_NAME,
-} from './bailian-models';
+  ZENMUX_BASE_URL,
+  KIMI_K2_7_CODE_MODEL_ID,
+  KIMI_K2_7_CODE_MODEL_NAME,
+} from './zenmux-models';
 
-export const BAILIAN_PROVIDER_ID: BuiltInProviderId = 'bailian';
-export const DEFAULT_PROVIDER_ID: BuiltInProviderId = BAILIAN_PROVIDER_ID;
-export const DEFAULT_MODEL_ID = QWEN_3_7_PLUS_MODEL_ID;
+export const ZENMUX_PROVIDER_ID: BuiltInProviderId = 'zenmux';
+export const DEFAULT_PROVIDER_ID: BuiltInProviderId = ZENMUX_PROVIDER_ID;
+export const DEFAULT_MODEL_ID = KIMI_K2_7_CODE_MODEL_ID;
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
 
 export type { ProviderId, ProviderConfig, ModelInfo, ModelConfig };
@@ -29,16 +29,16 @@ export type { ProviderId, ProviderConfig, ModelInfo, ModelConfig };
 export const MONO_LOGO_PROVIDERS: ReadonlySet<string> = new Set();
 
 export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
-  bailian: {
-    id: 'bailian',
-    name: '阿里云百炼',
+  zenmux: {
+    id: 'zenmux',
+    name: 'ZenMux',
     type: 'openai-responses',
-    defaultBaseUrl: BAILIAN_COMPATIBLE_BASE_URL_TEMPLATE,
+    defaultBaseUrl: ZENMUX_BASE_URL,
     requiresApiKey: true,
     models: [
       {
-        id: QWEN_3_7_PLUS_MODEL_ID,
-        name: QWEN_3_7_PLUS_MODEL_NAME,
+        id: KIMI_K2_7_CODE_MODEL_ID,
+        name: KIMI_K2_7_CODE_MODEL_NAME,
         capabilities: {
           streaming: true,
           tools: true,

@@ -16,11 +16,11 @@ import type { VideoProviderId, VideoGenerationOptions } from '@/lib/media/types'
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
-import { saveRemoteFileForUser } from '@/lib/server/file-storage';
-import { BAILIAN_VIDEO_MODEL_ID } from '@/lib/ai/bailian-models';
+import { saveBufferForUser, saveRemoteFileForUser } from '@/lib/server/file-storage';
+import { DOUBAO_SEEDANCE_2_MODEL_ID } from '@/lib/ai/zenmux-models';
 
 const log = createLogger('VideoGeneration API');
-const BAILIAN_VIDEO_PROVIDER_ID: VideoProviderId = 'bailian-video';
+const ZENMUX_VIDEO_PROVIDER_ID: VideoProviderId = 'zenmux-video';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing prompt');
     }
 
-    const providerId = BAILIAN_VIDEO_PROVIDER_ID;
+    const providerId = ZENMUX_VIDEO_PROVIDER_ID;
 
     const apiKey = resolveVideoApiKey(providerId);
     const baseUrl = resolveVideoBaseUrl(providerId);
@@ -46,28 +46,43 @@ export async function POST(request: NextRequest) {
     const options = normalizeVideoOptions(providerId, body);
 
     log.info(
-      `Generating video: provider=${providerId}, model=${BAILIAN_VIDEO_MODEL_ID}, ` +
+      `Generating video: provider=${providerId}, model=${DOUBAO_SEEDANCE_2_MODEL_ID}, ` +
         `prompt="${body.prompt.slice(0, 80)}...", duration=${options.duration ?? 'auto'}, ` +
         `aspect=${options.aspectRatio ?? 'auto'}, resolution=${options.resolution ?? 'auto'}`,
     );
 
     const result = await generateVideo(
-      { providerId, apiKey, baseUrl, model: BAILIAN_VIDEO_MODEL_ID },
+      { providerId, apiKey, baseUrl, model: DOUBAO_SEEDANCE_2_MODEL_ID },
       options,
     );
 
     log.info(
-      `Video generated: url=${result.url ? 'yes' : 'no'}, ${result.width}x${result.height}, ${result.duration}s`,
+      `Video generated: url=${result.url ? 'yes' : 'no'}, base64=${result.base64 ? 'yes' : 'no'}, ${result.width}x${result.height}, ${result.duration}s`,
     );
 
-    const file = await saveRemoteFileForUser(
-      user._id,
-      result.url,
-      `generated-video-${Date.now()}.mp4`,
-      'video/mp4',
-      'video',
-      { mediaType: 'video' },
-    );
+    const file = result.base64
+      ? await saveBufferForUser(
+          user._id,
+          Buffer.from(result.base64, 'base64'),
+          `generated-video-${Date.now()}.mp4`,
+          'video/mp4',
+          'video',
+          { mediaType: 'video' },
+        )
+      : result.url
+        ? await saveRemoteFileForUser(
+            user._id,
+            result.url,
+            `generated-video-${Date.now()}.mp4`,
+            'video/mp4',
+            'video',
+            { mediaType: 'video' },
+          )
+        : null;
+
+    if (!file) {
+      return apiError('GENERATION_FAILED', 500, '视频生成没有返回文件。');
+    }
     const posterFile = result.poster
       ? await saveRemoteFileForUser(
           user._id,
@@ -95,7 +110,7 @@ export async function POST(request: NextRequest) {
       return apiError('CONTENT_SENSITIVE', 400, '抱歉，该内容触发了安全检查。');
     }
     log.error(
-      `Video generation failed [provider=bailian-video, model=${BAILIAN_VIDEO_MODEL_ID}]:`,
+      `Video generation failed [provider=zenmux-video, model=${DOUBAO_SEEDANCE_2_MODEL_ID}]:`,
       error,
     );
     return apiError('INTERNAL_ERROR', 500, '视频生成失败，请稍后再试。');
