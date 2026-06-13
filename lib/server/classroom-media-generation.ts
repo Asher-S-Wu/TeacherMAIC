@@ -12,11 +12,11 @@ import { del } from '@vercel/blob';
 import { saveBufferForUser, saveRemoteFileForUser } from '@/lib/server/file-storage';
 import { getCollections, getMongo } from '@/lib/server/mongodb';
 import { generateImage } from '@/lib/media/image-providers';
-import { generateVideo, normalizeVideoOptions } from '@/lib/media/video-providers';
+import { generateVideo } from '@/lib/media/video-providers';
 import { generateTTS } from '@/lib/audio/tts-providers';
 import { DEFAULT_TTS_VOICES, DEFAULT_TTS_MODELS, TTS_PROVIDERS } from '@/lib/audio/constants';
-import { IMAGE_PROVIDERS } from '@/lib/media/image-providers';
-import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
+import { IMAGE_PROVIDERS } from '@/lib/media/image-constants';
+import { VIDEO_PROVIDERS, normalizeVideoOptions } from '@/lib/media/video-constants';
 import { isMediaPlaceholder } from '@/lib/store/media-generation';
 import {
   getServerImageProviders,

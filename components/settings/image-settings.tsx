@@ -2,7 +2,7 @@
 
 import { Label } from '@/components/ui/label';
 import { useSettingsStore } from '@/lib/store/settings';
-import { IMAGE_PROVIDERS } from '@/lib/media/image-providers';
+import { IMAGE_PROVIDERS } from '@/lib/media/image-constants';
 import type { ImageProviderId } from '@/lib/media/types';
 
 interface ImageSettingsProps {

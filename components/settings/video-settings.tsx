@@ -2,7 +2,7 @@
 
 import { Label } from '@/components/ui/label';
 import { useSettingsStore } from '@/lib/store/settings';
-import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
+import { VIDEO_PROVIDERS } from '@/lib/media/video-constants';
 import type { VideoProviderId } from '@/lib/media/types';
 
 interface VideoSettingsProps {

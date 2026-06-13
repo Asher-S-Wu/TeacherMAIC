@@ -25,10 +25,8 @@ import type { SceneOutline } from '@/lib/types/generation';
 import type { Scene } from '@/lib/types/stage';
 import type { VibeEditDraft, VibeEditMessage } from '@/lib/types/vibe-edit';
 import { generateImage } from '@/lib/media/image-providers';
-import {
-  generateVideo,
-  normalizeVideoOptions,
-} from '@/lib/media/video-providers';
+import { generateVideo } from '@/lib/media/video-providers';
+import { normalizeVideoOptions } from '@/lib/media/video-constants';
 import type { MediaGenerationRequest } from '@/lib/media/types';
 import {
   resolveImageApiKey,
