@@ -427,6 +427,12 @@ export function Stage({
     // Create ActionEngine for playback (with audioPlayer for TTS and widget messaging)
     const actionEngine = new ActionEngine(useStageStore, audioPlayerRef.current, widgetSendMessage);
 
+    // Preload all speech audio in this scene so spotlight and narration stay in sync
+    const speechAudioUrls = (currentScene.actions || [])
+      .filter((a): a is SpeechAction => a.type === 'speech' && !!a.audioUrl)
+      .map((a) => a.audioUrl!);
+    audioPlayerRef.current.preloadMany(speechAudioUrls);
+
     // Create new PlaybackEngine
     const engine = new PlaybackEngine([currentScene], actionEngine, audioPlayerRef.current, {
       onModeChange: (mode) => {

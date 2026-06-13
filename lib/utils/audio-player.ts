@@ -9,6 +9,34 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('AudioPlayer');
 
+function waitForCanPlay(audio: HTMLAudioElement): Promise<void> {
+  if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const onReady = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error('Audio failed to load'));
+    };
+    const cleanup = () => {
+      audio.removeEventListener('canplay', onReady);
+      audio.removeEventListener('error', onError);
+    };
+
+    audio.addEventListener('canplay', onReady, { once: true });
+    audio.addEventListener('error', onError, { once: true });
+
+    if (audio.networkState === HTMLMediaElement.NETWORK_EMPTY) {
+      audio.load();
+    }
+  });
+}
+
 /**
  * Audio player implementation
  */
@@ -18,6 +46,43 @@ export class AudioPlayer {
   private muted: boolean = false;
   private volume: number = 1;
   private playbackRate: number = 1;
+  private preloadCache = new Map<string, HTMLAudioElement>();
+
+  /**
+   * Start loading audio ahead of playback so play() can start immediately.
+   */
+  public preload(audioUrl: string): void {
+    if (!audioUrl || this.preloadCache.has(audioUrl)) {
+      return;
+    }
+
+    const audio = new Audio();
+    audio.preload = 'auto';
+    audio.src = audioUrl;
+    audio.load();
+    this.preloadCache.set(audioUrl, audio);
+  }
+
+  /**
+   * Preload multiple audio URLs.
+   */
+  public preloadMany(audioUrls: string[]): void {
+    for (const url of audioUrls) {
+      this.preload(url);
+    }
+  }
+
+  private getOrCreateAudio(audioUrl: string): HTMLAudioElement {
+    let audio = this.preloadCache.get(audioUrl);
+    if (!audio) {
+      audio = new Audio();
+      audio.preload = 'auto';
+      audio.src = audioUrl;
+      audio.load();
+      this.preloadCache.set(audioUrl, audio);
+    }
+    return audio;
+  }
 
   /**
    * Play audio from the account file URL.
@@ -33,24 +98,27 @@ export class AudioPlayer {
 
       this.stop();
 
-      this.audio = new Audio();
-      this.audio.src = audioUrl;
-      if (this.muted) this.audio.volume = 0;
-      else this.audio.volume = this.volume;
+      const audio = this.getOrCreateAudio(audioUrl);
+      audio.currentTime = 0;
+      if (this.muted) audio.volume = 0;
+      else audio.volume = this.volume;
 
-      // Apply playback rate
-      this.audio.defaultPlaybackRate = this.playbackRate;
-      this.audio.playbackRate = this.playbackRate;
+      audio.defaultPlaybackRate = this.playbackRate;
+      audio.playbackRate = this.playbackRate;
 
-      // Set ended callback
-      this.audio.addEventListener('ended', () => {
-        this.onEndedCallback?.();
-      });
+      audio.addEventListener(
+        'ended',
+        () => {
+          this.onEndedCallback?.();
+        },
+        { once: true },
+      );
 
-      // Play
-      await this.audio.play();
-      // Re-apply after play() — some browsers reset during load
-      this.audio.playbackRate = this.playbackRate;
+      this.audio = audio;
+
+      await waitForCanPlay(audio);
+      await audio.play();
+      audio.playbackRate = this.playbackRate;
       return true;
     } catch (error) {
       log.error('Failed to play audio:', error);
@@ -165,6 +233,7 @@ export class AudioPlayer {
   public destroy(): void {
     this.stop();
     this.onEndedCallback = null;
+    this.preloadCache.clear();
   }
 }
 

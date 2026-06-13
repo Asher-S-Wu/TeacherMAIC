@@ -388,6 +388,30 @@ export class PlaybackEngine {
     return null;
   }
 
+  /** Preload the next few speech audio files so playback starts without buffering delay. */
+  private preloadUpcomingSpeech(fromActionIndex: number, limit = 3): void {
+    const urls: string[] = [];
+    let sceneIdx = this.sceneIndex;
+    let actionIdx = fromActionIndex;
+
+    while (sceneIdx < this.scenes.length && urls.length < limit) {
+      const actions = this.scenes[sceneIdx].actions || [];
+      for (; actionIdx < actions.length && urls.length < limit; actionIdx++) {
+        const nextAction = actions[actionIdx];
+        if (nextAction.type === 'speech') {
+          const url = (nextAction as SpeechAction).audioUrl;
+          if (url) urls.push(url);
+        }
+      }
+      sceneIdx++;
+      actionIdx = 0;
+    }
+
+    if (urls.length > 0) {
+      this.audioPlayer.preloadMany(urls);
+    }
+  }
+
   /**
    * Core processing loop: consume the next action.
    */
@@ -423,7 +447,7 @@ export class PlaybackEngine {
     switch (action.type) {
       case 'speech': {
         const speechAction = action as SpeechAction;
-        this.callbacks.onSpeechStart?.(speechAction.text);
+        this.preloadUpcomingSpeech(this.actionIndex);
 
         // onEnded → processNext; if paused, resume() will call processNext
         this.audioPlayer.onEnded(() => {
@@ -438,6 +462,7 @@ export class PlaybackEngine {
         // Non-CJK text: ~240ms/word (≈250 WPM).
         // Min 2s. Cancelled on pause; resume() calls processNext directly.
         const scheduleReadingTimer = () => {
+          this.callbacks.onSpeechStart?.(speechAction.text);
           const text = speechAction.text;
           const cjkCount = (
             text.match(/[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g) || []
@@ -461,7 +486,9 @@ export class PlaybackEngine {
         this.audioPlayer
           .play(speechAction.audioId || '', speechAction.audioUrl)
           .then((audioStarted) => {
-            if (!audioStarted) {
+            if (audioStarted) {
+              this.callbacks.onSpeechStart?.(speechAction.text);
+            } else {
               scheduleReadingTimer();
             }
           })
