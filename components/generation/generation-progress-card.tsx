@@ -14,7 +14,6 @@ export interface GenerationProgressCardProps {
   statusMessage?: string;
   error?: string | null;
   isComplete?: boolean;
-  progress?: number;
   outlines?: SceneOutline[] | null;
   webSearchSources?: Array<{ title: string; url: string }>;
   footerHint?: string;
@@ -26,10 +25,9 @@ export function GenerationProgressCard({
   statusMessage,
   error,
   isComplete = false,
-  progress,
   outlines,
   webSearchSources,
-  footerHint = '可以关闭此页面，课程会继续在云端生成',
+  footerHint = '可以关闭此页面，课程会继续在后台生成',
 }: GenerationProgressCardProps) {
   const activeStep =
     activeSteps.length > 0
@@ -56,24 +54,7 @@ export function GenerationProgressCard({
         </div>
       )}
 
-      {typeof progress === 'number' && !error && !isComplete && (
-        <div className="absolute top-14 left-8 right-8">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
-            <span>总进度</span>
-            <span className="tabular-nums font-medium">{progress}%</span>
-          </div>
-          <div className="h-1 rounded-full bg-muted overflow-hidden">
-            <motion.div
-              className="h-full rounded-full bg-violet-500"
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.4 }}
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="flex-1 flex flex-col items-center justify-center w-full space-y-8 mt-8">
+      <div className="flex-1 flex flex-col items-center justify-center w-full space-y-8 mt-4">
         <div className="relative size-48 flex items-center justify-center">
           <AnimatePresence mode="popLayout">
             {error ? (

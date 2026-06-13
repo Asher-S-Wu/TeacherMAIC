@@ -158,7 +158,6 @@ export default function GenerationJobPage() {
             statusMessage={job?.message}
             error={error}
             isComplete={isComplete}
-            progress={job?.progress}
             outlines={
               job && (job.step === 'generating_outlines' || job.totalScenes)
                 ? placeholderOutlines
