@@ -32,6 +32,8 @@ interface ClassroomCardProps {
   readonly onConfirmDelete: () => void;
   readonly onCancelDelete: () => void;
   readonly onClick: () => void;
+  readonly allowRename?: boolean;
+  readonly deleteConfirmText?: string;
 }
 
 export function ClassroomCard({
@@ -45,6 +47,8 @@ export function ClassroomCard({
   onCancelDelete,
   onClick,
   generation,
+  allowRename = true,
+  deleteConfirmText = '删除课堂?',
 }: ClassroomCardProps) {
   const isGenerating = generation?.status === 'queued' || generation?.status === 'running';
   const isFailed = generation?.status === 'failed';
@@ -70,6 +74,7 @@ export function ClassroomCard({
 
   const startRename = (e: MouseEvent) => {
     e.stopPropagation();
+    if (!allowRename) return;
     setNameDraft(classroom.name);
     setEditing(true);
   };
@@ -149,14 +154,16 @@ export function ClassroomCard({
               >
                 <Trash2 className="size-3.5" />
               </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute top-2 right-11 size-7 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 hover:bg-black/50 text-white hover:text-white backdrop-blur-sm rounded-full"
-                onClick={startRename}
-              >
-                <Pencil className="size-3.5" />
-              </Button>
+              {allowRename && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute top-2 right-11 size-7 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 hover:bg-black/50 text-white hover:text-white backdrop-blur-sm rounded-full"
+                  onClick={startRename}
+                >
+                  <Pencil className="size-3.5" />
+                </Button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -171,9 +178,7 @@ export function ClassroomCard({
               className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/50 backdrop-blur-[6px]"
               onClick={(e) => e.stopPropagation()}
             >
-              <span className="text-sm font-medium text-white/90">
-                删除课堂?
-              </span>
+              <span className="text-sm font-medium text-white/90">{deleteConfirmText}</span>
               <div className="flex gap-2">
                 <button
                   className="px-3.5 py-1 rounded-lg text-sm font-medium bg-white/15 text-white/80 hover:bg-white/25 backdrop-blur-sm transition-colors"
@@ -232,8 +237,11 @@ export function ClassroomCard({
           <Tooltip>
             <TooltipTrigger asChild>
               <p
-                className="font-medium text-[15px] truncate text-foreground/90 min-w-0 cursor-text"
-                onDoubleClick={startRename}
+                className={cn(
+                  'font-medium text-[15px] truncate text-foreground/90 min-w-0',
+                  allowRename ? 'cursor-text' : 'cursor-default',
+                )}
+                onDoubleClick={allowRename ? startRename : undefined}
               >
                 {classroom.name}
               </p>

@@ -844,7 +844,7 @@ async function generatePBLSceneContent(
   languageDirective?: string,
 ): Promise<GeneratedPBLContent | null> {
   if (!languageModel) {
-    log.error('Responses model required for PBL generation');
+    log.error('Language model required for PBL generation');
     return null;
   }
 

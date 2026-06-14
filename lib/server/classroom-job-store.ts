@@ -167,6 +167,15 @@ export async function readClassroomGenerationJobInput(
   };
 }
 
+export async function deleteClassroomGenerationJob(
+  jobId: string,
+  userId: ObjectId,
+): Promise<boolean> {
+  const { db } = await getMongo();
+  const result = await getCollections(db).classroomJobs.deleteOne({ id: jobId, userId });
+  return result.deletedCount > 0;
+}
+
 async function updateClassroomGenerationJob(
   jobId: string,
   patch: Partial<ClassroomJobDoc>,

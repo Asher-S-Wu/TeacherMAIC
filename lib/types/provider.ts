@@ -15,9 +15,7 @@ export type ProviderId = BuiltInProviderId;
 /**
  * Provider API types
  */
-export type ProviderType =
-  | 'openai-responses'
-  | 'anthropic-messages';
+export type ProviderType = 'openai-chat-completions';
 
 /**
  * Model information

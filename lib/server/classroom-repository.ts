@@ -185,6 +185,10 @@ export async function deleteClassroomForUser(userId: ObjectId, stageId: string):
     c.classrooms.deleteOne({ userId, stageId }),
     c.classroomScenes.deleteMany({ userId, stageId }),
     c.chatSessions.deleteMany({ userId, stageId }),
+    c.classroomJobs.deleteMany({
+      userId,
+      $or: [{ classroomId: stageId }, { 'result.classroomId': stageId }],
+    }),
   ]);
 }
 

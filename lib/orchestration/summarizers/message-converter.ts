@@ -4,11 +4,11 @@ import type { LLMMessage } from '@/lib/ai/llm';
 // ==================== Message Conversion ====================
 
 /**
- * Convert UI messages to Responses input messages.
- * Action badges are summarized as plain text because tool state is now kept
- * by the Responses API session through previous_response_id.
+ * Convert UI messages to the internal LLM message format.
+ * Action badges are summarized as plain text because Chat Completions receives
+ * the complete conversation history on every turn.
  */
-export function convertMessagesToResponsesInput(
+export function convertMessagesToLLMInput(
   messages: StatelessChatRequest['messages'],
   currentAgentId?: string,
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
@@ -112,46 +112,8 @@ export function convertMessagesToResponsesInput(
 export function convertMessagesToLLMHistory(
   messages: StatelessChatRequest['messages'],
   currentAgentId?: string,
-  options?: { anchorOnPreviousResponse?: boolean },
-): { messages: LLMMessage[]; previousResponseId?: string } {
-  const anchorOnPreviousResponse = options?.anchorOnPreviousResponse ?? true;
-
-  if (!anchorOnPreviousResponse) {
-    return {
-      messages: convertMessagesToResponsesInput(messages, currentAgentId),
-      previousResponseId: undefined,
-    };
-  }
-
-  const anchorIndex = findPreviousResponseAnchor(messages, currentAgentId);
-  const previousResponseId =
-    anchorIndex >= 0 ? messages[anchorIndex].metadata?.modelResponseId : undefined;
-  const messagesAfterAnchor = anchorIndex >= 0 ? messages.slice(anchorIndex + 1) : messages;
-  const converted: LLMMessage[] = [];
-
-  for (const msg of messagesAfterAnchor) {
-    if (msg.role !== 'user' && msg.role !== 'assistant') continue;
-    const fallback = convertMessagesToResponsesInput([msg], currentAgentId);
-    converted.push(...fallback);
-  }
-
-  return { messages: converted, previousResponseId };
-}
-
-function findPreviousResponseAnchor(
-  messages: StatelessChatRequest['messages'],
-  currentAgentId?: string,
-): number {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg.role !== 'assistant') continue;
-    if (msg.metadata?.interrupted) continue;
-    if (!msg.metadata?.modelResponseId) continue;
-    if (currentAgentId && msg.metadata?.agentId !== currentAgentId) {
-      continue;
-    }
-    return i;
-  }
-
-  return -1;
+): { messages: LLMMessage[] } {
+  return {
+    messages: convertMessagesToLLMInput(messages, currentAgentId),
+  };
 }

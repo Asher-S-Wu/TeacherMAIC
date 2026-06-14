@@ -11,7 +11,6 @@ import {
   buildBailianDashScopeApiBaseUrl,
 } from '@/lib/ai/bailian-models';
 import {
-  ZENMUX_ANTHROPIC_BASE_URL,
   ZENMUX_BASE_URL,
   ZENMUX_VERTEX_BASE_URL,
 } from '@/lib/ai/zenmux-models';
@@ -70,7 +69,7 @@ function loadEnvSection(envMap: Record<string, string>): Record<string, ServerPr
 }
 
 function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
-  return loadZenMuxSection('zenmux', ZENMUX_ANTHROPIC_BASE_URL);
+  return loadZenMuxSection('zenmux', ZENMUX_BASE_URL);
 }
 
 function loadZenMuxSection(

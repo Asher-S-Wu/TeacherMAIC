@@ -1,16 +1,11 @@
 /**
  * Unified LLM Call Layer
  *
- * Text generation uses ZenMux through the Anthropic Messages API.
+ * Text generation uses ZenMux through the OpenAI-compatible Chat Completions API.
  */
 
 import OpenAI from 'openai';
 import { createLogger } from '@/lib/logger';
-import {
-  isAnthropicMessagesModel,
-  streamAnthropicLLMWithTools,
-  streamAnthropicTextGenerationEvents,
-} from './anthropic-messages';
 import { LLMTransportError } from './llm-transport-error';
 import type { ResponsesModel } from './providers';
 
@@ -24,58 +19,30 @@ type UnsupportedMediaPart =
   | { type: 'video'; video: string | string[]; mimeType?: string }
   | { type: 'input_audio'; input_audio: { data: string } };
 
-export type ResponsesContentPart =
+export type ChatContentPart =
   | { type: 'input_text'; text: string }
   | { type: 'input_image'; image_url: string }
   | { type: 'output_text'; text: string; annotations?: unknown[] };
 
 type TextLikeContentPart =
   | TextPart
-  | Extract<ResponsesContentPart, { type: 'input_text' | 'output_text' }>;
-
-export type ResponsesMessage = {
-  type?: 'message';
-  role: 'system' | 'developer' | 'user' | 'assistant';
-  content: string | ResponsesContentPart[];
-};
-
-export type ResponsesFunctionCall = {
-  type: 'function_call';
-  id?: string;
-  name: string;
-  arguments: string;
-  call_id: string;
-  status?: 'in_progress' | 'completed' | 'incomplete';
-};
-
-export type ResponsesFunctionCallOutput = {
-  type: 'function_call_output';
-  id?: string;
-  call_id: string;
-  output: string;
-  status?: 'in_progress' | 'completed' | 'incomplete';
-};
-
-export type ResponsesInputItem =
-  | ResponsesMessage
-  | ResponsesFunctionCall
-  | ResponsesFunctionCallOutput;
-
-export type ResponsesTool = {
-  type: 'function';
-  name: string;
-  description?: string;
-  parameters?: Record<string, unknown>;
-};
+  | Extract<ChatContentPart, { type: 'input_text' | 'output_text' }>;
 
 export type LLMMessageContent =
   | string
   | null
-  | Array<TextPart | ImagePart | ResponsesContentPart | UnsupportedMediaPart>;
+  | Array<TextPart | ImagePart | ChatContentPart | UnsupportedMediaPart>;
 
 export type LLMMessage = {
-  role: ResponsesMessage['role'];
+  role: 'system' | 'developer' | 'user' | 'assistant';
   content: LLMMessageContent;
+};
+
+export type LLMToolDefinition = {
+  type: 'function';
+  name: string;
+  description?: string;
+  parameters?: Record<string, unknown>;
 };
 
 export interface LLMGenerateParams {
@@ -84,7 +51,6 @@ export interface LLMGenerateParams {
   prompt?: string;
   messages?: LLMMessage[];
   reasoningEffort?: ReasoningEffort;
-  previousResponseId?: string;
   abortSignal?: AbortSignal;
 }
 
@@ -127,41 +93,99 @@ export type LLMStreamEvent =
   | { type: 'model_response'; responseId: string };
 
 export interface LLMToolLoopParams extends LLMStreamParams {
-  tools: ResponsesTool[];
+  tools: LLMToolDefinition[];
   onToolUse: (toolUse: LLMToolUse) => Promise<LLMToolResult> | LLMToolResult;
   maxToolIterations?: number;
 }
 
-type ResponsesOutputMessage = {
-  type: 'message';
-  content?: Array<{ type?: string; text?: string }>;
+type OpenAIChatContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
+type OpenAIChatToolCall = {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
 };
 
-type ResponsesOutputItem =
-  | ResponsesOutputMessage
-  | ResponsesFunctionCall
-  | Record<string, unknown>;
+type OpenAIChatMessage = {
+  role: 'system' | 'developer' | 'user' | 'assistant';
+  content: string | OpenAIChatContentPart[] | null;
+  tool_calls?: OpenAIChatToolCall[];
+  reasoning?: string;
+  reasoning_details?: unknown;
+};
 
-type ResponsesObject = {
+type OpenAIChatToolMessage = {
+  role: 'tool';
+  tool_call_id: string;
+  content: string;
+};
+
+type OpenAIChatRequestMessage = OpenAIChatMessage | OpenAIChatToolMessage;
+
+type OpenAIChatTool = {
+  type: 'function';
+  function: {
+    name: string;
+    description?: string;
+    parameters: Record<string, unknown>;
+  };
+};
+
+type OpenAIChatToolCallDelta = {
+  index?: number;
   id?: string;
-  output?: ResponsesOutputItem[];
-  output_text?: string;
-  error?: unknown;
-  status?: string;
+  type?: string;
+  function?: {
+    name?: string;
+    arguments?: string;
+  };
 };
 
-type ResponsesStreamEvent = {
-  type?: string;
-  delta?: string;
-  text?: string;
-  response?: ResponsesObject;
-  item?: ResponsesOutputItem;
-  code?: string;
+type OpenAIChatStreamChoice = {
+  delta?: {
+    role?: string;
+    content?: string | null;
+    reasoning?: string | null;
+    reasoning_details?: unknown;
+    tool_calls?: OpenAIChatToolCallDelta[];
+  };
+  finish_reason?: string | null;
+};
+
+type OpenAIChatStreamChunk = {
+  id?: string;
+  choices?: OpenAIChatStreamChoice[];
+  code?: string | number;
   message?: string;
   error?: unknown;
 };
 
+type ToolCallAccumulator = {
+  index: number;
+  id?: string;
+  type?: string;
+  name?: string;
+  arguments: string;
+};
+
+type ChatStreamFinalEvent = {
+  responseId?: string;
+  finishReason?: string;
+  assistantMessage: OpenAIChatMessage;
+  toolCalls: OpenAIChatToolCall[];
+};
+
+type ChatStreamEvent =
+  | { textDelta: string }
+  | { final: ChatStreamFinalEvent };
+
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
+const DEFAULT_MAX_COMPLETION_TOKENS = 32768;
 const DEFAULT_MAX_TOOL_ITERATIONS = 16;
 const clientCache = new Map<string, OpenAI>();
 
@@ -232,7 +256,7 @@ function withMimeDataUri(value: string, mimeType?: string): string {
   return `data:${mimeType || 'image/png'};base64,${value}`;
 }
 
-function isResponsesContentPart(part: unknown): part is ResponsesContentPart {
+function isChatContentPart(part: unknown): part is ChatContentPart {
   if (!isRecord(part) || typeof part.type !== 'string') return false;
   return (
     part.type === 'input_text' ||
@@ -255,154 +279,248 @@ function contentToPlainText(content: LLMMessageContent): string {
     .join('\n');
 }
 
-function contentToResponsesContent(
+function contentToOpenAIChatContent(
   content: LLMMessageContent,
-  role: ResponsesMessage['role'],
-): string | ResponsesContentPart[] | null {
-  if (typeof content === 'string') {
-    return role === 'assistant' ? [{ type: 'output_text', text: content }] : content;
-  }
+  role: LLMMessage['role'],
+): string | OpenAIChatContentPart[] | null {
+  if (typeof content === 'string') return content;
   if (content === null) return null;
 
-  const parts: ResponsesContentPart[] = [];
+  if (role !== 'user') {
+    const text = contentToPlainText(content);
+    return text || null;
+  }
+
+  const parts: OpenAIChatContentPart[] = [];
   for (const part of content) {
     if (part.type === 'video' || part.type === 'input_audio') {
-      throw new Error('Responses API text generation does not support video or audio input.');
+      throw new Error('Chat Completions text generation does not support video or audio input.');
     }
 
     if (part.type === 'text') {
-      if (!part.text) continue;
-      parts.push({
-        type: role === 'assistant' ? 'output_text' : 'input_text',
-        text: part.text,
-      });
+      if (part.text) parts.push({ type: 'text', text: part.text });
       continue;
     }
 
     if (part.type === 'image') {
-      if (role !== 'user') continue;
       parts.push({
-        type: 'input_image',
-        image_url: withMimeDataUri(part.image, part.mimeType),
+        type: 'image_url',
+        image_url: { url: withMimeDataUri(part.image, part.mimeType) },
       });
       continue;
     }
 
-    if (isResponsesContentPart(part)) {
-      if (role === 'assistant' && part.type !== 'output_text') {
-        parts.push({ type: 'output_text', text: contentToPlainText([part]) });
+    if (isChatContentPart(part)) {
+      if (part.type === 'input_image') {
+        parts.push({
+          type: 'image_url',
+          image_url: { url: withMimeDataUri(part.image_url) },
+        });
         continue;
       }
-      if (role !== 'assistant' && part.type === 'output_text') {
-        parts.push({ type: 'input_text', text: part.text });
-        continue;
+
+      if (part.text) {
+        parts.push({ type: 'text', text: part.text });
       }
-      parts.push(part);
     }
   }
 
-  return parts.length > 0 ? parts : null;
+  if (parts.length === 0) return null;
+  if (parts.length === 1 && parts[0].type === 'text') return parts[0].text;
+  return parts;
 }
 
-function buildResponsesInput(params: LLMGenerateParams): ResponsesInputItem[] {
-  const input: ResponsesInputItem[] = [];
+function buildChatMessages(params: LLMGenerateParams): OpenAIChatRequestMessage[] {
+  const messages: OpenAIChatRequestMessage[] = [];
 
   if (params.system?.trim()) {
-    input.push({ type: 'message', role: 'system', content: params.system.trim() });
+    messages.push({ role: 'system', content: params.system.trim() });
   }
 
   for (const message of params.messages ?? []) {
-    const content = contentToResponsesContent(message.content, message.role);
-    if (content === null) continue;
-    input.push({
-      type: 'message',
+    const content = contentToOpenAIChatContent(message.content, message.role);
+    if (content === null || (typeof content === 'string' && content.trim().length === 0)) {
+      continue;
+    }
+    messages.push({
       role: message.role,
       content,
     });
   }
 
   if (params.prompt !== undefined) {
-    input.push({ type: 'message', role: 'user', content: params.prompt });
+    messages.push({ role: 'user', content: params.prompt });
   }
 
-  if (input.length === 0) {
+  if (messages.length === 0) {
     throw new Error('LLM request missing input');
   }
 
-  return input;
+  return messages;
 }
 
-function buildRequestBody(
+function toOpenAIChatTools(tools: LLMToolDefinition[]): OpenAIChatTool[] {
+  return tools.map((tool) => ({
+    type: 'function',
+    function: {
+      name: tool.name,
+      ...(tool.description ? { description: tool.description } : {}),
+      parameters: tool.parameters ?? { type: 'object', properties: {} },
+    },
+  }));
+}
+
+function buildChatRequestBody(
   params: LLMGenerateParams,
   options?: {
     stream?: boolean;
-    tools?: ResponsesTool[];
-    input?: ResponsesInputItem[];
-    previousResponseId?: string;
+    tools?: LLMToolDefinition[];
+    messages?: OpenAIChatRequestMessage[];
   },
 ): Record<string, unknown> {
-  const previousResponseId = options?.previousResponseId ?? params.previousResponseId;
-
   return {
     model: params.model.modelId,
-    input: options?.input ?? buildResponsesInput(params),
-    ...(previousResponseId ? { previous_response_id: previousResponseId } : {}),
+    messages: options?.messages ?? buildChatMessages(params),
+    max_completion_tokens: DEFAULT_MAX_COMPLETION_TOKENS,
     ...(options?.stream ? { stream: true } : {}),
-    ...(options?.tools?.length ? { tools: options.tools, tool_choice: 'auto' } : {}),
+    ...(options?.tools?.length
+      ? {
+          tools: toOpenAIChatTools(options.tools),
+          tool_choice: 'auto',
+        }
+      : {}),
   };
 }
 
-async function createResponsesStream(
+async function createChatCompletionStream(
   params: LLMGenerateParams,
   source: string,
   body: Record<string, unknown>,
-): Promise<AsyncIterable<ResponsesStreamEvent>> {
+): Promise<AsyncIterable<OpenAIChatStreamChunk>> {
   try {
-    return (await getOpenAIClient(params.model).responses.create(body as any, {
+    return (await getOpenAIClient(params.model).chat.completions.create(body as any, {
       signal: params.abortSignal,
-    })) as unknown as AsyncIterable<ResponsesStreamEvent>;
+    })) as AsyncIterable<OpenAIChatStreamChunk>;
   } catch (error) {
     throw wrapLLMError(error, source, params.model.modelId);
   }
 }
 
-function throwIfResponseError(
-  event: ResponsesStreamEvent,
+function throwIfChatStreamError(
+  chunk: OpenAIChatStreamChunk,
   source: string,
   modelId: string,
 ): void {
-  if (event.code || event.error) {
-    throw wrapLLMError(event, source, modelId);
-  }
-  if (event.response?.error || event.response?.status === 'failed') {
-    throw wrapLLMError(event.response.error ?? event.response, source, modelId);
+  if (chunk.code || chunk.error) {
+    throw wrapLLMError(chunk.error ?? chunk, source, modelId);
   }
 }
 
-async function* streamResponseEvents(
+function mergeToolCallDelta(
+  toolCalls: Map<number, ToolCallAccumulator>,
+  delta: OpenAIChatToolCallDelta,
+): void {
+  const index = delta.index ?? 0;
+  const current =
+    toolCalls.get(index) ??
+    ({
+      index,
+      arguments: '',
+    } satisfies ToolCallAccumulator);
+
+  if (delta.id) current.id = delta.id;
+  if (delta.type) current.type = delta.type;
+  if (delta.function?.name) current.name = delta.function.name;
+  if (delta.function?.arguments) current.arguments += delta.function.arguments;
+
+  toolCalls.set(index, current);
+}
+
+function finalizeToolCalls(toolCalls: Map<number, ToolCallAccumulator>): OpenAIChatToolCall[] {
+  return [...toolCalls.values()]
+    .sort((a, b) => a.index - b.index)
+    .map((toolCall) => {
+      if (!toolCall.id || !toolCall.name) {
+        throw new Error('Chat Completions tool call is missing id or function name.');
+      }
+
+      return {
+        id: toolCall.id,
+        type: 'function',
+        function: {
+          name: toolCall.name,
+          arguments: toolCall.arguments,
+        },
+      };
+    });
+}
+
+function mergeReasoningDetails(current: unknown, next: unknown): unknown {
+  if (next === undefined || next === null) return current;
+  if (current === undefined || current === null) return next;
+  if (typeof current === 'string' && typeof next === 'string') return current + next;
+  if (Array.isArray(current) && Array.isArray(next)) return [...current, ...next];
+  return next;
+}
+
+async function* streamChatResponseEvents(
   params: LLMStreamParams,
   source: string,
   body: Record<string, unknown>,
-): AsyncIterable<LLMStreamEvent> {
-  const stream = await createResponsesStream(params, source, body);
+): AsyncIterable<ChatStreamEvent> {
+  const stream = await createChatCompletionStream(params, source, body);
+  const toolCalls = new Map<number, ToolCallAccumulator>();
   let responseId: string | undefined;
+  let finishReason: string | undefined;
+  let content = '';
+  let reasoning = '';
+  let reasoningDetails: unknown;
 
-  for await (const event of stream) {
-    throwIfResponseError(event, source, params.model.modelId);
+  for await (const chunk of stream) {
+    throwIfChatStreamError(chunk, source, params.model.modelId);
 
-    if (event.type === 'response.output_text.delta' && event.delta) {
-      yield { type: 'text_delta', text: event.delta };
-      continue;
-    }
+    if (chunk.id) responseId = chunk.id;
 
-    if (event.type === 'response.completed') {
-      responseId = event.response?.id;
+    for (const choice of chunk.choices ?? []) {
+      if (choice.finish_reason) finishReason = choice.finish_reason;
+
+      const delta = choice.delta;
+      if (!delta) continue;
+
+      if (delta.content) {
+        content += delta.content;
+        yield { textDelta: delta.content };
+      }
+
+      if (delta.reasoning) {
+        reasoning += delta.reasoning;
+      }
+
+      reasoningDetails = mergeReasoningDetails(reasoningDetails, delta.reasoning_details);
+
+      for (const toolCallDelta of delta.tool_calls ?? []) {
+        mergeToolCallDelta(toolCalls, toolCallDelta);
+      }
     }
   }
 
-  if (responseId) {
-    yield { type: 'model_response', responseId };
-  }
+  const finalizedToolCalls = finalizeToolCalls(toolCalls);
+  const assistantMessage: OpenAIChatMessage = {
+    role: 'assistant',
+    content,
+    ...(finalizedToolCalls.length > 0 ? { tool_calls: finalizedToolCalls } : {}),
+    ...(reasoning ? { reasoning } : {}),
+    ...(reasoningDetails !== undefined ? { reasoning_details: reasoningDetails } : {}),
+  };
+
+  yield {
+    final: {
+      responseId,
+      finishReason,
+      assistantMessage,
+      toolCalls: finalizedToolCalls,
+    },
+  };
 }
 
 async function* streamTextGeneration(
@@ -418,142 +536,99 @@ async function* streamTextGenerationEvents(
   params: LLMStreamParams,
   source: string,
 ): AsyncIterable<LLMStreamEvent> {
-  if (isAnthropicMessagesModel(params.model)) {
-    yield* streamAnthropicTextGenerationEvents(params, source);
-    return;
-  }
-
-  yield* streamResponseEvents(
+  for await (const event of streamChatResponseEvents(
     params,
     source,
-    buildRequestBody(params, { stream: true }),
-  );
-}
+    buildChatRequestBody(params, { stream: true }),
+  )) {
+    if ('textDelta' in event) {
+      yield { type: 'text_delta', text: event.textDelta };
+      continue;
+    }
 
-function parseToolArguments(raw: string): unknown {
-  return JSON.parse(raw.trim() || '{}');
-}
-
-function getFunctionCallsFromOutput(
-  output: ResponsesOutputItem[] | undefined,
-): ResponsesFunctionCall[] {
-  const functionCalls: ResponsesFunctionCall[] = [];
-  for (const item of output ?? []) {
-    if (
-      isRecord(item) &&
-      item.type === 'function_call' &&
-      typeof item.name === 'string' &&
-      typeof item.arguments === 'string' &&
-      typeof item.call_id === 'string'
-    ) {
-      functionCalls.push(item as ResponsesFunctionCall);
+    if (event.final.responseId) {
+      yield { type: 'model_response', responseId: event.final.responseId };
     }
   }
-  return functionCalls;
 }
 
-function buildFunctionCallOutputItems(
-  functionCalls: ResponsesFunctionCall[],
-  results: LLMToolResult[],
-): ResponsesInputItem[] {
-  const resultById = new Map(results.map((result) => [result.toolUseId, result]));
-  const items: ResponsesInputItem[] = [];
-  for (const functionCall of functionCalls) {
-    const result = resultById.get(functionCall.call_id);
-    if (!result) {
-      throw new Error(`Missing tool result for call_id: ${functionCall.call_id}`);
-    }
-    items.push({
-      type: 'function_call_output',
-      call_id: functionCall.call_id,
-      output: result.isError ? `Error: ${result.content}` : result.content,
-    });
+function parseToolArguments(raw: string, toolName: string): unknown {
+  try {
+    return JSON.parse(raw.trim() || '{}');
+  } catch (error) {
+    throw new Error(
+      `Invalid JSON arguments for tool "${toolName}": ${describeError(error)}`,
+    );
   }
-  return items;
+}
+
+function buildToolResultMessages(results: LLMToolResult[]): OpenAIChatToolMessage[] {
+  return results.map((result) => ({
+    role: 'tool',
+    tool_call_id: result.toolUseId,
+    content: result.isError ? `Error: ${result.content}` : result.content,
+  }));
 }
 
 export async function* streamLLMWithTools(
   params: LLMToolLoopParams,
   source: string,
 ): AsyncIterable<LLMToolStreamEvent> {
-  if (isAnthropicMessagesModel(params.model)) {
-    yield* streamAnthropicLLMWithTools(params, source);
-    return;
-  }
-
   const maxIterations = params.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
-  let input = buildResponsesInput(params);
-  let previousResponseId = params.previousResponseId;
+  let messages = buildChatMessages(params);
   let completed = false;
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
-    const stream = await createResponsesStream(
+    let finalEvent: ChatStreamFinalEvent | undefined;
+
+    for await (const event of streamChatResponseEvents(
       params,
       source,
-      buildRequestBody(params, {
-        input,
-        previousResponseId,
+      buildChatRequestBody(params, {
         stream: true,
         tools: params.tools,
+        messages,
       }),
-    );
-
-    let responseId: string | undefined;
-    const functionCallsByCallId = new Map<string, ResponsesFunctionCall>();
-
-    for await (const event of stream) {
-      throwIfResponseError(event, source, params.model.modelId);
-
-      if (event.type === 'response.output_text.delta' && event.delta) {
-        yield { type: 'text_delta', text: event.delta };
+    )) {
+      if ('textDelta' in event) {
+        yield { type: 'text_delta', text: event.textDelta };
         continue;
       }
 
-      if (event.type === 'response.output_item.done') {
-        const functionCalls = getFunctionCallsFromOutput(event.item ? [event.item] : undefined);
-        for (const functionCall of functionCalls) {
-          functionCallsByCallId.set(functionCall.call_id, functionCall);
-        }
-        continue;
-      }
-
-      if (event.type === 'response.completed') {
-        responseId = event.response?.id;
-        if (functionCallsByCallId.size === 0) {
-          for (const functionCall of getFunctionCallsFromOutput(event.response?.output)) {
-            functionCallsByCallId.set(functionCall.call_id, functionCall);
-          }
-        }
-      }
+      finalEvent = event.final;
     }
 
-    const functionCalls = [...functionCallsByCallId.values()];
-    if (functionCalls.length === 0) {
-      if (responseId) yield { type: 'model_response', responseId };
+    if (!finalEvent) {
+      throw new Error('Chat Completions stream ended without a final event.');
+    }
+
+    if (finalEvent.toolCalls.length === 0) {
+      if (finalEvent.responseId) {
+        yield { type: 'model_response', responseId: finalEvent.responseId };
+      }
       completed = true;
       break;
     }
 
-    if (!responseId) {
-      throw new Error('Responses API tool call response is missing response id.');
-    }
-
     const toolResults: LLMToolResult[] = [];
-    for (const functionCall of functionCalls) {
+    for (const toolCall of finalEvent.toolCalls) {
       const toolUse: LLMToolUse = {
-        id: functionCall.call_id,
-        name: functionCall.name,
-        input: parseToolArguments(functionCall.arguments),
+        id: toolCall.id,
+        name: toolCall.function.name,
+        input: parseToolArguments(toolCall.function.arguments, toolCall.function.name),
       };
       toolResults.push(await params.onToolUse(toolUse));
     }
 
-    input = buildFunctionCallOutputItems(functionCalls, toolResults);
-    previousResponseId = responseId;
+    messages = [
+      ...messages,
+      finalEvent.assistantMessage,
+      ...buildToolResultMessages(toolResults),
+    ];
   }
 
   if (!completed) {
-    throw new Error(`Responses API tool loop exceeded ${maxIterations} iterations.`);
+    throw new Error(`Chat Completions tool loop exceeded ${maxIterations} iterations.`);
   }
 }
 

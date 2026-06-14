@@ -1,10 +1,10 @@
 /**
  * Action tool schemas for stateless generation.
  *
- * Bailian receives classroom actions as Responses function tool definitions.
+ * The LLM layer receives classroom actions as function tool definitions.
  */
 
-import type { ResponsesTool } from '@/lib/ai/llm';
+import type { LLMToolDefinition } from '@/lib/ai/llm';
 import { SLIDE_ONLY_ACTIONS } from '@/lib/types/action';
 
 // ==================== Effective Actions ====================
@@ -263,7 +263,7 @@ const toolSchemas: Record<string, JsonSchema> = {
   ),
 };
 
-export function getActionTools(allowedActions: string[]): ResponsesTool[] {
+export function getActionTools(allowedActions: string[]): LLMToolDefinition[] {
   return allowedActions
     .filter((action) => toolDescriptions[action] && toolSchemas[action])
     .map((action) => ({

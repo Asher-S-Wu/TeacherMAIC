@@ -1,5 +1,5 @@
 /**
- * PBL Generation using Responses API
+ * PBL Generation using the unified LLM layer
  *
  * Core generation engine that designs a complete PBL project as JSON.
  */

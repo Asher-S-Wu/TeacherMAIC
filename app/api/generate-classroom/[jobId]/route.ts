@@ -1,6 +1,7 @@
 import { type NextRequest } from 'next/server';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
+  deleteClassroomGenerationJob,
   isValidClassroomJobId,
   readClassroomGenerationJob,
 } from '@/lib/server/classroom-job-store';
@@ -52,6 +53,43 @@ export async function GET(req: NextRequest, context: { params: Promise<{ jobId: 
       'INTERNAL_ERROR',
       500,
       'Failed to retrieve classroom generation job',
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
+export async function DELETE(_req: NextRequest, context: { params: Promise<{ jobId: string }> }) {
+  let resolvedJobId: string | undefined;
+  try {
+    const user = await requireCurrentUser();
+    const { jobId } = await context.params;
+    resolvedJobId = jobId;
+
+    if (!isValidClassroomJobId(jobId)) {
+      return apiError('INVALID_REQUEST', 400, 'Invalid classroom generation job id');
+    }
+
+    const job = await readClassroomGenerationJob(jobId, user._id);
+    if (!job) {
+      return apiError('INVALID_REQUEST', 404, 'Classroom generation job not found');
+    }
+
+    if (job.status !== 'failed') {
+      return apiError('INVALID_REQUEST', 400, '只能删除已失败的生成记录');
+    }
+
+    const deleted = await deleteClassroomGenerationJob(jobId, user._id);
+    if (!deleted) {
+      return apiError('INVALID_REQUEST', 404, 'Classroom generation job not found');
+    }
+
+    return apiSuccess({ deleted: true });
+  } catch (error) {
+    log.error(`Classroom job deletion failed [jobId=${resolvedJobId ?? 'unknown'}]:`, error);
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      'Failed to delete classroom generation job',
       error instanceof Error ? error.message : String(error),
     );
   }

@@ -56,6 +56,7 @@ import { AccountMenu } from '@/components/auth/account-menu';
 import { ClassroomCard, type ClassroomGenerationOverlay } from '@/components/home/classroom-card';
 
 const log = createLogger('Home');
+const generationJobDeleteKey = (jobId: string) => `job:${jobId}`;
 
 interface PendingGenerationJob {
   id: string;
@@ -220,14 +221,42 @@ function HomePage() {
     setPendingDeleteId(id);
   };
 
+  const handleDeleteJob = (jobId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPendingDeleteId(generationJobDeleteKey(jobId));
+  };
+
+  const deleteGenerationJob = async (jobId: string) => {
+    const response = await fetch(`/api/generate-classroom/${encodeURIComponent(jobId)}`, {
+      method: 'DELETE',
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.error || '删除失败');
+    }
+  };
+
   const confirmDelete = async (id: string) => {
     setPendingDeleteId(null);
     try {
       await deleteStageData(id);
-      await loadClassrooms();
+      await Promise.all([loadClassrooms(), loadGenerationJobs()]);
     } catch (err) {
       log.error('Failed to delete classroom:', err);
-      toast.error('Failed to delete classroom');
+      toast.error('课堂删除失败');
+    }
+  };
+
+  const confirmDeleteJob = async (jobId: string) => {
+    setPendingDeleteId(null);
+    try {
+      await deleteGenerationJob(jobId);
+      setPendingJobs((prev) => prev.filter((job) => job.id !== jobId));
+      setFailedJobs((prev) => prev.filter((job) => job.id !== jobId));
+      await loadGenerationJobs();
+    } catch (err) {
+      log.error('Failed to delete generation job:', err);
+      toast.error('失败记录删除失败');
     }
   };
 
@@ -899,11 +928,13 @@ function HomePage() {
                           }}
                           formatDate={formatDate}
                           generation={jobToOverlay(job)}
-                          onDelete={(_id, e) => e.stopPropagation()}
+                          onDelete={(_id, e) => handleDeleteJob(job.id, e)}
                           onRename={() => {}}
-                          confirmingDelete={false}
-                          onConfirmDelete={() => {}}
-                          onCancelDelete={() => {}}
+                          confirmingDelete={pendingDeleteId === generationJobDeleteKey(job.id)}
+                          onConfirmDelete={() => confirmDeleteJob(job.id)}
+                          onCancelDelete={() => setPendingDeleteId(null)}
+                          allowRename={false}
+                          deleteConfirmText="删除失败记录?"
                           onClick={() => router.push(`/generation-job/${job.id}`)}
                         />
                       </motion.div>

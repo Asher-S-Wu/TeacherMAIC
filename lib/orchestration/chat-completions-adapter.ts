@@ -16,12 +16,12 @@ import type {
   LLMMessageContent,
   LLMToolResult,
   LLMToolUse,
-  ResponsesTool,
+  LLMToolDefinition,
 } from '@/lib/ai/llm';
 import type { ResponsesModel } from '@/lib/ai/providers';
 import { createLogger } from '@/lib/logger';
 
-const log = createLogger('ResponsesAdapter');
+const log = createLogger('ChatCompletionsAdapter');
 
 /**
  * Stream chunk types for streaming generation
@@ -32,9 +32,9 @@ export type StreamChunk =
   | { type: 'done'; content: string };
 
 /**
- * Adapter to use the configured Responses model with LangGraph.
+ * Adapter to use the configured Chat Completions model with LangGraph.
  */
-export class ResponsesLangGraphAdapter extends BaseChatModel {
+export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
   private languageModel: ResponsesModel;
 
   constructor(languageModel: ResponsesModel) {
@@ -43,7 +43,7 @@ export class ResponsesLangGraphAdapter extends BaseChatModel {
   }
 
   _llmType(): string {
-    return 'responses';
+    return 'chat-completions';
   }
 
   _combineLLMOutput() {
@@ -86,12 +86,12 @@ export class ResponsesLangGraphAdapter extends BaseChatModel {
           messages: aiMessages,
           abortSignal,
         },
-        'responses-adapter',
+        'chat-completions-adapter',
       );
 
       const content = result.text || '';
 
-      log.info('[Responses Adapter] Response:', {
+      log.info('[Chat Completions Adapter] Response:', {
         textLength: content.length,
       });
 
@@ -108,7 +108,7 @@ export class ResponsesLangGraphAdapter extends BaseChatModel {
         llmOutput: {},
       };
     } catch (error) {
-      log.error('[Responses Adapter Error]', error);
+      log.error('[Chat Completions Adapter Error]', error);
       throw error;
     }
   }
@@ -120,7 +120,7 @@ export class ResponsesLangGraphAdapter extends BaseChatModel {
    */
   async *streamGenerate(
     messages: BaseMessage[],
-    options?: { signal?: AbortSignal; previousResponseId?: string },
+    options?: { signal?: AbortSignal },
   ): AsyncGenerator<StreamChunk> {
     const aiMessages = this.convertMessages(messages);
 
@@ -128,10 +128,9 @@ export class ResponsesLangGraphAdapter extends BaseChatModel {
       {
         model: this.languageModel,
         messages: aiMessages,
-        previousResponseId: options?.previousResponseId,
         abortSignal: options?.signal,
       },
-      'responses-adapter-stream',
+      'chat-completions-adapter-stream',
     );
 
     let fullContent = '';
@@ -157,9 +156,9 @@ export class ResponsesLangGraphAdapter extends BaseChatModel {
    */
   async *streamGenerateWithTools(
     messages: BaseMessage[],
-    tools: ResponsesTool[],
+    tools: LLMToolDefinition[],
     onToolUse: (toolUse: LLMToolUse) => Promise<LLMToolResult> | LLMToolResult,
-    options?: { signal?: AbortSignal; previousResponseId?: string },
+    options?: { signal?: AbortSignal },
   ): AsyncGenerator<StreamChunk> {
     const aiMessages = this.convertMessages(messages);
     const textAndToolStream = streamLLMWithTools(
@@ -168,10 +167,9 @@ export class ResponsesLangGraphAdapter extends BaseChatModel {
         messages: aiMessages,
         tools,
         onToolUse,
-        previousResponseId: options?.previousResponseId,
         abortSignal: options?.signal,
       },
-      'responses-adapter-tool-stream',
+      'chat-completions-adapter-tool-stream',
     );
 
     let fullContent = '';
