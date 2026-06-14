@@ -49,7 +49,7 @@ export interface CanvasProps {
  *   <Canvas />
  * </SceneProvider>
  */
-export function Canvas(_props: CanvasProps) {
+function Canvas(_props: CanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 

@@ -16,8 +16,6 @@ export const AUTO_MODEL_PRESET: ModelPresetOption = {
   icon: Sparkles,
 };
 
-export const MODEL_PRESET_OPTIONS: ModelPresetOption[] = [AUTO_MODEL_PRESET];
-
 export function getCurrentModelPreset(): ModelPresetOption {
   return AUTO_MODEL_PRESET;
 }

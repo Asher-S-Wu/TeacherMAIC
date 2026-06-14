@@ -237,31 +237,3 @@ export interface MediaGenerationRequest {
   /** Optional artistic style hint */
   style?: string;
 }
-
-/**
- * Media Task Adapter
- *
- * Generic interface for providers that use an asynchronous task pattern
- * (submit task, then poll for completion). Many image/video generation
- * APIs are async — this adapter abstracts that pattern.
- *
- * @template TOptions - The generation options type (e.g. ImageGenerationOptions)
- * @template TResult - The generation result type (e.g. ImageGenerationResult)
- */
-export interface MediaTaskAdapter<TOptions, TResult> {
-  /**
-   * Submit a generation task to the provider.
-   *
-   * @param options - Generation options for the task
-   * @returns A task ID that can be used to poll for status
-   */
-  submitTask(options: TOptions): Promise<string>;
-
-  /**
-   * Poll the status of a previously submitted task.
-   *
-   * @param taskId - The task ID returned by submitTask()
-   * @returns The generation result if complete, or null if still processing
-   */
-  pollTaskStatus(taskId: string): Promise<TResult | null>;
-}

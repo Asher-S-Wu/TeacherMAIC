@@ -138,12 +138,3 @@ export interface PBLContent {
   type: 'pbl';
   projectConfig: PBLProjectConfig;
 }
-
-// Re-export generation types for convenience
-export type {
-  UserRequirements,
-  SceneOutline,
-  GenerationSession,
-  GenerationProgress,
-  UploadedDocument,
-} from './generation';

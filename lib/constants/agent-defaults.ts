@@ -20,21 +20,3 @@ export const AGENT_COLOR_PALETTE = [
   '#84cc16',
   '#a855f7',
 ] as const;
-
-/**
- * Default avatar paths cycled for generated agents.
- *
- * Every entry MUST correspond to a file that exists under `public/avatars/`.
- */
-export const AGENT_DEFAULT_AVATARS = [
-  '/avatars/teacher.png',
-  '/avatars/assist.png',
-  '/avatars/curious.png',
-  '/avatars/thinker.png',
-  '/avatars/note-taker.png',
-  '/avatars/teacher-2.png',
-  '/avatars/assist-2.png',
-  '/avatars/curious-2.png',
-  '/avatars/thinker-2.png',
-  '/avatars/note-taker-2.png',
-] as const;

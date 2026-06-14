@@ -17,12 +17,3 @@ export interface MessageAction {
   icon?: string;
   onClick: () => void;
 }
-
-export interface Message {
-  id: string;
-  senderId: string;
-  senderRole: ParticipantRole;
-  content: string;
-  timestamp: number;
-  actions?: MessageAction[];
-}

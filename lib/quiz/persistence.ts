@@ -1,8 +1,6 @@
 import type { QuestionResult } from '@/lib/quiz/grading';
 
 export const DRAFT_KEY_PREFIX = 'quizDraft:';
-export const ANSWERS_KEY_PREFIX = 'quizAnswers:';
-export const RESULTS_KEY_PREFIX = 'quizResults:';
 
 export const draftKey = (sceneId: string): string => DRAFT_KEY_PREFIX + sceneId;
 

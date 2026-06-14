@@ -115,20 +115,3 @@ export async function transcribeAudio(
 
   return { text };
 }
-
-export async function getCurrentASRConfig(): Promise<ASRModelConfig> {
-  if (typeof window === 'undefined') {
-    throw new Error('getCurrentASRConfig() can only be called in browser context');
-  }
-
-  const { useSettingsStore } = await import('@/lib/store/settings');
-  const { asrLanguage } = useSettingsStore.getState();
-
-  return {
-    providerId: 'bailian-asr',
-    modelId: BAILIAN_ASR_MODEL_ID,
-    language: asrLanguage,
-  };
-}
-
-export { getAllASRProviders, getASRProvider, getASRSupportedLanguages } from './constants';

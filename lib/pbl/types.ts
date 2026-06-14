@@ -4,8 +4,6 @@
  * Migrated from PBL-Nano with PBL prefix to avoid conflicts with existing platform types.
  */
 
-export type PBLMode = 'project_info' | 'agent' | 'issueboard' | 'idle';
-
 export interface PBLProjectInfo {
   title: string;
   description: string;
@@ -66,14 +64,4 @@ export interface PBLProjectConfig {
   issueboard: PBLIssueboard;
   chat: PBLChat;
   selectedRole?: string | null;
-}
-
-/**
- * MCP tool result (shared by all MCP classes)
- */
-export interface PBLToolResult {
-  success: boolean;
-  error?: string;
-  message?: string;
-  [key: string]: unknown;
 }

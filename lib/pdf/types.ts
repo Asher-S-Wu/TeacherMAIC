@@ -52,13 +52,3 @@ export interface ParsedPdfContent {
     [key: string]: unknown;
   };
 }
-
-export interface ParsePdfRequest {
-  pdf: File;
-}
-
-export interface ParsePdfResponse {
-  success: boolean;
-  data?: ParsedPdfContent;
-  error?: string;
-}

@@ -4,16 +4,6 @@ export const enum ClipPathTypes {
   POLYGON = 'polygon',
 }
 
-export const enum ClipPaths {
-  RECT = 'rect',
-  ROUNDRECT = 'roundRect',
-  ELLIPSE = 'ellipse',
-  TRIANGLE = 'triangle',
-  PENTAGON = 'pentagon',
-  RHOMBUS = 'rhombus',
-  STAR = 'star',
-}
-
 interface ClipPath {
   [key: string]: {
     name: string;

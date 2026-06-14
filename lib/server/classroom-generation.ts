@@ -44,7 +44,6 @@ import type {
 
 export type {
   ClassroomGenerationProgress,
-  ClassroomGenerationStep,
   GenerateClassroomInput,
   GenerateClassroomResult,
 } from '@/lib/server/classroom-generation-types';

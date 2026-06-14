@@ -106,10 +106,3 @@ export async function renameStage(stageId: string, newName: string): Promise<voi
   await readJson(response);
   log.info(`Renamed stage ${stageId} to "${newName}"`);
 }
-
-export async function stageExists(stageId: string): Promise<boolean> {
-  const response = await fetch(`/api/classrooms/${encodeURIComponent(stageId)}`);
-  if (response.status === 404) return false;
-  await readJson(response);
-  return true;
-}

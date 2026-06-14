@@ -26,35 +26,6 @@ export interface AgentConfig {
   boundStageId?: string; // stage ID this agent was generated for
 }
 
-export interface AgentTemplate {
-  // Same as AgentConfig but without id/dates (for creating new agents)
-  name: string;
-  role: string;
-  persona: string;
-  avatar: string;
-  color: string;
-  allowedActions: string[];
-  priority: number;
-  voiceConfig?: { providerId: TTSProviderId; modelId?: string; voiceId: string }; // Per-agent TTS voice selection
-
-  // LLM-generated agent fields
-  isGenerated?: boolean; // true for LLM-generated agents
-  boundStageId?: string; // stage ID this agent was generated for
-}
-
-/**
- * Create a new AgentConfig from a template
- */
-export function createAgentFromTemplate(template: AgentTemplate, id: string): AgentConfig {
-  return {
-    id,
-    ...template,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    isDefault: false,
-  };
-}
-
 // Action types available to agents (canonical source for role-based mapping)
 export const WHITEBOARD_ACTIONS = [
   'wb_open',

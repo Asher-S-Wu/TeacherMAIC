@@ -67,14 +67,6 @@ async function withCurrentUserMetadata(resolved: ResolvedModel): Promise<Resolve
 /**
  * Resolve the server-configured language model.
  */
-export async function resolveModelFromHeaders(req: NextRequest): Promise<ResolvedModel> {
-  void req;
-  return withCurrentUserMetadata(await resolveModel());
-}
-
-/**
- * Resolve the server-configured language model.
- */
 export async function resolveModelFromRequest(
   req: NextRequest,
   body: unknown,

@@ -80,31 +80,4 @@ export async function storePdfBlob(file: File): Promise<string> {
   return saved.id;
 }
 
-export async function storeImageFile(
-  file: File,
-  metadata: Record<string, unknown> = {},
-): Promise<StoredAccountFile> {
-  return uploadAccountBlob(file, file.name, 'image', metadata);
-}
-
-export async function storeMediaBlob(
-  blob: Blob,
-  filename: string,
-  kind: string,
-): Promise<StoredAccountFile> {
-  return uploadAccountBlob(blob, filename, kind);
-}
-
-export async function loadPdfBlob(key: string): Promise<Blob | null> {
-  const response = await fetch(`/api/files/${encodeURIComponent(key)}`);
-  if (!response.ok) return null;
-  return response.blob();
-}
-
-export async function cleanupSessionImages(_sessionId: string): Promise<void> {}
-
 export async function cleanupOldImages(_hoursOld: number = 24): Promise<void> {}
-
-export async function getImageStorageSize(): Promise<number> {
-  return 0;
-}

@@ -29,18 +29,6 @@ export type ImageMapping = Record<string, string>;
 
 // ==================== Stage 1 Input ====================
 
-export interface UploadedDocument {
-  id: string;
-  name: string; // Original filename
-  type: 'pdf' | 'docx' | 'pptx' | 'txt' | 'md' | 'image' | 'other';
-  size: number; // Bytes
-  uploadedAt: Date;
-  contentSummary?: string; // Placeholder for parsing
-  extractedTopics?: string[]; // Placeholder for parsing
-  pageCount?: number;
-  storageRef?: string;
-}
-
 /**
  * Simplified user requirements for course generation
  * All details (topic, duration, style, etc.) should be included in the requirement text
@@ -180,14 +168,4 @@ export interface GenerationProgress {
   scenesGenerated: number;
   totalScenes: number;
   errors?: string[];
-}
-
-export interface GenerationSession {
-  id: string;
-  requirements: UserRequirements;
-  sceneOutlines?: SceneOutline[];
-  progress: GenerationProgress;
-  startedAt: Date;
-  completedAt?: Date;
-  generatedStageId?: string;
 }

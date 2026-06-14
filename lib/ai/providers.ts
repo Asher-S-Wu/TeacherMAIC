@@ -18,12 +18,11 @@ import {
   KIMI_K2_7_CODE_MODEL_NAME,
 } from './zenmux-models';
 
-export const ZENMUX_PROVIDER_ID: BuiltInProviderId = 'zenmux';
-export const DEFAULT_PROVIDER_ID: BuiltInProviderId = ZENMUX_PROVIDER_ID;
+export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'zenmux';
 export const DEFAULT_MODEL_ID = KIMI_K2_7_CODE_MODEL_ID;
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
 
-export type { ProviderId, ProviderConfig, ModelInfo, ModelConfig };
+export type { ProviderId, ProviderConfig, ModelConfig };
 
 /** Provider IDs whose logos are monochrome-dark and need `dark:invert` in dark mode */
 export const MONO_LOGO_PROVIDERS: ReadonlySet<string> = new Set();
@@ -104,23 +103,4 @@ export function getModel(config: ModelConfig): ModelWithInfo {
     },
     modelInfo,
   };
-}
-
-export function getAllModels(): {
-  provider: ProviderConfig;
-  models: ModelInfo[];
-}[] {
-  return Object.values(PROVIDERS).map((provider) => ({
-    provider,
-    models: provider.models,
-  }));
-}
-
-export function getProvider(providerId: string): ProviderConfig | undefined {
-  return PROVIDERS[providerId as BuiltInProviderId];
-}
-
-export function getModelInfo(providerId: string, modelId: string): ModelInfo | undefined {
-  const provider = PROVIDERS[providerId as BuiltInProviderId];
-  return provider?.models.find((model) => model.id === modelId);
 }

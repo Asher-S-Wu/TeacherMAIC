@@ -3,7 +3,6 @@ import type { ObjectId } from 'mongodb';
 import type { SceneOutline } from '@/lib/types/generation';
 import type { Scene, Stage } from '@/lib/types/stage';
 import {
-  readClassroomForUser,
   saveClassroomForUser,
 } from '@/lib/server/classroom-repository';
 
@@ -22,20 +21,6 @@ export function buildRequestOrigin(req: NextRequest): string {
 
 export function isValidClassroomId(id: string): boolean {
   return /^[a-zA-Z0-9_-]+$/.test(id);
-}
-
-export async function readClassroom(
-  userId: ObjectId,
-  id: string,
-): Promise<PersistedClassroomData | null> {
-  const classroom = await readClassroomForUser(userId, id);
-  if (!classroom) return null;
-  return {
-    id,
-    stage: classroom.stage,
-    scenes: classroom.scenes,
-    createdAt: new Date(classroom.stage.createdAt).toISOString(),
-  };
 }
 
 export async function persistClassroom(

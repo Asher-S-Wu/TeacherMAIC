@@ -13,8 +13,6 @@ import { GradientDefs } from './GradientDefs';
 import { PatternDefs } from './PatternDefs';
 import { ProsemirrorEditor } from '../ProsemirrorEditor';
 
-export { BaseShapeElement } from './BaseShapeElement';
-
 export interface ShapeElementProps {
   elementInfo: PPTShapeElement;
   selectElement?: (

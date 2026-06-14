@@ -6,10 +6,7 @@ import type {
 } from '@/lib/types/generation';
 import {
   ALL_GENERATION_STEPS,
-  type GenerationStep,
 } from '@/lib/generation/generation-steps';
-
-export type { GenerationStep };
 
 export { ALL_GENERATION_STEPS as ALL_STEPS };
 

@@ -9,44 +9,28 @@
 export type {
   AgentInfo,
   SceneGenerationContext,
-  GeneratedSlideData,
-  GenerationResult,
-  GenerationCallbacks,
   AICallFn,
 } from './pipeline-types';
 
 // Prompt formatters
 export {
-  buildCourseContext,
-  formatAgentsForPrompt,
   formatTeacherPersonaForPrompt,
   formatImageDescription,
   formatImagePlaceholder,
   buildVisionUserContent,
-  buildLanguageText,
 } from './prompt-formatters';
 
 // JSON repair
-export { parseJsonResponse, tryParseJson } from './json-repair';
-
-// Outline generator (Stage 1)
-export { generateSceneOutlinesFromRequirements } from './outline-generator';
+export { parseJsonResponse } from './json-repair';
 
 // Scene generator (Stage 2)
 export {
-  generateFullScenes,
   generateSceneContent,
   generateSceneActions,
-  createSceneWithActions,
 } from './scene-generator';
-export type { SceneContentOptions, SceneActionsOptions } from './scene-generator';
 
 // Scene builder
 export {
-  buildSceneFromOutline,
   buildCompleteScene,
   uniquifyMediaElementIds,
 } from './scene-builder';
-
-// Pipeline runner
-export { createGenerationSession, runGenerationPipeline } from './pipeline-runner';

@@ -241,34 +241,8 @@ export type Action =
 
 export type ActionType = Action['type'];
 
-/** Action types that fire immediately without blocking */
-export const FIRE_AND_FORGET_ACTIONS: ActionType[] = ['spotlight', 'laser'];
-
 /** Action types that only work on slide scenes (require slide canvas elements) */
 export const SLIDE_ONLY_ACTIONS: ActionType[] = ['spotlight', 'laser'];
-
-/** Action types that must complete before the next action runs */
-export const SYNC_ACTIONS: ActionType[] = [
-  'speech',
-  'play_video',
-  'wb_open',
-  'wb_draw_text',
-  'wb_draw_shape',
-  'wb_draw_chart',
-  'wb_draw_latex',
-  'wb_draw_table',
-  'wb_draw_line',
-  'wb_draw_code',
-  'wb_edit_code',
-  'wb_clear',
-  'wb_delete',
-  'wb_close',
-  'discussion',
-  'widget_highlight',
-  'widget_setState',
-  'widget_annotation',
-  'widget_reveal',
-];
 
 // ==================== Canvas utility types (non-action) ====================
 

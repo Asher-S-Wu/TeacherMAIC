@@ -1,6 +1,5 @@
 import tinycolor from 'tinycolor2';
-import { nanoid } from 'nanoid';
-import type { PPTElement, PPTLineElement, Slide } from '@/lib/types/slides';
+import type { PPTElement, PPTLineElement } from '@/lib/types/slides';
 
 interface RotatedElementData {
   left: number;
@@ -8,10 +7,6 @@ interface RotatedElementData {
   width: number;
   height: number;
   rotate: number;
-}
-
-interface IdMap {
-  [id: string]: string;
 }
 
 /**
@@ -46,31 +41,6 @@ export const getRectRotatedRange = (element: RotatedElementData) => {
   return {
     xRange: [Math.min(...xAxis), Math.max(...xAxis)],
     yRange: [Math.min(...yAxis), Math.max(...yAxis)],
-  };
-};
-
-/**
- * 计算元素在画布中的矩形范围旋转后的新位置与旋转之前位置的偏离距离
- * @param element 元素的位置大小和旋转角度信息
- */
-export const getRectRotatedOffset = (element: RotatedElementData) => {
-  const { xRange: originXRange, yRange: originYRange } = getRectRotatedRange({
-    left: element.left,
-    top: element.top,
-    width: element.width,
-    height: element.height,
-    rotate: 0,
-  });
-  const { xRange: rotatedXRange, yRange: rotatedYRange } = getRectRotatedRange({
-    left: element.left,
-    top: element.top,
-    width: element.width,
-    height: element.height,
-    rotate: element.rotate,
-  });
-  return {
-    offsetX: rotatedXRange[0] - originXRange[0],
-    offsetY: rotatedYRange[0] - originYRange[0],
   };
 };
 
@@ -134,17 +104,6 @@ export const getElementListRange = (elementList: PPTElement[]) => {
   return { minX, maxX, minY, maxY };
 };
 
-/**
- * 计算线条元素的长度
- * @param element 线条元素
- */
-export const getLineElementLength = (element: PPTLineElement) => {
-  const deltaX = element.end[0] - element.start[0];
-  const deltaY = element.end[1] - element.start[1];
-  const len = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-  return len;
-};
-
 export interface AlignLine {
   value: number;
   range: [number, number];
@@ -169,41 +128,6 @@ export const uniqAlignLines = (lines: AlignLine[]) => {
     }
   });
   return uniqLines;
-};
-
-/**
- * 以页面列表为基础，为每一个页面生成新的ID，并关联到旧ID形成一个字典
- * 主要用于页面元素时，维持数据中各处页面ID原有的关系
- * @param slides 页面列表
- */
-export const createSlideIdMap = (slides: Slide[]) => {
-  const slideIdMap: IdMap = {};
-  for (const slide of slides) {
-    slideIdMap[slide.id] = nanoid(10);
-  }
-  return slideIdMap;
-};
-
-/**
- * 以元素列表为基础，为每一个元素生成新的ID，并关联到旧ID形成一个字典
- * 主要用于复制元素时，维持数据中各处元素ID原有的关系
- * 例如：原本两个组合的元素拥有相同的groupId，复制后依然会拥有另一个相同的groupId
- * @param elements 元素列表数据
- */
-export const createElementIdMap = (elements: PPTElement[]) => {
-  const groupIdMap: IdMap = {};
-  const elIdMap: IdMap = {};
-  for (const element of elements) {
-    const groupId = element.groupId;
-    if (groupId && !groupIdMap[groupId]) {
-      groupIdMap[groupId] = nanoid(10);
-    }
-    elIdMap[element.id] = nanoid(10);
-  }
-  return {
-    groupIdMap,
-    elIdMap,
-  };
 };
 
 /**
@@ -243,16 +167,4 @@ export const getLineElementPath = (element: PPTLineElement) => {
     return `M${start} C${p1} ${p2} ${end}`;
   }
   return `M${start} L${end}`;
-};
-
-/**
- * 判断一个元素是否在可视范围内
- * @param element 元素
- * @param parent 父元素
- */
-export const isElementInViewport = (element: HTMLElement, parent: HTMLElement): boolean => {
-  const elementRect = element.getBoundingClientRect();
-  const parentRect = parent.getBoundingClientRect();
-
-  return elementRect.top >= parentRect.top && elementRect.bottom <= parentRect.bottom;
 };

@@ -6,8 +6,6 @@ import { getLineElementPath } from '@/lib/utils/element';
 import { useElementShadow } from '../hooks/useElementShadow';
 import { LinePointMarker } from './LinePointMarker';
 
-export { BaseLineElement } from './BaseLineElement';
-
 export interface LineElementProps {
   elementInfo: PPTLineElement;
   selectElement?: (e: React.MouseEvent | React.TouchEvent, element: PPTLineElement) => void;

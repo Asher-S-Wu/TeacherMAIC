@@ -10,18 +10,10 @@ import type {
   GeneratedQuizContent,
   GeneratedInteractiveContent,
   GeneratedPBLContent,
-  PdfImage,
-  ImageMapping,
 } from '@/lib/types/generation';
-import type { ResponsesModel } from '@/lib/ai/providers';
 import type { Slide, SlideTheme } from '@/lib/types/slides';
 import type { Scene } from '@/lib/types/stage';
 import type { Action } from '@/lib/types/action';
-import { generateSceneContent, generateSceneActions } from './scene-generator';
-import type { AgentInfo, SceneGenerationContext, AICallFn } from './pipeline-types';
-import { buildLanguageText } from './prompt-formatters';
-import { createLogger } from '@/lib/logger';
-const log = createLogger('Generation');
 
 /**
  * Replace sequential gen_img_N / gen_vid_N IDs in outlines with globally unique IDs.
@@ -58,65 +50,6 @@ export function uniquifyMediaElementIds(outlines: SceneOutline[]): SceneOutline[
       })),
     };
   });
-}
-
-/**
- * Build a complete Scene object from an outline (for SSE streaming)
- * This function does NOT depend on store - it returns a complete Scene object
- */
-export async function buildSceneFromOutline(
-  outline: SceneOutline,
-  aiCall: AICallFn,
-  stageId: string,
-  assignedImages?: PdfImage[],
-  imageMapping?: ImageMapping,
-  languageModel?: ResponsesModel,
-  visionEnabled?: boolean,
-  ctx?: SceneGenerationContext,
-  agents?: AgentInfo[],
-  onPhaseChange?: (phase: 'content' | 'actions') => void,
-  userProfile?: string,
-  languageDirective?: string,
-): Promise<Scene | null> {
-  const langText = buildLanguageText(languageDirective, outline.languageNote);
-
-  // Step 1: Generate content (with images if available)
-  onPhaseChange?.('content');
-  log.debug(`Step 1: Generating content for: ${outline.title}`);
-  if (assignedImages && assignedImages.length > 0) {
-    log.debug(
-      `Using ${assignedImages.length} assigned images: ${assignedImages.map((img) => img.id).join(', ')}`,
-    );
-  }
-  log.debug(
-    `imageMapping available: ${imageMapping ? Object.keys(imageMapping).length + ' keys' : 'undefined'}`,
-  );
-  const content = await generateSceneContent(outline, aiCall, {
-    assignedImages,
-    imageMapping,
-    languageModel,
-    visionEnabled,
-    agents,
-    languageDirective: langText,
-  });
-  if (!content) {
-    log.error(`Failed to generate content for: ${outline.title}`);
-    return null;
-  }
-
-  // Step 2: Generate Actions
-  onPhaseChange?.('actions');
-  log.debug(`Step 2: Generating actions for: ${outline.title}`);
-  const actions = await generateSceneActions(outline, content, aiCall, {
-    ctx,
-    agents,
-    userProfile,
-    languageDirective: langText,
-  });
-  log.debug(`Generated ${actions.length} actions for: ${outline.title}`);
-
-  // Build complete Scene object
-  return buildCompleteScene(outline, content, actions, stageId);
 }
 
 /**

@@ -218,10 +218,6 @@ export function resolveASRApiConfig(
   };
 }
 
-export function resolveASRBaseUrl(providerId: string, _clientBaseUrl?: string): string | undefined {
-  return getConfig().asr[providerId]?.baseUrl;
-}
-
 // ---------------------------------------------------------------------------
 // Public API — PDF
 // ---------------------------------------------------------------------------

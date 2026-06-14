@@ -146,24 +146,3 @@ export async function parsePDF(
 
   return result;
 }
-
-/**
- * Get current PDF parser configuration from settings store
- * Note: This function should only be called in browser context
- */
-export async function getCurrentPDFConfig(): Promise<PDFParserConfig> {
-  if (typeof window === 'undefined') {
-    throw new Error('getCurrentPDFConfig() can only be called in browser context');
-  }
-
-  // Dynamic import to avoid circular dependency
-  const { useSettingsStore } = await import('@/lib/store/settings');
-  const { pdfProviderId } = useSettingsStore.getState();
-
-  return {
-    providerId: pdfProviderId,
-  };
-}
-
-// Re-export from constants for convenience
-export { getAllPDFProviders, getPDFProvider } from './constants';

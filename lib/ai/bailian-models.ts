@@ -1,4 +1,3 @@
-export const BAILIAN_REGION = 'ap-southeast-1';
 export const BAILIAN_BUSINESS_SPACE_ID = 'ws-2t7yj3g991jc5yo6';
 export const BAILIAN_COMPATIBLE_BASE_URL_TEMPLATE =
   `https://${BAILIAN_BUSINESS_SPACE_ID}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1`;

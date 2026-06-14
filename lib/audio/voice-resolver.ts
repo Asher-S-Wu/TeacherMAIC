@@ -87,8 +87,3 @@ export function getAvailableProvidersWithVoices(
     },
   ];
 }
-
-export function findVoiceDisplayName(providerId: TTSProviderId, voiceId: string): string {
-  const voice = TTS_PROVIDERS[providerId].voices.find((item) => item.id === voiceId);
-  return voice?.name ?? voiceId;
-}

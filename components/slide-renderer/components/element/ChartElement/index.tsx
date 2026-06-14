@@ -4,8 +4,6 @@ import type { PPTChartElement } from '@/lib/types/slides';
 import { ElementOutline } from '../ElementOutline';
 import { Chart } from './Chart';
 
-export { BaseChartElement } from './BaseChartElement';
-
 export interface ChartElementProps {
   elementInfo: PPTChartElement;
   selectElement?: (e: React.MouseEvent | React.TouchEvent, element: PPTChartElement) => void;

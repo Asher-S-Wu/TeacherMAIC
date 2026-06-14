@@ -1,6 +1,5 @@
 import type {
   BuiltInTTSProviderId,
-  TTSProviderId,
   TTSProviderConfig,
   TTSVoiceInfo,
   BuiltInASRProviderId,
@@ -174,22 +173,6 @@ export const DEFAULT_TTS_VOICES: Record<BuiltInTTSProviderId, string> = {
 export const DEFAULT_TTS_MODELS: Record<BuiltInTTSProviderId, string> = {
   'bailian-tts': BAILIAN_TTS_MODEL_ID,
 };
-
-export function getAllTTSProviders(): TTSProviderConfig[] {
-  return Object.values(TTS_PROVIDERS);
-}
-
-export function getTTSProvider(providerId: TTSProviderId): TTSProviderConfig | undefined {
-  return TTS_PROVIDERS[providerId];
-}
-
-export function getTTSVoices(providerId: TTSProviderId): TTSVoiceInfo[] {
-  return getTTSProvider(providerId)?.voices || [];
-}
-
-export function getAllASRProviders(): ASRProviderConfig[] {
-  return Object.values(ASR_PROVIDERS);
-}
 
 export function getASRProvider(providerId: ASRProviderId): ASRProviderConfig | undefined {
   return ASR_PROVIDERS[providerId];

@@ -14,10 +14,3 @@ export const WEB_SEARCH_PROVIDERS: Record<WebSearchProviderId, WebSearchProvider
     requiresApiKey: true,
   },
 };
-
-/**
- * Get all available web search providers
- */
-export function getAllWebSearchProviders(): WebSearchProviderConfig[] {
-  return Object.values(WEB_SEARCH_PROVIDERS);
-}

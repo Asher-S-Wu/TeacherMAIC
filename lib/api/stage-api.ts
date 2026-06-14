@@ -35,26 +35,7 @@
  */
 
 // Re-export all types
-export type {
-  APIResult,
-  CreateSceneParams,
-  CreateElementParams,
-  HighlightOptions,
-  SpotlightOptions,
-  StageStore,
-} from './stage-api-types';
-
-// Re-export utility functions that were previously accessible
-export {
-  generateId,
-  validateSceneId,
-  getScene,
-  createDefaultContent,
-  createDefaultSlideContent,
-  createDefaultQuizContent,
-  createDefaultInteractiveContent,
-  createDefaultPBLContent,
-} from './stage-api-defaults';
+export type { StageStore } from './stage-api-types';
 
 // Import sub-API factories
 import { createSceneAPI } from './stage-api-scene';
@@ -84,7 +65,3 @@ export function createStageAPI(store: StageStore) {
     stage: createStageMetaAPI(store),
   };
 }
-
-// ==================== Type Exports ====================
-
-export type StageAPI = ReturnType<typeof createStageAPI>;

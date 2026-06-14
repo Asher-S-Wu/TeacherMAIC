@@ -3,8 +3,6 @@
 import { useRef, useState, useLayoutEffect } from 'react';
 import type { PPTLatexElement } from '@/lib/types/slides';
 
-export { BaseLatexElement } from './BaseLatexElement';
-
 export interface LatexElementProps {
   elementInfo: PPTLatexElement;
   selectElement?: (e: React.MouseEvent | React.TouchEvent, element: PPTLatexElement) => void;

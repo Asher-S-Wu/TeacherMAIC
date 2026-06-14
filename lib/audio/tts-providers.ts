@@ -96,20 +96,3 @@ export async function generateTTS(
     format: getAudioFormat(audioUrl, config.format || 'wav'),
   };
 }
-
-export async function getCurrentTTSConfig(): Promise<TTSModelConfig> {
-  if (typeof window === 'undefined') {
-    throw new Error('getCurrentTTSConfig() can only be called in browser context');
-  }
-
-  const { useSettingsStore } = await import('@/lib/store/settings');
-  const { ttsVoice } = useSettingsStore.getState();
-
-  return {
-    providerId: 'bailian-tts',
-    modelId: BAILIAN_TTS_MODEL_ID,
-    voice: ttsVoice,
-  };
-}
-
-export { getAllTTSProviders, getTTSProvider, getTTSVoices } from './constants';

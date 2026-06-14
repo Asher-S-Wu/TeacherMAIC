@@ -3,7 +3,6 @@
 import { lexer } from './lexer';
 import { parser } from './parser';
 import { format } from './format';
-import { toHTML } from './stringify';
 export type { AST } from './types';
 
 export const toAST = (str: string) => {
@@ -11,5 +10,3 @@ export const toAST = (str: string) => {
   const nodes = parser(tokens);
   return format(nodes);
 };
-
-export { toHTML };

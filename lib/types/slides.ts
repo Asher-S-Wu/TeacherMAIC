@@ -198,18 +198,6 @@ export interface PPTTextElement extends PPTBaseElement {
 }
 
 /**
- * 图片翻转、形状翻转
- *
- * flipH?: 水平翻转
- *
- * flipV?: 垂直翻转
- */
-export interface ImageOrShapeFlip {
-  flipH?: boolean;
-  flipV?: boolean;
-}
-
-/**
  * 图片滤镜
  *
  * https://developer.mozilla.org/zh-CN/docs/Web/CSS/filter
@@ -228,16 +216,6 @@ export interface ImageOrShapeFlip {
  *
  * 'opacity'?: 不透明度，默认100（%）
  */
-export type ImageElementFilterKeys =
-  | 'blur'
-  | 'brightness'
-  | 'contrast'
-  | 'grayscale'
-  | 'saturate'
-  | 'hue-rotate'
-  | 'opacity'
-  | 'sepia'
-  | 'invert';
 export interface ImageElementFilters {
   blur?: string;
   brightness?: string;
@@ -827,11 +805,4 @@ export interface SlideTheme {
   fontName: string;
   outline?: PPTElementOutline;
   shadow?: PPTElementShadow;
-}
-
-export interface SlideTemplate {
-  name: string;
-  id: string;
-  cover: string;
-  origin?: string;
 }

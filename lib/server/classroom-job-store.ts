@@ -278,15 +278,6 @@ export async function markClassroomGenerationJobFailed(
   });
 }
 
-export async function readClassroomGenerationJobOwner(jobId: string): Promise<ObjectId | null> {
-  const { db } = await getMongo();
-  const job = await getCollections(db).classroomJobs.findOne(
-    { id: jobId },
-    { projection: { userId: 1 } },
-  );
-  return job?.userId ?? null;
-}
-
 export async function listClassroomGenerationJobs(
   userId: ObjectId,
   options?: { limit?: number; status?: ClassroomGenerationJobStatus[] },

@@ -582,6 +582,3 @@ export function useCanvasOperations() {
     clearAllEffects,
   };
 }
-
-// Export type
-export type CanvasOperations = ReturnType<typeof useCanvasOperations>;

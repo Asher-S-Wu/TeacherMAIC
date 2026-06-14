@@ -109,22 +109,3 @@ export function actionsToManifest(
     return action as ManifestAction;
   });
 }
-
-// ─── Import: Reference Rewriting ───────────────────────────────
-
-export function rewriteAudioRefsToIds(
-  actions: ManifestAction[],
-  audioRefMap: Record<string, string>,
-): Action[] {
-  return actions.map((action) => {
-    if (action.type === 'speech' && 'audioRef' in action) {
-      const { audioRef, ...rest } = action;
-      const audioId = audioRef ? audioRefMap[audioRef] : undefined;
-      return {
-        ...rest,
-        ...(audioId ? { audioId } : {}),
-      } as Action;
-    }
-    return action as Action;
-  });
-}

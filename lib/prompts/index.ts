@@ -10,17 +10,10 @@
 
 // Types
 import type { PromptId } from './types';
-export type { PromptId, SnippetId, LoadedPrompt } from './types';
+export type { PromptId } from './types';
 
 // Loader functions
-export {
-  loadPrompt,
-  loadSnippet,
-  buildPrompt,
-  interpolateVariables,
-  processSnippets,
-  processConditionalBlocks,
-} from './loader';
+export { buildPrompt } from './loader';
 
 // Prompt IDs constant
 export const PROMPT_IDS = {

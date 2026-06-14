@@ -3,8 +3,6 @@
 import type { PPTTableElement } from '@/lib/types/slides';
 import { StaticTable } from './StaticTable';
 
-export { BaseTableElement } from './BaseTableElement';
-
 export interface TableElementProps {
   elementInfo: PPTTableElement;
   selectElement?: (e: React.MouseEvent | React.TouchEvent, element: PPTTableElement) => void;

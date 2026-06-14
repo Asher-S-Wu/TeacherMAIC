@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid';
 import { collectStreamLLMText } from '@/lib/ai/llm';
 import type { ResponsesModel } from '@/lib/ai/providers';
-import { AGENT_COLOR_PALETTE, AGENT_DEFAULT_AVATARS } from '@/lib/constants/agent-defaults';
+import { AGENT_COLOR_PALETTE } from '@/lib/constants/agent-defaults';
 import { MAX_GENERATION_ATTEMPTS } from '@/lib/generation/retry';
 import { createLogger } from '@/lib/logger';
 
@@ -257,5 +257,3 @@ export async function generateAgentProfilesForCourse(
     };
   });
 }
-
-export { AGENT_DEFAULT_AVATARS };

@@ -61,8 +61,6 @@ export interface LLMTextResult {
   responseId?: string;
 }
 
-export { LLMTransportError } from './llm-transport-error';
-
 export interface LLMStreamResult {
   textStream: AsyncIterable<string>;
 }

@@ -19,17 +19,3 @@ export const PDF_PROVIDERS: Record<PDFProviderId, PDFProviderConfig> = {
     features: ['text', 'images', 'tables', 'formulas', 'layout-analysis'],
   },
 };
-
-/**
- * Get all available PDF providers
- */
-export function getAllPDFProviders(): PDFProviderConfig[] {
-  return Object.values(PDF_PROVIDERS);
-}
-
-/**
- * Get PDF provider by ID
- */
-export function getPDFProvider(providerId: PDFProviderId): PDFProviderConfig | undefined {
-  return PDF_PROVIDERS[providerId];
-}
