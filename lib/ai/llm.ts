@@ -136,6 +136,9 @@ type OpenAIChatTool = {
   };
 };
 
+type OpenAIChatCreateBody = Parameters<OpenAI['chat']['completions']['create']>[0];
+type OpenAIChatStreamRequestBody = OpenAIChatCreateBody & { stream: true };
+
 type OpenAIChatToolCallDelta = {
   index?: number;
   id?: string;
@@ -370,37 +373,37 @@ function toOpenAIChatTools(tools: LLMToolDefinition[]): OpenAIChatTool[] {
   }));
 }
 
-function buildChatRequestBody(
+function buildChatStreamRequestBody(
   params: LLMGenerateParams,
   options?: {
-    stream?: boolean;
     tools?: LLMToolDefinition[];
     messages?: OpenAIChatRequestMessage[];
   },
-): Record<string, unknown> {
+): OpenAIChatStreamRequestBody {
   return {
     model: params.model.modelId,
     messages: options?.messages ?? buildChatMessages(params),
     max_completion_tokens: DEFAULT_MAX_COMPLETION_TOKENS,
-    ...(options?.stream ? { stream: true } : {}),
+    stream: true,
     ...(options?.tools?.length
       ? {
           tools: toOpenAIChatTools(options.tools),
           tool_choice: 'auto',
         }
       : {}),
-  };
+  } as OpenAIChatStreamRequestBody;
 }
 
 async function createChatCompletionStream(
   params: LLMGenerateParams,
   source: string,
-  body: Record<string, unknown>,
+  body: OpenAIChatStreamRequestBody,
 ): Promise<AsyncIterable<OpenAIChatStreamChunk>> {
   try {
-    return (await getOpenAIClient(params.model).chat.completions.create(body as any, {
+    const stream = await getOpenAIClient(params.model).chat.completions.create(body, {
       signal: params.abortSignal,
-    })) as AsyncIterable<OpenAIChatStreamChunk>;
+    });
+    return stream as unknown as AsyncIterable<OpenAIChatStreamChunk>;
   } catch (error) {
     throw wrapLLMError(error, source, params.model.modelId);
   }
@@ -466,7 +469,7 @@ function mergeReasoningDetails(current: unknown, next: unknown): unknown {
 async function* streamChatResponseEvents(
   params: LLMStreamParams,
   source: string,
-  body: Record<string, unknown>,
+  body: OpenAIChatStreamRequestBody,
 ): AsyncIterable<ChatStreamEvent> {
   const stream = await createChatCompletionStream(params, source, body);
   const toolCalls = new Map<number, ToolCallAccumulator>();
@@ -539,7 +542,7 @@ async function* streamTextGenerationEvents(
   for await (const event of streamChatResponseEvents(
     params,
     source,
-    buildChatRequestBody(params, { stream: true }),
+    buildChatStreamRequestBody(params),
   )) {
     if ('textDelta' in event) {
       yield { type: 'text_delta', text: event.textDelta };
@@ -584,8 +587,7 @@ export async function* streamLLMWithTools(
     for await (const event of streamChatResponseEvents(
       params,
       source,
-      buildChatRequestBody(params, {
-        stream: true,
+      buildChatStreamRequestBody(params, {
         tools: params.tools,
         messages,
       }),
