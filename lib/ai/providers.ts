@@ -14,12 +14,12 @@ import type {
 } from '@/lib/types/provider';
 import {
   ZENMUX_BASE_URL,
-  KIMI_K2_7_CODE_MODEL_ID,
-  KIMI_K2_7_CODE_MODEL_NAME,
+  KIMI_K2_7_CODE_HIGHSPEED_MODEL_ID,
+  KIMI_K2_7_CODE_HIGHSPEED_MODEL_NAME,
 } from './zenmux-models';
 
 export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'zenmux';
-export const DEFAULT_MODEL_ID = KIMI_K2_7_CODE_MODEL_ID;
+export const DEFAULT_MODEL_ID = KIMI_K2_7_CODE_HIGHSPEED_MODEL_ID;
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
 
 export type { ProviderId, ProviderConfig, ModelConfig };
@@ -36,8 +36,8 @@ export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
     requiresApiKey: true,
     models: [
       {
-        id: KIMI_K2_7_CODE_MODEL_ID,
-        name: KIMI_K2_7_CODE_MODEL_NAME,
+        id: KIMI_K2_7_CODE_HIGHSPEED_MODEL_ID,
+        name: KIMI_K2_7_CODE_HIGHSPEED_MODEL_NAME,
         capabilities: {
           streaming: true,
           tools: true,
