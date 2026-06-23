@@ -61,8 +61,7 @@ export async function collectMediaFiles(scenes: Scene[]): Promise<CollectedMedia
     if (scene.content?.type !== 'slide') continue;
     for (const element of scene.content.canvas.elements) {
       if (!('src' in element) || typeof element.src !== 'string') continue;
-      const filePath = getAccountFilePath(element.src);
-      if (!filePath) continue;
+      if (!isAccountFileUrl(element.src)) continue;
       const response = await fetch(element.src);
       if (!response.ok) continue;
       const blob = await response.blob();
@@ -84,9 +83,9 @@ export async function collectMediaFiles(scenes: Scene[]): Promise<CollectedMedia
   return collected;
 }
 
-function getAccountFilePath(src: string): string | null {
+function isAccountFileUrl(src: string): boolean {
   const url = new URL(src, window.location.origin);
-  return url.pathname.startsWith('/api/files/') ? url.pathname : null;
+  return url.hostname.endsWith('.blob.vercel-storage.com');
 }
 
 // ─── Export: Action Serialization ──────────────────────────────

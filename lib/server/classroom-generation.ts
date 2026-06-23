@@ -451,7 +451,6 @@ export async function generateClassroom(
     const mediaMap = await generateMediaForClassroom(
       outlines,
       stageId,
-      options.baseUrl,
       options.userId,
     );
     replaceMediaPlaceholders(scenes, mediaMap);
@@ -467,7 +466,7 @@ export async function generateClassroom(
       totalScenes: outlines.length,
     });
 
-    await generateTTSForClassroom(scenes, stageId, options.baseUrl, options.userId);
+    await generateTTSForClassroom(scenes, stageId, options.userId);
     log.info('TTS generation complete');
   }
 

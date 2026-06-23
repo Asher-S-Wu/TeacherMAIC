@@ -75,7 +75,7 @@ function makePathname(userId: ObjectId, kind: string, filename: string): string 
 function toStoredFile(doc: AccountFileDoc): StoredFileResult {
   return {
     id: doc._id.toString(),
-    url: `/api/files/${doc._id.toString()}`,
+    url: doc.url,
     name: doc.filename,
     type: doc.contentType,
     size: doc.size,
@@ -123,7 +123,7 @@ export async function saveBufferForUser(
 
   const pathname = makePathname(userId, kind, filename);
   const blob = await put(pathname, buffer, {
-    access: 'private',
+    access: 'public',
     contentType: normalizedType,
     addRandomSuffix: true,
   });
@@ -152,7 +152,7 @@ export async function saveRemoteFileForUser(
   if (size > 0) assertFileAllowed(kind, resolvedType, size);
 
   const blob = await put(makePathname(userId, kind, filename), response.body, {
-    access: 'private',
+    access: 'public',
     contentType: resolvedType,
     addRandomSuffix: true,
   });
@@ -239,7 +239,7 @@ export async function getReadableFileForUser(fileId: string, user: UserDoc) {
     return null;
   }
 
-  const result = await get(file.pathname, { access: 'private' });
+  const result = await get(file.pathname, { access: 'public' });
   if (result?.statusCode !== 200 || !result.stream) {
     return null;
   }

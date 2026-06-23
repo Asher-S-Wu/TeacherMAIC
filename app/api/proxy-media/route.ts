@@ -1,7 +1,7 @@
 /**
  * Remote media import API.
  *
- * Receives a remote media URL, writes it to the signed-in account's private
+ * Receives a remote media URL, writes it to the signed-in account's public
  * Blob storage, and returns a small JSON file reference.
  */
 

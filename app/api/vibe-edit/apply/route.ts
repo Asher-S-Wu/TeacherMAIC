@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
-import { buildRequestOrigin } from '@/lib/server/classroom-storage';
 import {
   cleanupVibeEditMedia,
   generateTTSForClassroom,
@@ -33,18 +32,16 @@ export async function POST(req: NextRequest) {
     }
 
     const scene = structuredClone(body.scene);
-    const baseUrl = buildRequestOrigin(req);
     const { permanentMap, savedFileIds } = await persistVibeEditMedia(
       mediaMap,
       body.stageId,
-      baseUrl,
       user._id,
     );
 
     try {
       replaceMediaPlaceholders([scene], permanentMap);
       if (body.ttsEnabled) {
-        await generateTTSForClassroom([scene], body.stageId, baseUrl, user._id);
+        await generateTTSForClassroom([scene], body.stageId, user._id);
       }
     } catch (error) {
       await cleanupVibeEditMedia(savedFileIds);

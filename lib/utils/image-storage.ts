@@ -1,5 +1,5 @@
 /**
- * Account file storage helpers backed by Vercel Private Blob.
+ * Account file storage helpers backed by Vercel Public Blob.
  */
 
 import type { PutBlobResult } from '@vercel/blob';
@@ -42,7 +42,7 @@ export async function uploadAccountBlob(
   const contentType = file.type || 'application/octet-stream';
 
   const uploaded = (await upload(makeUploadPath(filename), file, {
-    access: 'private',
+    access: 'public',
     contentType,
     handleUploadUrl: '/api/files/upload',
     multipart: file.size > 5 * 1024 * 1024,

@@ -2,7 +2,7 @@
  * Server-side media and TTS generation for classrooms.
  *
  * Generates image/video files and TTS audio for a classroom,
- * saves them to private account files, and returns serving URL mappings.
+ * saves them to public account files, and returns serving URL mappings.
  */
 
 import path from 'path';
@@ -55,7 +55,6 @@ function audioMimeType(format: string): string {
 export async function generateMediaForClassroom(
   outlines: SceneOutline[],
   classroomId: string,
-  baseUrl: string,
   userId: ObjectId,
 ): Promise<Record<string, string>> {
   // Collect all media generation requests from outlines
@@ -131,7 +130,7 @@ export async function generateMediaForClassroom(
         throw new Error(`图片生成没有返回文件：${req.elementId}`);
       }
 
-      mediaMap[req.elementId] = `${baseUrl}${saved.url}`;
+      mediaMap[req.elementId] = saved.url;
       log.info(`Generated image: ${filename}`);
     }
   };
@@ -189,7 +188,7 @@ export async function generateMediaForClassroom(
       if (!saved) {
         throw new Error(`视频生成没有返回文件：${req.elementId}`);
       }
-      mediaMap[req.elementId] = `${baseUrl}${saved.url}`;
+      mediaMap[req.elementId] = saved.url;
       log.info(`Generated video: ${filename}`);
     }
   };
@@ -240,7 +239,6 @@ export interface PersistVibeEditMediaResult {
 export async function persistVibeEditMedia(
   mediaMap: Record<string, string>,
   classroomId: string,
-  baseUrl: string,
   userId: ObjectId,
 ): Promise<PersistVibeEditMediaResult> {
   const permanentMap: Record<string, string> = {};
@@ -269,7 +267,7 @@ export async function persistVibeEditMedia(
           mediaType: isVideo ? 'video' : 'image',
         },
       );
-      permanentMap[elementId] = `${baseUrl}${saved.url}`;
+      permanentMap[elementId] = saved.url;
       savedFileIds.push(saved.id);
       continue;
     }
@@ -300,7 +298,7 @@ export async function persistVibeEditMedia(
           mediaType: isVideo ? 'video' : 'image',
         },
       );
-      permanentMap[elementId] = `${baseUrl}${saved.url}`;
+      permanentMap[elementId] = saved.url;
       savedFileIds.push(saved.id);
       continue;
     }
@@ -336,7 +334,6 @@ export async function cleanupVibeEditMedia(savedFileIds: string[]): Promise<void
 export async function generateTTSForClassroom(
   scenes: Scene[],
   classroomId: string,
-  baseUrl: string,
   userId: ObjectId,
 ): Promise<void> {
   const ttsProviderIds = Object.keys(getServerTTSProviders());
@@ -395,7 +392,7 @@ export async function generateTTSForClassroom(
       );
 
       speechAction.audioId = audioId;
-      speechAction.audioUrl = `${baseUrl}${saved.url}`;
+      speechAction.audioUrl = saved.url;
       log.info(`Generated TTS: ${filename} (${audioBuffer.length} bytes)`);
     }
   }
