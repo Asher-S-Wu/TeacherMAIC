@@ -28,6 +28,8 @@ interface QueueItem {
   voiceId: string;
 }
 
+const DEFAULT_TTS_PROVIDER_ID = 'volcengine-doubao-tts' as const;
+
 export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: DiscussionTTSOptions) {
   const ttsProvidersConfig = useSettingsStore((s) => s.ttsProvidersConfig);
   const ttsMuted = useSettingsStore((s) => s.ttsMuted);
@@ -64,23 +66,23 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
         if (providers.length > 0) {
           return {
             providerId: providers[0].providerId,
-            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['bailian-tts'],
+            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES[DEFAULT_TTS_PROVIDER_ID],
           };
         }
-        return { providerId: 'bailian-tts', voiceId: DEFAULT_TTS_VOICES['bailian-tts'] };
+        return { providerId: DEFAULT_TTS_PROVIDER_ID, voiceId: DEFAULT_TTS_VOICES[DEFAULT_TTS_PROVIDER_ID] };
       }
       const agent = agents.find((a) => a.id === agentId);
       if (!agent) {
         if (providers.length > 0) {
           return {
             providerId: providers[0].providerId,
-            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES['bailian-tts'],
+            voiceId: providers[0].voices[0]?.id ?? DEFAULT_TTS_VOICES[DEFAULT_TTS_PROVIDER_ID],
             modelId: undefined,
           };
         }
         return {
-          providerId: 'bailian-tts',
-          voiceId: DEFAULT_TTS_VOICES['bailian-tts'],
+          providerId: DEFAULT_TTS_PROVIDER_ID,
+          voiceId: DEFAULT_TTS_VOICES[DEFAULT_TTS_PROVIDER_ID],
           modelId: undefined,
         };
       }

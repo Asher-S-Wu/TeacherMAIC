@@ -8,12 +8,9 @@
 import { createLogger } from '@/lib/logger';
 import {
   buildBailianCompatibleBaseUrl,
-  buildBailianDashScopeApiBaseUrl,
 } from '@/lib/ai/bailian-models';
-import {
-  ZENMUX_BASE_URL,
-  ZENMUX_VERTEX_BASE_URL,
-} from '@/lib/ai/zenmux-models';
+import { DOUBAO_AUDIO_TTS_ENDPOINT } from '@/lib/ai/doubao-audio-models';
+import { ARK_BASE_URL } from '@/lib/ai/ark-models';
 
 const log = createLogger('ServerProviderConfig');
 
@@ -41,8 +38,9 @@ interface ServerConfig {
 // Env-var prefix mappings
 // ---------------------------------------------------------------------------
 
+const ARK_API_KEY_ENV = 'ARK_API_KEY';
 const DASHSCOPE_API_KEY_ENV = 'DASHSCOPE_API_KEY';
-const ZENMUX_API_KEY_ENV = 'ZENMUX_API_KEY';
+const VOLCENGINE_SPEECH_API_KEY_ENV = 'VOLCENGINE_SPEECH_API_KEY';
 const XCRAWL_API_KEY_ENV = 'XCRAWL_API_KEY';
 
 const PDF_ENV_MAP: Record<string, string> = {
@@ -69,14 +67,14 @@ function loadEnvSection(envMap: Record<string, string>): Record<string, ServerPr
 }
 
 function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
-  return loadZenMuxSection('zenmux', ZENMUX_BASE_URL);
+  return loadArkSection('volcengine-ark', ARK_BASE_URL);
 }
 
-function loadZenMuxSection(
+function loadArkSection(
   providerId: string,
   baseUrl: string,
 ): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[ZENMUX_API_KEY_ENV] || undefined;
+  const apiKey = process.env[ARK_API_KEY_ENV] || undefined;
   if (!apiKey) return {};
   return {
     [providerId]: {
@@ -100,6 +98,17 @@ function loadBailianSection(
   };
 }
 
+function loadVolcengineSpeechSection(): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[VOLCENGINE_SPEECH_API_KEY_ENV] || undefined;
+  if (!apiKey) return {};
+  return {
+    'volcengine-doubao-tts': {
+      apiKey,
+      baseUrl: DOUBAO_AUDIO_TTS_ENDPOINT,
+    },
+  };
+}
+
 function loadXCrawlSection(): Record<string, ServerProviderEntry> {
   const apiKey = process.env[XCRAWL_API_KEY_ENV] || undefined;
   return apiKey ? { xcrawl: { apiKey } } : {};
@@ -114,11 +123,11 @@ let _config: ServerConfig | null = null;
 function buildConfig(): ServerConfig {
   return {
     providers: loadLLMEnvSection(),
-    tts: loadBailianSection('bailian-tts', buildBailianDashScopeApiBaseUrl),
+    tts: loadVolcengineSpeechSection(),
     asr: loadBailianSection('bailian-asr', buildBailianCompatibleBaseUrl),
     pdf: loadEnvSection(PDF_ENV_MAP),
-    image: loadZenMuxSection('zenmux-image', ZENMUX_BASE_URL),
-    video: loadZenMuxSection('zenmux-video', ZENMUX_VERTEX_BASE_URL),
+    image: loadArkSection('volcengine-ark-image', ARK_BASE_URL),
+    video: loadArkSection('volcengine-ark-video', ARK_BASE_URL),
     webSearch: loadXCrawlSection(),
   };
 }

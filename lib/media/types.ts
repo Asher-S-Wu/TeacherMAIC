@@ -4,7 +4,7 @@
  * Unified types for image generation and video generation.
  *
  * Currently Supported Image Providers:
- * - ZenMux Image
+ * - Volcengine Ark Image
  *
  * Currently Supported Video Providers:
  * - ZenMux Doubao Seedance
@@ -21,7 +21,7 @@
  * Add new image providers here as union members.
  * Keep in sync with IMAGE_PROVIDERS registry in constants.ts
  */
-export type ImageProviderId = 'zenmux-image';
+export type ImageProviderId = 'volcengine-ark-image';
 
 /**
  * Image Provider Configuration
@@ -126,7 +126,7 @@ export interface ImageGenerationResult {
  * Add new video providers here as union members.
  * Keep in sync with VIDEO_PROVIDERS registry in constants.ts
  */
-export type VideoProviderId = 'zenmux-video';
+export type VideoProviderId = 'volcengine-ark-video';
 
 /**
  * Video Provider Configuration
@@ -151,11 +151,11 @@ export interface VideoProviderConfig {
   /** Available models for this provider */
   models: VideoModelInfo[];
   /** Aspect ratios supported by this provider */
-  supportedAspectRatios: Array<'16:9' | '4:3' | '1:1' | '9:16' | '3:4'>;
+  supportedAspectRatios: Array<'16:9' | '4:3' | '1:1' | '9:16' | '3:4' | '21:9'>;
   /** Supported video durations in seconds */
   supportedDurations?: number[];
   /** Supported output resolutions */
-  supportedResolutions?: Array<'720p' | '1080p'>;
+  supportedResolutions?: Array<'480p' | '720p' | '1080p' | '4k'>;
   /** Maximum video duration in seconds */
   maxVideoDuration?: number;
 }
@@ -189,9 +189,9 @@ export interface VideoGenerationOptions {
   /** Desired video duration in seconds */
   duration?: number;
   /** Desired aspect ratio */
-  aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16' | '3:4';
+  aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16' | '3:4' | '21:9';
   /** Desired output resolution */
-  resolution?: '720p' | '1080p';
+  resolution?: '480p' | '720p' | '1080p' | '4k';
 }
 
 /**
@@ -233,7 +233,7 @@ export interface MediaGenerationRequest {
   /** Identifier for the target element on the canvas (e.g. "gen_img_1") */
   elementId: string;
   /** Desired aspect ratio */
-  aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16' | '3:4';
+  aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16' | '3:4' | '21:9';
   /** Optional artistic style hint */
   style?: string;
 }

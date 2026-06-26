@@ -4,22 +4,22 @@ import type {
   VideoProviderConfig,
 } from './types';
 import {
-  ZENMUX_VERTEX_BASE_URL,
+  ARK_BASE_URL,
   DOUBAO_SEEDANCE_2_MODEL_ID,
   DOUBAO_SEEDANCE_2_MODEL_NAME,
-} from '@/lib/ai/zenmux-models';
+} from '@/lib/ai/ark-models';
 
 export const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
-  'zenmux-video': {
-    id: 'zenmux-video',
-    name: 'ZenMux 视频生成',
+  'volcengine-ark-video': {
+    id: 'volcengine-ark-video',
+    name: '火山方舟视频生成',
     requiresApiKey: true,
-    defaultBaseUrl: ZENMUX_VERTEX_BASE_URL,
+    defaultBaseUrl: ARK_BASE_URL,
     models: [{ id: DOUBAO_SEEDANCE_2_MODEL_ID, name: DOUBAO_SEEDANCE_2_MODEL_NAME }],
-    supportedAspectRatios: ['16:9', '9:16', '1:1'],
-    supportedDurations: [5, 8, 10],
-    supportedResolutions: ['720p', '1080p'],
-    maxVideoDuration: 10,
+    supportedAspectRatios: ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9'],
+    supportedDurations: [-1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    supportedResolutions: ['480p', '720p', '1080p', '4k'],
+    maxVideoDuration: 15,
   },
 };
 
@@ -34,7 +34,7 @@ export function normalizeVideoOptions(
 
   if (provider.supportedDurations && provider.supportedDurations.length > 0) {
     if (!normalized.duration) {
-      normalized.duration = 8;
+      normalized.duration = 5;
     } else if (!provider.supportedDurations.includes(normalized.duration)) {
       throw new Error(`视频生成不支持该视频时长：${normalized.duration}`);
     }
@@ -51,7 +51,7 @@ export function normalizeVideoOptions(
 
   if (provider.supportedResolutions && provider.supportedResolutions.length > 0) {
     if (!normalized.resolution) {
-      normalized.resolution = '1080p';
+      normalized.resolution = '720p';
     } else if (!provider.supportedResolutions.includes(normalized.resolution)) {
       throw new Error(`视频生成不支持该视频清晰度：${normalized.resolution}`);
     }

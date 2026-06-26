@@ -86,9 +86,11 @@ function toAgentInfoList(agents: GeneratedAgentProfile[]): AgentInfo[] {
   }));
 }
 
+const DEFAULT_TTS_PROVIDER_ID = 'volcengine-doubao-tts' as const;
+
 function buildServerAvailableVoices() {
-  return TTS_PROVIDERS['bailian-tts'].voices.map((voice) => ({
-    providerId: 'bailian-tts' as const,
+  return TTS_PROVIDERS[DEFAULT_TTS_PROVIDER_ID].voices.map((voice) => ({
+    providerId: DEFAULT_TTS_PROVIDER_ID,
     voiceId: voice.id,
     voiceName: voice.name,
   }));

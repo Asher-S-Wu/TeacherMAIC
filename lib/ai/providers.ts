@@ -1,7 +1,7 @@
 /**
  * Unified AI Provider Configuration
  *
- * Text generation is fixed to the server-configured ZenMux OpenAI Chat Completions provider.
+ * Text generation is fixed to the server-configured Volcengine Ark OpenAI-compatible provider.
  */
 
 import type {
@@ -13,13 +13,13 @@ import type {
   ModelConfig,
 } from '@/lib/types/provider';
 import {
-  ZENMUX_BASE_URL,
-  KIMI_K2_7_CODE_HIGHSPEED_MODEL_ID,
-  KIMI_K2_7_CODE_HIGHSPEED_MODEL_NAME,
-} from './zenmux-models';
+  ARK_BASE_URL,
+  DOUBAO_SEED_2_1_PRO_MODEL_ID,
+  DOUBAO_SEED_2_1_PRO_MODEL_NAME,
+} from './ark-models';
 
-export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'zenmux';
-export const DEFAULT_MODEL_ID = KIMI_K2_7_CODE_HIGHSPEED_MODEL_ID;
+export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'volcengine-ark';
+export const DEFAULT_MODEL_ID = DOUBAO_SEED_2_1_PRO_MODEL_ID;
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
 
 export type { ProviderId, ProviderConfig, ModelConfig };
@@ -28,16 +28,16 @@ export type { ProviderId, ProviderConfig, ModelConfig };
 export const MONO_LOGO_PROVIDERS: ReadonlySet<string> = new Set();
 
 export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
-  zenmux: {
-    id: 'zenmux',
-    name: 'ZenMux',
+  'volcengine-ark': {
+    id: 'volcengine-ark',
+    name: '火山方舟',
     type: 'openai-chat-completions',
-    defaultBaseUrl: ZENMUX_BASE_URL,
+    defaultBaseUrl: ARK_BASE_URL,
     requiresApiKey: true,
     models: [
       {
-        id: KIMI_K2_7_CODE_HIGHSPEED_MODEL_ID,
-        name: KIMI_K2_7_CODE_HIGHSPEED_MODEL_NAME,
+        id: DOUBAO_SEED_2_1_PRO_MODEL_ID,
+        name: DOUBAO_SEED_2_1_PRO_MODEL_NAME,
         capabilities: {
           streaming: true,
           tools: true,

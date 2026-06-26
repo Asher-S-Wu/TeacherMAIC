@@ -2,6 +2,8 @@ import type { TTSProviderId } from '@/lib/audio/types';
 import type { AgentConfig } from '@/lib/orchestration/registry/types';
 import { DEFAULT_TTS_VOICES, TTS_PROVIDERS } from '@/lib/audio/constants';
 
+const DEFAULT_TTS_PROVIDER_ID: TTSProviderId = 'volcengine-doubao-tts';
+
 export interface ResolvedVoice {
   providerId: TTSProviderId;
   modelId?: string;
@@ -26,11 +28,11 @@ export function resolveAgentVoice(
   agentIndex: number,
   availableProviders: ProviderWithVoices[],
 ): ResolvedVoice {
-  if (agent.voiceConfig?.providerId === 'bailian-tts') {
-    const allVoiceIds = new Set(getServerVoiceList('bailian-tts'));
+  if (agent.voiceConfig?.providerId === DEFAULT_TTS_PROVIDER_ID) {
+    const allVoiceIds = new Set(getServerVoiceList(DEFAULT_TTS_PROVIDER_ID));
     if (allVoiceIds.has(agent.voiceConfig.voiceId)) {
       return {
-        providerId: 'bailian-tts',
+        providerId: DEFAULT_TTS_PROVIDER_ID,
         modelId: agent.voiceConfig.modelId,
         voiceId: agent.voiceConfig.voiceId,
       };
@@ -46,7 +48,10 @@ export function resolveAgentVoice(
     };
   }
 
-  return { providerId: 'bailian-tts', voiceId: DEFAULT_TTS_VOICES['bailian-tts'] };
+  return {
+    providerId: DEFAULT_TTS_PROVIDER_ID,
+    voiceId: DEFAULT_TTS_VOICES[DEFAULT_TTS_PROVIDER_ID],
+  };
 }
 
 export function getServerVoiceList(providerId: TTSProviderId): string[] {
@@ -63,8 +68,8 @@ export function getAvailableProvidersWithVoices(
     }
   >,
 ): ProviderWithVoices[] {
-  const provider = TTS_PROVIDERS['bailian-tts'];
-  const providerConfig = ttsProvidersConfig['bailian-tts'];
+  const provider = TTS_PROVIDERS[DEFAULT_TTS_PROVIDER_ID];
+  const providerConfig = ttsProvidersConfig[DEFAULT_TTS_PROVIDER_ID];
   const isServerConfigured = providerConfig?.isServerConfigured === true;
   if (!isServerConfigured) return [];
 
@@ -76,7 +81,7 @@ export function getAvailableProvidersWithVoices(
 
   return [
     {
-      providerId: 'bailian-tts',
+      providerId: DEFAULT_TTS_PROVIDER_ID,
       providerName: provider.name,
       voices,
       modelGroups: provider.models.map((model) => ({

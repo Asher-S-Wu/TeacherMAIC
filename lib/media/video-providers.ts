@@ -3,11 +3,11 @@ import type {
   VideoGenerationOptions,
   VideoGenerationResult,
 } from './types';
-import { generateWithZenMuxVideo } from './adapters/zenmux-video-adapter';
+import { generateWithArkVideo } from './adapters/ark-video-adapter';
 
 export async function generateVideo(
   config: VideoGenerationConfig,
   options: VideoGenerationOptions,
 ): Promise<VideoGenerationResult> {
-  return generateWithZenMuxVideo(config, options);
+  return generateWithArkVideo(config, options);
 }

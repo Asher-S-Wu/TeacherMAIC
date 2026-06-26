@@ -16,7 +16,7 @@ import { resolveApiKey, resolveBaseUrl } from '@/lib/server/provider-config';
 import { getCurrentUser } from '@/lib/server/auth';
 
 export interface ResolvedModel extends ModelWithInfo {
-  /** Server-configured model string (e.g. "zenmux:moonshotai/kimi-k2.7-code-highspeed") */
+  /** Server-configured model string (e.g. "volcengine-ark:doubao-seed-2-1-pro-260628") */
   modelString: string;
   /** Resolved provider ID. */
   providerId: string;

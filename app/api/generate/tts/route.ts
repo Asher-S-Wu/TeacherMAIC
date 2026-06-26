@@ -11,7 +11,7 @@ import { NextRequest } from 'next/server';
 import { generateTTS } from '@/lib/audio/tts-providers';
 import { resolveTTSApiKey, resolveTTSBaseUrl } from '@/lib/server/provider-config';
 import type { TTSProviderId } from '@/lib/audio/types';
-import { BAILIAN_TTS_MODEL_ID, TTS_PROVIDERS } from '@/lib/audio/constants';
+import { DOUBAO_AUDIO_TTS_MODEL_ID, TTS_PROVIDERS } from '@/lib/audio/constants';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const effectiveProviderId: TTSProviderId = 'bailian-tts';
+    const effectiveProviderId: TTSProviderId = 'volcengine-doubao-tts';
     const apiKey = resolveTTSApiKey(effectiveProviderId);
     const baseUrl = resolveTTSBaseUrl(effectiveProviderId);
     if (!apiKey) {
@@ -69,14 +69,14 @@ export async function POST(req: NextRequest) {
     // Build TTS config
     const config = {
       providerId: effectiveProviderId,
-      modelId: BAILIAN_TTS_MODEL_ID,
+      modelId: DOUBAO_AUDIO_TTS_MODEL_ID,
       voice: ttsVoice,
       apiKey,
       baseUrl,
     };
 
     log.info(
-      `Generating TTS: provider=bailian-tts, model=${BAILIAN_TTS_MODEL_ID}, voice=${ttsVoice}, audioId=${audioId}, textLen=${text.length}`,
+      `Generating TTS: provider=volcengine-doubao-tts, model=${DOUBAO_AUDIO_TTS_MODEL_ID}, voice=${ttsVoice}, audioId=${audioId}, textLen=${text.length}`,
     );
 
     // Generate audio
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     return apiSuccess({ audioId, file, format });
   } catch (error) {
     log.error(
-      `TTS generation failed [provider=bailian-tts, voice=${ttsVoice ?? 'unknown'}, audioId=${audioId ?? 'unknown'}]:`,
+      `TTS generation failed [provider=volcengine-doubao-tts, voice=${ttsVoice ?? 'unknown'}, audioId=${audioId ?? 'unknown'}]:`,
       error,
     );
     return apiError(

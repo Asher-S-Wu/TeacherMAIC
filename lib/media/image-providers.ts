@@ -3,11 +3,11 @@ import type {
   ImageGenerationOptions,
   ImageGenerationResult,
 } from './types';
-import { generateWithZenMuxImage } from './adapters/zenmux-image-adapter';
+import { generateWithArkImage } from './adapters/ark-image-adapter';
 
 export async function generateImage(
   config: ImageGenerationConfig,
   options: ImageGenerationOptions,
 ): Promise<ImageGenerationResult> {
-  return generateWithZenMuxImage(config, options);
+  return generateWithArkImage(config, options);
 }

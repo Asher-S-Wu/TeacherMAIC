@@ -1,9 +1,9 @@
 import { callLLM } from '@/lib/ai/llm';
 import type { ResponsesModel } from '@/lib/ai/providers';
 import {
-  GPT_IMAGE_2_MODEL_ID,
   DOUBAO_SEEDANCE_2_MODEL_ID,
-} from '@/lib/ai/zenmux-models';
+  DOUBAO_SEEDREAM_5_MODEL_ID,
+} from '@/lib/ai/ark-models';
 import {
   buildPrompt,
   PROMPT_IDS,
@@ -274,7 +274,7 @@ async function generatePreviewMedia(
 
   for (const request of requests) {
     if (request.type === 'image') {
-      const providerId = 'zenmux-image';
+      const providerId = 'volcengine-ark-image';
       const apiKey = resolveImageApiKey(providerId);
       const baseUrl = resolveImageBaseUrl(providerId);
       if (!apiKey) {
@@ -285,7 +285,7 @@ async function generatePreviewMedia(
           providerId,
           apiKey,
           baseUrl,
-          model: GPT_IMAGE_2_MODEL_ID,
+          model: DOUBAO_SEEDREAM_5_MODEL_ID,
         },
         {
           prompt: request.prompt,
@@ -303,7 +303,7 @@ async function generatePreviewMedia(
       continue;
     }
 
-    const providerId = 'zenmux-video';
+    const providerId = 'volcengine-ark-video';
     const apiKey = resolveVideoApiKey(providerId);
     const baseUrl = resolveVideoBaseUrl(providerId);
     if (!apiKey) {

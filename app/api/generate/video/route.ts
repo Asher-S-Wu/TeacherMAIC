@@ -18,10 +18,10 @@ import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
 import { saveBufferForUser, saveRemoteFileForUser } from '@/lib/server/file-storage';
-import { DOUBAO_SEEDANCE_2_MODEL_ID } from '@/lib/ai/zenmux-models';
+import { DOUBAO_SEEDANCE_2_MODEL_ID } from '@/lib/ai/ark-models';
 
 const log = createLogger('VideoGeneration API');
-const ZENMUX_VIDEO_PROVIDER_ID: VideoProviderId = 'zenmux-video';
+const ARK_VIDEO_PROVIDER_ID: VideoProviderId = 'volcengine-ark-video';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing prompt');
     }
 
-    const providerId = ZENMUX_VIDEO_PROVIDER_ID;
+    const providerId = ARK_VIDEO_PROVIDER_ID;
 
     const apiKey = resolveVideoApiKey(providerId);
     const baseUrl = resolveVideoBaseUrl(providerId);
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       return apiError('CONTENT_SENSITIVE', 400, '抱歉，该内容触发了安全检查。');
     }
     log.error(
-      `Video generation failed [provider=zenmux-video, model=${DOUBAO_SEEDANCE_2_MODEL_ID}]:`,
+      `Video generation failed [provider=volcengine-ark-video, model=${DOUBAO_SEEDANCE_2_MODEL_ID}]:`,
       error,
     );
     return apiError('INTERNAL_ERROR', 500, '视频生成失败，请稍后再试。');

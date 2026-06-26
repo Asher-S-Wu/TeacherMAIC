@@ -5,7 +5,7 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId = 'zenmux';
+export type BuiltInProviderId = 'volcengine-ark';
 
 /**
  * Provider ID

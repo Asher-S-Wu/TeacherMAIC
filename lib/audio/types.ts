@@ -1,10 +1,10 @@
 /**
  * Audio Provider Type Definitions
  *
- * TTS and ASR use Alibaba Cloud Bailian.
+ * TTS uses Volcengine Doubao Audio. ASR uses Alibaba Cloud Bailian.
  */
 
-export type BuiltInTTSProviderId = 'bailian-tts';
+export type BuiltInTTSProviderId = 'volcengine-doubao-tts';
 export type TTSProviderId = BuiltInTTSProviderId;
 
 export interface TTSVoiceInfo {

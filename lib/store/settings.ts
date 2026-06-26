@@ -12,14 +12,14 @@ import type { TTSProviderId, ASRProviderId, BuiltInTTSProviderId } from '@/lib/a
 import {
   ASR_PROVIDERS,
   BAILIAN_ASR_MODEL_ID,
-  BAILIAN_TTS_MODEL_ID,
+  DEFAULT_TTS_MODELS,
   DEFAULT_TTS_VOICES,
   TTS_PROVIDERS,
 } from '@/lib/audio/constants';
 import {
-  GPT_IMAGE_2_MODEL_ID,
   DOUBAO_SEEDANCE_2_MODEL_ID,
-} from '@/lib/ai/zenmux-models';
+  DOUBAO_SEEDREAM_5_MODEL_ID,
+} from '@/lib/ai/ark-models';
 import type { PDFProviderId } from '@/lib/pdf/types';
 import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
@@ -61,6 +61,8 @@ const accountSettingsStorage: StateStorage = {
     }
   },
 };
+
+const DEFAULT_TTS_PROVIDER_ID: TTSProviderId = 'volcengine-doubao-tts';
 
 function isValidTTSVoice(providerId: TTSProviderId, voice: string | undefined): voice is string {
   if (!voice) return false;
@@ -306,12 +308,17 @@ const getDefaultProvidersConfig = (): ProvidersConfig => {
 
 // Initialize default audio config
 const getDefaultAudioConfig = () => ({
-  ttsProviderId: 'bailian-tts' as TTSProviderId,
-  ttsVoice: DEFAULT_TTS_VOICES['bailian-tts'],
+  ttsProviderId: DEFAULT_TTS_PROVIDER_ID,
+  ttsVoice: DEFAULT_TTS_VOICES[DEFAULT_TTS_PROVIDER_ID],
   asrProviderId: 'bailian-asr' as ASRProviderId,
   asrLanguage: 'auto',
   ttsProvidersConfig: {
-    'bailian-tts': { apiKey: '', baseUrl: '', modelId: BAILIAN_TTS_MODEL_ID, enabled: true },
+    [DEFAULT_TTS_PROVIDER_ID]: {
+      apiKey: '',
+      baseUrl: '',
+      modelId: DEFAULT_TTS_MODELS[DEFAULT_TTS_PROVIDER_ID],
+      enabled: true,
+    },
   } as Record<
     TTSProviderId,
     { apiKey: string; baseUrl: string; modelId?: string; enabled: boolean }
@@ -331,19 +338,19 @@ const getDefaultPDFConfig = () => ({
 
 // Initialize default Image config
 const getDefaultImageConfig = () => ({
-  imageProviderId: 'zenmux-image' as ImageProviderId,
-  imageModelId: GPT_IMAGE_2_MODEL_ID,
+  imageProviderId: 'volcengine-ark-image' as ImageProviderId,
+  imageModelId: DOUBAO_SEEDREAM_5_MODEL_ID,
   imageProvidersConfig: {
-    'zenmux-image': { apiKey: '', baseUrl: '', enabled: false },
+    'volcengine-ark-image': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<ImageProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
 // Initialize default Video config
 const getDefaultVideoConfig = () => ({
-  videoProviderId: 'zenmux-video' as VideoProviderId,
+  videoProviderId: 'volcengine-ark-video' as VideoProviderId,
   videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID,
   videoProvidersConfig: {
-    'zenmux-video': { apiKey: '', baseUrl: '', enabled: false },
+    'volcengine-ark-video': { apiKey: '', baseUrl: '', enabled: false },
   } as Record<VideoProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -530,8 +537,9 @@ export const useSettingsStore = create<SettingsState>()(
           })),
 
         // Image Generation actions
-        setImageProvider: () => set({ imageProviderId: 'zenmux-image' as ImageProviderId }),
-        setImageModelId: () => set({ imageModelId: GPT_IMAGE_2_MODEL_ID }),
+        setImageProvider: () =>
+          set({ imageProviderId: 'volcengine-ark-image' as ImageProviderId }),
+        setImageModelId: () => set({ imageModelId: DOUBAO_SEEDREAM_5_MODEL_ID }),
 
         setImageProviderConfig: (providerId, config) =>
           set((state) => {
@@ -550,7 +558,7 @@ export const useSettingsStore = create<SettingsState>()(
           }),
 
         // Video Generation actions
-        setVideoProvider: () => set({ videoProviderId: 'zenmux-video' as VideoProviderId }),
+        setVideoProvider: () => set({ videoProviderId: 'volcengine-ark-video' as VideoProviderId }),
         setVideoModelId: () => set({ videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID }),
 
         setVideoProviderConfig: (providerId, config) =>
@@ -624,22 +632,22 @@ export const useSettingsStore = create<SettingsState>()(
 
             set((state) => {
               const newProvidersConfig = getDefaultProvidersConfig();
-              newProvidersConfig.zenmux = {
-                ...newProvidersConfig.zenmux,
+              newProvidersConfig[DEFAULT_PROVIDER_ID] = {
+                ...newProvidersConfig[DEFAULT_PROVIDER_ID],
                 apiKey: '',
-                isServerConfigured: !!data.providers.zenmux,
+                isServerConfigured: !!data.providers[DEFAULT_PROVIDER_ID],
               };
 
               const defaultAudio = getDefaultAudioConfig();
               const newTTSConfig = {
-                'bailian-tts': {
-                  ...defaultAudio.ttsProvidersConfig['bailian-tts'],
-                  enabled: state.ttsProvidersConfig['bailian-tts']?.enabled ?? true,
+                [DEFAULT_TTS_PROVIDER_ID]: {
+                  ...defaultAudio.ttsProvidersConfig[DEFAULT_TTS_PROVIDER_ID],
+                  enabled: state.ttsProvidersConfig[DEFAULT_TTS_PROVIDER_ID]?.enabled ?? true,
                   apiKey: '',
                   baseUrl: '',
-                  modelId: BAILIAN_TTS_MODEL_ID,
-                  isServerConfigured: !!data.tts['bailian-tts'],
-                  serverBaseUrl: data.tts['bailian-tts']?.baseUrl,
+                  modelId: DEFAULT_TTS_MODELS[DEFAULT_TTS_PROVIDER_ID],
+                  isServerConfigured: !!data.tts[DEFAULT_TTS_PROVIDER_ID],
+                  serverBaseUrl: data.tts[DEFAULT_TTS_PROVIDER_ID]?.baseUrl,
                 },
               } as SettingsState['ttsProvidersConfig'];
 
@@ -666,11 +674,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['pdfProvidersConfig'];
 
               const defaultImage = getDefaultImageConfig();
-              const imageServerConfig = data.image['zenmux-image'];
+              const imageServerConfig = data.image['volcengine-ark-image'];
               const newImageConfig = {
-                'zenmux-image': {
-                  ...defaultImage.imageProvidersConfig['zenmux-image'],
-                  enabled: state.imageProvidersConfig['zenmux-image']?.enabled ?? false,
+                'volcengine-ark-image': {
+                  ...defaultImage.imageProvidersConfig['volcengine-ark-image'],
+                  enabled: state.imageProvidersConfig['volcengine-ark-image']?.enabled ?? false,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!imageServerConfig,
@@ -679,11 +687,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['imageProvidersConfig'];
 
               const defaultVideo = getDefaultVideoConfig();
-              const videoServerConfig = data.video['zenmux-video'];
+              const videoServerConfig = data.video['volcengine-ark-video'];
               const newVideoConfig = {
-                'zenmux-video': {
-                  ...defaultVideo.videoProvidersConfig['zenmux-video'],
-                  enabled: state.videoProvidersConfig['zenmux-video']?.enabled ?? false,
+                'volcengine-ark-video': {
+                  ...defaultVideo.videoProvidersConfig['volcengine-ark-video'],
+                  enabled: state.videoProvidersConfig['volcengine-ark-video']?.enabled ?? false,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!videoServerConfig,
@@ -705,14 +713,15 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['webSearchProvidersConfig'];
 
               const imageGenerationEnabled =
-                state.imageGenerationEnabled && !!newImageConfig['zenmux-image'].isServerConfigured;
+                state.imageGenerationEnabled &&
+                !!newImageConfig['volcengine-ark-image'].isServerConfigured;
               const videoGenerationEnabled =
-                state.videoGenerationEnabled && !!newVideoConfig['zenmux-video'].isServerConfigured;
-              const ttsVoice = isValidTTSVoice('bailian-tts', state.ttsVoice)
+                state.videoGenerationEnabled && !!newVideoConfig['volcengine-ark-video'].isServerConfigured;
+              const ttsVoice = isValidTTSVoice(DEFAULT_TTS_PROVIDER_ID, state.ttsVoice)
                 ? state.ttsVoice
-                : DEFAULT_TTS_VOICES['bailian-tts'];
+                : DEFAULT_TTS_VOICES[DEFAULT_TTS_PROVIDER_ID];
               const ttsEnabled =
-                state.ttsEnabled && !!newTTSConfig['bailian-tts'].isServerConfigured;
+                state.ttsEnabled && !!newTTSConfig[DEFAULT_TTS_PROVIDER_ID].isServerConfigured;
 
               return {
                 providersConfig: newProvidersConfig,
@@ -724,16 +733,16 @@ export const useSettingsStore = create<SettingsState>()(
                 webSearchProvidersConfig: newWebSearchConfig,
                 providerId: DEFAULT_PROVIDER_ID,
                 modelId: DEFAULT_MODEL_ID,
-                ttsProviderId: 'bailian-tts' as TTSProviderId,
+                ttsProviderId: DEFAULT_TTS_PROVIDER_ID,
                 ttsVoice,
                 ttsEnabled,
                 asrProviderId: 'bailian-asr' as ASRProviderId,
                 asrLanguage: normalizeASRLanguage(state.asrLanguage),
                 pdfProviderId: 'mineru-cloud' as PDFProviderId,
-                imageProviderId: 'zenmux-image' as ImageProviderId,
-                imageModelId: GPT_IMAGE_2_MODEL_ID,
+                imageProviderId: 'volcengine-ark-image' as ImageProviderId,
+                imageModelId: DOUBAO_SEEDREAM_5_MODEL_ID,
                 imageGenerationEnabled,
-                videoProviderId: 'zenmux-video' as VideoProviderId,
+                videoProviderId: 'volcengine-ark-video' as VideoProviderId,
                 videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID,
                 videoGenerationEnabled,
                 webSearchProviderId: 'xcrawl' as WebSearchProviderId,
@@ -757,9 +766,9 @@ export const useSettingsStore = create<SettingsState>()(
         };
         delete persisted.thinkingConfigs;
         const merged = { ...currentState, ...persisted };
-        const ttsVoice = isValidTTSVoice('bailian-tts', persisted.ttsVoice)
+        const ttsVoice = isValidTTSVoice(DEFAULT_TTS_PROVIDER_ID, persisted.ttsVoice)
           ? persisted.ttsVoice
-          : DEFAULT_TTS_VOICES['bailian-tts'];
+          : DEFAULT_TTS_VOICES[DEFAULT_TTS_PROVIDER_ID];
         return {
           ...merged,
           providersConfig: currentState.providersConfig,
@@ -771,14 +780,14 @@ export const useSettingsStore = create<SettingsState>()(
           webSearchProvidersConfig: currentState.webSearchProvidersConfig,
           providerId: DEFAULT_PROVIDER_ID,
           modelId: DEFAULT_MODEL_ID,
-          ttsProviderId: 'bailian-tts' as TTSProviderId,
+          ttsProviderId: DEFAULT_TTS_PROVIDER_ID,
           ttsVoice,
           asrProviderId: 'bailian-asr' as ASRProviderId,
           asrLanguage: normalizeASRLanguage(persisted.asrLanguage),
           pdfProviderId: currentState.pdfProviderId,
-          imageProviderId: 'zenmux-image' as ImageProviderId,
-          imageModelId: GPT_IMAGE_2_MODEL_ID,
-          videoProviderId: 'zenmux-video' as VideoProviderId,
+          imageProviderId: 'volcengine-ark-image' as ImageProviderId,
+          imageModelId: DOUBAO_SEEDREAM_5_MODEL_ID,
+          videoProviderId: 'volcengine-ark-video' as VideoProviderId,
           videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID,
           webSearchProviderId: 'xcrawl' as WebSearchProviderId,
         } as SettingsState;

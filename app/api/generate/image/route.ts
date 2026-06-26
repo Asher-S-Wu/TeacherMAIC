@@ -19,7 +19,7 @@ import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
 import { saveBufferForUser, saveRemoteFileForUser } from '@/lib/server/file-storage';
-import { GPT_IMAGE_2_MODEL_ID } from '@/lib/ai/zenmux-models';
+import { DOUBAO_SEEDREAM_5_MODEL_ID } from '@/lib/ai/ark-models';
 
 const log = createLogger('ImageGeneration API');
 
@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing prompt');
     }
 
-    const providerId: ImageProviderId = 'zenmux-image';
-    const model = GPT_IMAGE_2_MODEL_ID;
+    const providerId: ImageProviderId = 'volcengine-ark-image';
+    const model = DOUBAO_SEEDREAM_5_MODEL_ID;
 
     const apiKey = resolveImageApiKey(providerId);
     const baseUrl = resolveImageBaseUrl(providerId);
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       return apiError('CONTENT_SENSITIVE', 400, '抱歉，该内容触发了安全检查。');
     }
     log.error(
-      `Image generation failed [provider=zenmux-image, model=${GPT_IMAGE_2_MODEL_ID}]:`,
+      `Image generation failed [provider=volcengine-ark-image, model=${DOUBAO_SEEDREAM_5_MODEL_ID}]:`,
       error,
     );
     return apiError('INTERNAL_ERROR', 500, '图片生成失败，请稍后再试。');
