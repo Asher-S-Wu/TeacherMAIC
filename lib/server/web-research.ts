@@ -10,11 +10,11 @@ import {
   WEB_SEARCH_QUERY_DIGEST_LIMIT,
 } from '@/lib/server/search-query-builder';
 import {
-  scrapeXCrawl,
-  searchXCrawl,
-  type XCrawlScrapedPage,
-  type XCrawlSearchItem,
-} from '@/lib/web-search/xcrawl';
+  searchTavily,
+  tavilyItemToResearchPage,
+  type TavilyResearchPage,
+  type TavilySearchItem,
+} from '@/lib/web-search/tavily';
 import type { WebSearchResult, WebSearchSource } from '@/lib/web-search/types';
 
 const log = createLogger('WebResearch');
@@ -87,7 +87,7 @@ function truncate(value: string, maxLength: number): string {
 }
 
 // 把候选池压成给 LLM 看的字符串摘要，受总长度上限保护
-function formatCandidatesDigest(items: XCrawlSearchItem[]): string {
+function formatCandidatesDigest(items: TavilySearchItem[]): string {
   if (items.length === 0) return '(empty)';
   const lines = items.map((item, index) => {
     const desc = item.description ? ` — ${truncate(item.description, CANDIDATE_LINE_MAX)}` : '';
@@ -97,7 +97,7 @@ function formatCandidatesDigest(items: XCrawlSearchItem[]): string {
 }
 
 // 把已抓页压成给 LLM 看的字符串摘要
-function formatScrapedDigest(pages: XCrawlScrapedPage[]): string {
+function formatScrapedDigest(pages: TavilyResearchPage[]): string {
   if (pages.length === 0) return '(empty)';
   const lines = pages.map((page, index) => {
     const body = page.summary || page.markdown;
@@ -108,7 +108,7 @@ function formatScrapedDigest(pages: XCrawlScrapedPage[]): string {
 }
 
 // 给 summarizeResearch 用的完整正文格式（与原实现一致，保留较长截断）
-function formatScrapedPages(pages: XCrawlScrapedPage[]): string {
+function formatScrapedPages(pages: TavilyResearchPage[]): string {
   return pages
     .map((page, index) => {
       const content = [
@@ -124,8 +124,8 @@ function formatScrapedPages(pages: XCrawlScrapedPage[]): string {
 }
 
 function buildSources(
-  pages: XCrawlScrapedPage[],
-  candidates: XCrawlSearchItem[],
+  pages: TavilyResearchPage[],
+  candidates: TavilySearchItem[],
 ): WebSearchSource[] {
   const candidateByUrl = new Map(candidates.map((item) => [normalizeUrlKey(item.url), item]));
 
@@ -154,10 +154,10 @@ function formatResearchContext(summary: string, sources: WebSearchSource[]): str
 
 // 合并本轮搜索结果到候选池：按 normalizeUrlKey 去重，受候选池上限约束
 function mergeCandidates(
-  pool: XCrawlSearchItem[],
-  incoming: XCrawlSearchItem[],
+  pool: TavilySearchItem[],
+  incoming: TavilySearchItem[],
   cap: number,
-): { merged: XCrawlSearchItem[]; addedCount: number } {
+): { merged: TavilySearchItem[]; addedCount: number } {
   const existingKeys = new Set(pool.map((item) => normalizeUrlKey(item.url)));
   const merged = [...pool];
   let addedCount = 0;
@@ -174,7 +174,7 @@ function mergeCandidates(
 
 // 规则函数：从本轮新增候选里取前 N 个未抓过的 URL，受总抓页预算约束
 function pickRoundUrls(
-  newCandidates: XCrawlSearchItem[],
+  newCandidates: TavilySearchItem[],
   scrapedKeys: Set<string>,
   take: number,
   remainingBudget: number,
@@ -196,7 +196,7 @@ function pickRoundUrls(
 async function summarizeResearch(params: {
   requirement: string;
   searchQuery: string;
-  pages: XCrawlScrapedPage[];
+  pages: TavilyResearchPage[];
   aiCall: AICallFn;
 }): Promise<ResearchSummaryResponse> {
   const { requirement, searchQuery, pages, aiCall } = params;
@@ -226,7 +226,7 @@ ${formatScrapedPages(pages)}`;
   return { answer, summary };
 }
 
-// 多轮 XCrawl 联网研究：搜 → 抓 → 评估，必要时换关键词再来一轮
+// 多轮 Tavily 联网研究：搜 → 读结果正文 → 评估，必要时换关键词再来一轮
 export async function runAgentDrivenWebResearch(params: {
   requirement: string;
   pdfText?: string;
@@ -274,8 +274,8 @@ export async function runAgentDrivenWebResearch(params: {
 
   // 累积状态
   const previousQueries: string[] = [];
-  let candidatePool: XCrawlSearchItem[] = [];
-  const scrapedPages: XCrawlScrapedPage[] = [];
+  let candidatePool: TavilySearchItem[] = [];
+  const scrapedPages: TavilyResearchPage[] = [];
   const scrapedKeys = new Set<string>();
   const rounds: WebResearchRound[] = [];
   let lastMissingAspects: string[] = [];
@@ -328,7 +328,7 @@ export async function runAgentDrivenWebResearch(params: {
     log.info('Running search round', { round, query, queryLength: query.length });
 
     // 2. 搜索 + 合并候选池
-    const searchItems = await searchXCrawl({
+    const searchItems = await searchTavily({
       query,
       apiKey,
       limit: searchLimitPerRound,
@@ -373,10 +373,13 @@ export async function runAgentDrivenWebResearch(params: {
       scrapePerRound,
       remainingBudget,
     );
-    const newPages: XCrawlScrapedPage[] = [];
+    const newPages: TavilyResearchPage[] = [];
     if (toScrape.length > 0) {
-      const fetched = await Promise.all(toScrape.map((url) => scrapeXCrawl({ url, apiKey })));
-      for (const page of fetched) {
+      const itemByUrl = new Map(searchItems.map((item) => [normalizeUrlKey(item.url), item]));
+      for (const url of toScrape) {
+        const item = itemByUrl.get(normalizeUrlKey(url));
+        if (!item) continue;
+        const page = tavilyItemToResearchPage(item);
         scrapedPages.push(page);
         scrapedKeys.add(normalizeUrlKey(page.finalUrl));
         newPages.push(page);

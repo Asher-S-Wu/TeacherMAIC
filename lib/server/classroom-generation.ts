@@ -207,14 +207,14 @@ export async function generateClassroom(
 
   let researchContext: string | undefined;
   if (input.enableWebSearch ?? true) {
-    const xcrawlApiKey = resolveWebSearchApiKey();
-    if (!xcrawlApiKey) {
-      throw new Error('已开启联网搜索，但 XCrawl API Key 未配置，请在 Vercel 配置 XCRAWL_API_KEY');
+    const tavilyApiKey = resolveWebSearchApiKey();
+    if (!tavilyApiKey) {
+      throw new Error('已开启联网搜索，但 Tavily API Key 未配置，请在 Vercel 配置 TAVILY_API_KEY');
     }
     const searchResult = await runAgentDrivenWebResearch({
       requirement,
       pdfText,
-      apiKey: xcrawlApiKey,
+      apiKey: tavilyApiKey,
       createAiCall: createSearchAiCall,
       onProgress: (event) => {
         if (event.phase === 'round_start') {
@@ -234,7 +234,7 @@ export async function generateClassroom(
     } else {
       researchContext = searchResult.context;
       if (researchContext) {
-        log.info(`XCrawl research returned ${searchResult.sources.length} sources`);
+        log.info(`Tavily research returned ${searchResult.sources.length} sources`);
       }
     }
   }

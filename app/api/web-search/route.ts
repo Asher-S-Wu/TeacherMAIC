@@ -2,7 +2,7 @@
  * Web Search API
  *
  * POST /api/web-search
- * Simple JSON request/response using XCrawl research.
+ * Simple JSON request/response using Tavily research.
  */
 
 import { NextRequest } from 'next/server';
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
         operation,
       );
     };
-    log.info('Running XCrawl web research API request', {
+    log.info('Running Tavily web research API request', {
       hasPdfContext: Boolean(boundedPdfText),
       rawRequirementLength: query.trim().length,
     });

@@ -1,117 +1,182 @@
 import type { ASRModelConfig } from './types';
-import { BAILIAN_ASR_MODEL_ID } from './constants';
+import {
+  DOUBAO_AUC_ASR_MODEL_ID,
+  DOUBAO_AUC_ASR_QUERY_ENDPOINT,
+  DOUBAO_AUC_ASR_RESOURCE_ID,
+  DOUBAO_AUC_ASR_SUBMIT_ENDPOINT,
+} from '@/lib/ai/doubao-audio-models';
 
 export interface ASRTranscriptionResult {
   text: string;
 }
 
-const MAX_QWEN_ASR_AUDIO_BYTES = 10 * 1024 * 1024;
+export interface ASRTranscriptionInput {
+  audioUrl: string;
+  format: string;
+}
 
-type OpenAIASRResponse = {
-  choices?: Array<{
-    message?: {
-      content?: string | Array<{ type?: string; text?: string }>;
-    };
-  }>;
-  code?: string;
+type AUCStatus = 'success' | 'processing' | 'failed';
+
+type AUCResponseBody = {
+  result?: {
+    text?: string;
+    utterances?: Array<{ text?: string }>;
+  };
   message?: string;
+  code?: string | number;
+  error?: string;
 };
 
-async function toBuffer(audioBuffer: Buffer | Blob): Promise<Buffer> {
-  return audioBuffer instanceof Blob
-    ? Buffer.from(await audioBuffer.arrayBuffer())
-    : audioBuffer;
-}
+const AUC_SUCCESS_CODE = '20000000';
+const AUC_PROCESSING_CODES = new Set(['20000001', '20000002']);
+const AUC_POLL_INTERVAL_MS = 1500;
+const AUC_TIMEOUT_MS = 120000;
 
-function endpoint(baseUrl: string): string {
-  return `${baseUrl.replace(/\/$/, '')}/chat/completions`;
-}
-
-function requireBaseUrl(baseUrl?: string): string {
-  if (!baseUrl) {
-    throw new Error('百炼语音识别暂时不可用，请稍后再试。');
+function requireApiKey(apiKey?: string): string {
+  if (!apiKey) {
+    throw new Error('豆包录音文件识别未配置 API Key，请在 Vercel 配置 VOLCENGINE_SPEECH_API_KEY。');
   }
-  return baseUrl;
+  return apiKey;
 }
 
-function resolveMimeType(config: ASRModelConfig): string {
-  return config.mimeType || 'audio/wav';
+function resolveSubmitEndpoint(baseUrl?: string): string {
+  if (!baseUrl) return DOUBAO_AUC_ASR_SUBMIT_ENDPOINT;
+  if (baseUrl.includes('/query')) return baseUrl.replace('/query', '/submit');
+  if (baseUrl.includes('/submit')) return baseUrl;
+  return DOUBAO_AUC_ASR_SUBMIT_ENDPOINT;
 }
 
-function buildAudioDataUri(buffer: Buffer, mimeType: string): string {
-  return `data:${mimeType};base64,${buffer.toString('base64')}`;
+function resolveQueryEndpoint(baseUrl?: string): string {
+  if (!baseUrl) return DOUBAO_AUC_ASR_QUERY_ENDPOINT;
+  if (baseUrl.includes('/submit')) return baseUrl.replace('/submit', '/query');
+  if (baseUrl.includes('/query')) return baseUrl;
+  return DOUBAO_AUC_ASR_QUERY_ENDPOINT;
 }
 
-function extractText(data: OpenAIASRResponse): string {
-  const content = data.choices?.[0]?.message?.content;
-  if (typeof content === 'string') return content.trim();
-  if (Array.isArray(content)) {
-    return content
-      .map((part) => part.text || '')
-      .join('')
-      .trim();
+function buildHeaders(config: ASRModelConfig, taskId: string, includeSequence: boolean): HeadersInit {
+  return {
+    'Content-Type': 'application/json',
+    'X-Api-Key': requireApiKey(config.apiKey),
+    'X-Api-Resource-Id': config.modelId || DOUBAO_AUC_ASR_RESOURCE_ID,
+    'X-Api-Request-Id': taskId,
+    ...(includeSequence ? { 'X-Api-Sequence': '-1' } : {}),
+  };
+}
+
+function readStatus(response: Response, body?: AUCResponseBody): { status: AUCStatus; code: string; message: string } {
+  const code = response.headers.get('X-Api-Status-Code') || String(body?.code || '');
+  const message = response.headers.get('X-Api-Message') || body?.message || body?.error || response.statusText;
+
+  if (code === AUC_SUCCESS_CODE) return { status: 'success', code, message };
+  if (AUC_PROCESSING_CODES.has(code)) return { status: 'processing', code, message };
+  return { status: 'failed', code: code || String(response.status), message };
+}
+
+function extractText(body: AUCResponseBody): string {
+  const text = body.result?.text?.trim();
+  if (text) return text;
+
+  return (body.result?.utterances || [])
+    .map((utterance) => utterance.text || '')
+    .join('')
+    .trim();
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function parseJsonResponse(response: Response): Promise<AUCResponseBody> {
+  const text = await response.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text) as AUCResponseBody;
+  } catch {
+    throw new Error(`豆包录音文件识别返回了非 JSON 内容：${text.slice(0, 200)}`);
   }
-  return '';
 }
 
-export async function transcribeAudio(
+async function submitTask(
   config: ASRModelConfig,
-  audioBuffer: Buffer | Blob,
-): Promise<ASRTranscriptionResult> {
-  if (!config.apiKey) {
-    throw new Error('百炼语音识别未配置 API Key，请在 Vercel 配置 DASHSCOPE_API_KEY。');
-  }
-
-  const buffer = await toBuffer(audioBuffer);
-  if (buffer.length > MAX_QWEN_ASR_AUDIO_BYTES) {
-    throw new Error('百炼语音识别单次音频不能超过 10MB。');
-  }
-
-  const mimeType = resolveMimeType(config);
-  const baseUrl = requireBaseUrl(config.baseUrl);
-
-  const response = await fetch(endpoint(baseUrl), {
+  input: ASRTranscriptionInput,
+  taskId: string,
+): Promise<void> {
+  const response = await fetch(resolveSubmitEndpoint(config.baseUrl), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.apiKey}`,
-    },
+    headers: buildHeaders(config, taskId, true),
     body: JSON.stringify({
-      model: config.modelId || BAILIAN_ASR_MODEL_ID,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'input_audio',
-              input_audio: {
-                data: buildAudioDataUri(buffer, mimeType),
-              },
-            },
-          ],
-        },
-      ],
-      asr_options: {
-        enable_itn: false,
+      user: {
+        uid: config.metadataUserId || 'anonymous',
+      },
+      audio: {
+        url: input.audioUrl,
+        format: input.format,
         ...(config.language && config.language !== 'auto' ? { language: config.language } : {}),
+      },
+      request: {
+        model_name: 'bigmodel',
+        enable_itn: true,
+        enable_punc: true,
+        show_utterances: true,
       },
     }),
   });
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => response.statusText);
-    throw new Error(`百炼语音识别失败（${response.status}）：${errorText}`);
+  const body = await parseJsonResponse(response);
+  const status = readStatus(response, body);
+  if (!response.ok || status.status !== 'success') {
+    throw new Error(`豆包录音文件识别任务提交失败（${status.code}）：${status.message}`);
+  }
+}
+
+async function queryTask(config: ASRModelConfig, taskId: string): Promise<{ done: boolean; text?: string }> {
+  const response = await fetch(resolveQueryEndpoint(config.baseUrl), {
+    method: 'POST',
+    headers: buildHeaders(config, taskId, false),
+    body: JSON.stringify({}),
+  });
+
+  const body = await parseJsonResponse(response);
+  const status = readStatus(response, body);
+
+  if (status.status === 'processing') {
+    return { done: false };
   }
 
-  const data = (await response.json()) as OpenAIASRResponse;
-  if (data.code) {
-    throw new Error(`百炼语音识别失败：${data.message || data.code}`);
+  if (!response.ok || status.status !== 'success') {
+    throw new Error(`豆包录音文件识别结果查询失败（${status.code}）：${status.message}`);
   }
 
-  const text = extractText(data);
+  const text = extractText(body);
   if (!text) {
-    throw new Error(`百炼语音识别没有返回转写文字：${JSON.stringify(data)}`);
+    throw new Error(`豆包录音文件识别没有返回转写文字：${JSON.stringify(body)}`);
+  }
+  return { done: true, text };
+}
+
+export async function transcribeAudio(
+  config: ASRModelConfig,
+  input: ASRTranscriptionInput,
+): Promise<ASRTranscriptionResult> {
+  const taskId = crypto.randomUUID();
+  const startedAt = Date.now();
+
+  await submitTask(
+    {
+      ...config,
+      modelId: config.modelId || DOUBAO_AUC_ASR_MODEL_ID,
+    },
+    input,
+    taskId,
+  );
+
+  while (Date.now() - startedAt < AUC_TIMEOUT_MS) {
+    await sleep(AUC_POLL_INTERVAL_MS);
+    const result = await queryTask(config, taskId);
+    if (result.done) {
+      return { text: result.text || '' };
+    }
   }
 
-  return { text };
+  throw new Error('豆包录音文件识别超时，请稍后重试。');
 }

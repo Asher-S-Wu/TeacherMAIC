@@ -32,7 +32,12 @@ import {
 import type { SceneOutline } from '@/lib/types/generation';
 import type { Scene } from '@/lib/types/stage';
 import type { SpeechAction } from '@/lib/types/action';
-import type { ImageProviderId, VideoGenerationOptions, VideoProviderId } from '@/lib/media/types';
+import type {
+  ImageGenerationOptions,
+  ImageProviderId,
+  VideoGenerationOptions,
+  VideoProviderId,
+} from '@/lib/media/types';
 import type { TTSProviderId } from '@/lib/audio/types';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
 
@@ -46,6 +51,13 @@ function audioMimeType(format: string): string {
   if (format === 'mp3') return 'audio/mpeg';
   if (format === 'ogg_opus') return 'audio/ogg';
   return `audio/${format}`;
+}
+
+function resolveImageAspectRatio(
+  aspectRatio: VideoGenerationOptions['aspectRatio'] | undefined,
+): ImageGenerationOptions['aspectRatio'] {
+  if (aspectRatio && aspectRatio !== '21:9') return aspectRatio;
+  return '16:9';
 }
 
 // ---------------------------------------------------------------------------
@@ -91,7 +103,7 @@ export async function generateMediaForClassroom(
 
       const result = await generateImage(
         { providerId, apiKey, baseUrl, model },
-        { prompt: req.prompt, aspectRatio: req.aspectRatio || '16:9' },
+        { prompt: req.prompt, aspectRatio: resolveImageAspectRatio(req.aspectRatio) },
       );
 
       let saved: Awaited<ReturnType<typeof saveBufferForUser>>;

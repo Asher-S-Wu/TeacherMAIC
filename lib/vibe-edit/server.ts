@@ -27,7 +27,7 @@ import type { VibeEditDraft, VibeEditMessage } from '@/lib/types/vibe-edit';
 import { generateImage } from '@/lib/media/image-providers';
 import { generateVideo } from '@/lib/media/video-providers';
 import { normalizeVideoOptions } from '@/lib/media/video-constants';
-import type { MediaGenerationRequest } from '@/lib/media/types';
+import type { ImageGenerationOptions, MediaGenerationRequest } from '@/lib/media/types';
 import {
   resolveImageApiKey,
   resolveImageBaseUrl,
@@ -267,6 +267,13 @@ function buildPreviewScene(scene: Scene, mediaMap: Record<string, string>): Scen
   };
 }
 
+function resolveImageAspectRatio(
+  aspectRatio: MediaGenerationRequest['aspectRatio'],
+): ImageGenerationOptions['aspectRatio'] {
+  if (aspectRatio && aspectRatio !== '21:9') return aspectRatio;
+  return '16:9';
+}
+
 async function generatePreviewMedia(
   requests: MediaGenerationRequest[],
 ): Promise<Record<string, string>> {
@@ -289,7 +296,7 @@ async function generatePreviewMedia(
         },
         {
           prompt: request.prompt,
-          aspectRatio: request.aspectRatio,
+          aspectRatio: resolveImageAspectRatio(request.aspectRatio),
           style: request.style,
         },
       );

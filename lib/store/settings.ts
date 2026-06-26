@@ -11,7 +11,7 @@ import { DEFAULT_MODEL_ID, DEFAULT_PROVIDER_ID, PROVIDERS } from '@/lib/ai/provi
 import type { TTSProviderId, ASRProviderId, BuiltInTTSProviderId } from '@/lib/audio/types';
 import {
   ASR_PROVIDERS,
-  BAILIAN_ASR_MODEL_ID,
+  DOUBAO_AUC_ASR_MODEL_ID,
   DEFAULT_TTS_MODELS,
   DEFAULT_TTS_VOICES,
   TTS_PROVIDERS,
@@ -63,6 +63,8 @@ const accountSettingsStorage: StateStorage = {
 };
 
 const DEFAULT_TTS_PROVIDER_ID: TTSProviderId = 'volcengine-doubao-tts';
+const DEFAULT_ASR_PROVIDER_ID: ASRProviderId = 'volcengine-doubao-auc-asr';
+const DEFAULT_WEB_SEARCH_PROVIDER_ID: WebSearchProviderId = 'tavily';
 
 function isValidTTSVoice(providerId: TTSProviderId, voice: string | undefined): voice is string {
   if (!voice) return false;
@@ -70,7 +72,7 @@ function isValidTTSVoice(providerId: TTSProviderId, voice: string | undefined): 
 }
 
 function normalizeASRLanguage(language: string | undefined): string {
-  const supportedLanguages = ASR_PROVIDERS['bailian-asr'].supportedLanguages;
+  const supportedLanguages = ASR_PROVIDERS[DEFAULT_ASR_PROVIDER_ID].supportedLanguages;
   return language && supportedLanguages.includes(language) ? language : 'auto';
 }
 
@@ -310,7 +312,7 @@ const getDefaultProvidersConfig = (): ProvidersConfig => {
 const getDefaultAudioConfig = () => ({
   ttsProviderId: DEFAULT_TTS_PROVIDER_ID,
   ttsVoice: DEFAULT_TTS_VOICES[DEFAULT_TTS_PROVIDER_ID],
-  asrProviderId: 'bailian-asr' as ASRProviderId,
+  asrProviderId: DEFAULT_ASR_PROVIDER_ID,
   asrLanguage: 'auto',
   ttsProvidersConfig: {
     [DEFAULT_TTS_PROVIDER_ID]: {
@@ -324,7 +326,7 @@ const getDefaultAudioConfig = () => ({
     { apiKey: string; baseUrl: string; modelId?: string; enabled: boolean }
   >,
   asrProvidersConfig: {
-    'bailian-asr': { apiKey: '', baseUrl: '', modelId: BAILIAN_ASR_MODEL_ID, enabled: true },
+    [DEFAULT_ASR_PROVIDER_ID]: { apiKey: '', baseUrl: '', modelId: DOUBAO_AUC_ASR_MODEL_ID, enabled: true },
   } as Record<ASRProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -356,9 +358,9 @@ const getDefaultVideoConfig = () => ({
 
 // Initialize default Web Search config
 const getDefaultWebSearchConfig = () => ({
-  webSearchProviderId: 'xcrawl' as WebSearchProviderId,
+  webSearchProviderId: DEFAULT_WEB_SEARCH_PROVIDER_ID,
   webSearchProvidersConfig: {
-    xcrawl: { apiKey: '', baseUrl: '', enabled: true },
+    [DEFAULT_WEB_SEARCH_PROVIDER_ID]: { apiKey: '', baseUrl: '', enabled: true },
   } as Record<WebSearchProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
@@ -651,15 +653,16 @@ export const useSettingsStore = create<SettingsState>()(
                 },
               } as SettingsState['ttsProvidersConfig'];
 
+              const asrServerConfig = data.asr[DEFAULT_ASR_PROVIDER_ID];
               const newASRConfig = {
-                'bailian-asr': {
-                  ...defaultAudio.asrProvidersConfig['bailian-asr'],
-                  enabled: state.asrProvidersConfig['bailian-asr']?.enabled ?? true,
+                [DEFAULT_ASR_PROVIDER_ID]: {
+                  ...defaultAudio.asrProvidersConfig[DEFAULT_ASR_PROVIDER_ID],
+                  enabled: state.asrProvidersConfig[DEFAULT_ASR_PROVIDER_ID]?.enabled ?? true,
                   apiKey: '',
                   baseUrl: '',
-                  modelId: BAILIAN_ASR_MODEL_ID,
-                  isServerConfigured: !!data.asr['bailian-asr'],
-                  serverBaseUrl: data.asr['bailian-asr']?.baseUrl,
+                  modelId: DOUBAO_AUC_ASR_MODEL_ID,
+                  isServerConfigured: !!asrServerConfig,
+                  serverBaseUrl: asrServerConfig?.baseUrl,
                 },
               } as SettingsState['asrProvidersConfig'];
 
@@ -700,11 +703,11 @@ export const useSettingsStore = create<SettingsState>()(
               } as SettingsState['videoProvidersConfig'];
 
               const defaultWebSearch = getDefaultWebSearchConfig();
-              const webSearchServerConfig = data.webSearch.xcrawl;
+              const webSearchServerConfig = data.webSearch[DEFAULT_WEB_SEARCH_PROVIDER_ID];
               const newWebSearchConfig = {
-                xcrawl: {
-                  ...defaultWebSearch.webSearchProvidersConfig.xcrawl,
-                  enabled: state.webSearchProvidersConfig.xcrawl?.enabled ?? true,
+                [DEFAULT_WEB_SEARCH_PROVIDER_ID]: {
+                  ...defaultWebSearch.webSearchProvidersConfig[DEFAULT_WEB_SEARCH_PROVIDER_ID],
+                  enabled: state.webSearchProvidersConfig[DEFAULT_WEB_SEARCH_PROVIDER_ID]?.enabled ?? true,
                   apiKey: '',
                   baseUrl: '',
                   isServerConfigured: !!webSearchServerConfig,
@@ -736,7 +739,7 @@ export const useSettingsStore = create<SettingsState>()(
                 ttsProviderId: DEFAULT_TTS_PROVIDER_ID,
                 ttsVoice,
                 ttsEnabled,
-                asrProviderId: 'bailian-asr' as ASRProviderId,
+                asrProviderId: DEFAULT_ASR_PROVIDER_ID,
                 asrLanguage: normalizeASRLanguage(state.asrLanguage),
                 pdfProviderId: 'mineru-cloud' as PDFProviderId,
                 imageProviderId: 'volcengine-ark-image' as ImageProviderId,
@@ -745,7 +748,7 @@ export const useSettingsStore = create<SettingsState>()(
                 videoProviderId: 'volcengine-ark-video' as VideoProviderId,
                 videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID,
                 videoGenerationEnabled,
-                webSearchProviderId: 'xcrawl' as WebSearchProviderId,
+                webSearchProviderId: DEFAULT_WEB_SEARCH_PROVIDER_ID,
               };
             });
           } catch (e) {
@@ -782,14 +785,14 @@ export const useSettingsStore = create<SettingsState>()(
           modelId: DEFAULT_MODEL_ID,
           ttsProviderId: DEFAULT_TTS_PROVIDER_ID,
           ttsVoice,
-          asrProviderId: 'bailian-asr' as ASRProviderId,
+          asrProviderId: DEFAULT_ASR_PROVIDER_ID,
           asrLanguage: normalizeASRLanguage(persisted.asrLanguage),
           pdfProviderId: currentState.pdfProviderId,
           imageProviderId: 'volcengine-ark-image' as ImageProviderId,
           imageModelId: DOUBAO_SEEDREAM_5_MODEL_ID,
           videoProviderId: 'volcengine-ark-video' as VideoProviderId,
           videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID,
-          webSearchProviderId: 'xcrawl' as WebSearchProviderId,
+          webSearchProviderId: DEFAULT_WEB_SEARCH_PROVIDER_ID,
         } as SettingsState;
       },
     },

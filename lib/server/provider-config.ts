@@ -6,10 +6,7 @@
  */
 
 import { createLogger } from '@/lib/logger';
-import {
-  buildBailianCompatibleBaseUrl,
-} from '@/lib/ai/bailian-models';
-import { DOUBAO_AUDIO_TTS_ENDPOINT } from '@/lib/ai/doubao-audio-models';
+import { DOUBAO_AUDIO_TTS_ENDPOINT, DOUBAO_AUC_ASR_QUERY_ENDPOINT } from '@/lib/ai/doubao-audio-models';
 import { ARK_BASE_URL } from '@/lib/ai/ark-models';
 
 const log = createLogger('ServerProviderConfig');
@@ -39,9 +36,8 @@ interface ServerConfig {
 // ---------------------------------------------------------------------------
 
 const ARK_API_KEY_ENV = 'ARK_API_KEY';
-const DASHSCOPE_API_KEY_ENV = 'DASHSCOPE_API_KEY';
 const VOLCENGINE_SPEECH_API_KEY_ENV = 'VOLCENGINE_SPEECH_API_KEY';
-const XCRAWL_API_KEY_ENV = 'XCRAWL_API_KEY';
+const TAVILY_API_KEY_ENV = 'TAVILY_API_KEY';
 
 const PDF_ENV_MAP: Record<string, string> = {
   PDF_MINERU_CLOUD: 'mineru-cloud',
@@ -84,16 +80,13 @@ function loadArkSection(
   };
 }
 
-function loadBailianSection(
-  providerId: string,
-  buildBaseUrl: () => string,
-): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[DASHSCOPE_API_KEY_ENV] || undefined;
+function loadVolcengineASRSection(): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[VOLCENGINE_SPEECH_API_KEY_ENV] || undefined;
   if (!apiKey) return {};
   return {
-    [providerId]: {
+    'volcengine-doubao-auc-asr': {
       apiKey,
-      baseUrl: buildBaseUrl(),
+      baseUrl: DOUBAO_AUC_ASR_QUERY_ENDPOINT,
     },
   };
 }
@@ -109,9 +102,9 @@ function loadVolcengineSpeechSection(): Record<string, ServerProviderEntry> {
   };
 }
 
-function loadXCrawlSection(): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[XCRAWL_API_KEY_ENV] || undefined;
-  return apiKey ? { xcrawl: { apiKey } } : {};
+function loadTavilySection(): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[TAVILY_API_KEY_ENV] || undefined;
+  return apiKey ? { tavily: { apiKey, baseUrl: 'https://api.tavily.com/search' } } : {};
 }
 
 // ---------------------------------------------------------------------------
@@ -124,11 +117,11 @@ function buildConfig(): ServerConfig {
   return {
     providers: loadLLMEnvSection(),
     tts: loadVolcengineSpeechSection(),
-    asr: loadBailianSection('bailian-asr', buildBailianCompatibleBaseUrl),
+    asr: loadVolcengineASRSection(),
     pdf: loadEnvSection(PDF_ENV_MAP),
     image: loadArkSection('volcengine-ark-image', ARK_BASE_URL),
     video: loadArkSection('volcengine-ark-video', ARK_BASE_URL),
-    webSearch: loadXCrawlSection(),
+    webSearch: loadTavilySection(),
   };
 }
 
@@ -310,5 +303,5 @@ export function getServerWebSearchProviders(): Record<string, { baseUrl?: string
 }
 
 export function resolveWebSearchApiKey(): string {
-  return getConfig().webSearch.xcrawl?.apiKey || '';
+  return getConfig().webSearch.tavily?.apiKey || '';
 }

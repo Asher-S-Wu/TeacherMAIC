@@ -1,7 +1,7 @@
 /**
  * Unified LLM Call Layer
  *
- * Text generation uses ZenMux through the OpenAI-compatible Chat Completions API.
+ * Text generation uses Volcengine Ark through the OpenAI-compatible Chat Completions API.
  */
 
 import OpenAI from 'openai';

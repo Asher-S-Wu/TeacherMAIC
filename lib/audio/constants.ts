@@ -7,79 +7,72 @@ import type {
   ASRProviderConfig,
 } from './types';
 import {
-  BAILIAN_ASR_MODEL_ID,
-  BAILIAN_ASR_MODEL_NAME,
-  BAILIAN_COMPATIBLE_BASE_URL_TEMPLATE,
-} from '@/lib/ai/bailian-models';
-import {
   DOUBAO_AUDIO_TTS_ENDPOINT,
   DOUBAO_AUDIO_TTS_MODEL_ID,
   DOUBAO_AUDIO_TTS_MODEL_NAME,
+  DOUBAO_AUC_ASR_QUERY_ENDPOINT,
+  DOUBAO_AUC_ASR_MODEL_ID,
+  DOUBAO_AUC_ASR_MODEL_NAME,
 } from '@/lib/ai/doubao-audio-models';
 
-export { BAILIAN_ASR_MODEL_ID };
-export { DOUBAO_AUDIO_TTS_MODEL_ID };
+export { DOUBAO_AUDIO_TTS_MODEL_ID, DOUBAO_AUC_ASR_MODEL_ID };
 
-export const BAILIAN_ASR_LANGUAGES = [
+export const DOUBAO_AUC_ASR_LANGUAGES = [
   'auto',
-  'zh',
-  'en',
-  'yue',
-  'ja',
-  'ko',
-  'de',
-  'fr',
-  'ru',
-  'es',
-  'pt',
-  'ar',
-  'it',
-  'id',
-  'hi',
-  'th',
-  'tr',
-  'uk',
-  'vi',
-  'cs',
-  'da',
-  'fil',
-  'fi',
-  'is',
-  'ms',
-  'no',
-  'pl',
-  'sv',
+  'zh-CN',
+  'en-US',
+  'ja-JP',
+  'id-ID',
+  'es-MX',
+  'pt-BR',
+  'de-DE',
+  'fr-FR',
+  'ko-KR',
+  'fil-PH',
+  'ms-MY',
+  'th-TH',
+  'ar-SA',
+  'it-IT',
+  'bn-BD',
+  'el-GR',
+  'nl-NL',
+  'ru-RU',
+  'tr-TR',
+  'vi-VN',
+  'pl-PL',
+  'ro-RO',
+  'ne-NP',
+  'uk-UA',
+  'yue-CN',
 ];
 
-export const BAILIAN_ASR_LANGUAGE_NAMES: Record<string, string> = {
+export const DOUBAO_AUC_ASR_LANGUAGE_NAMES: Record<string, string> = {
   auto: '自动识别',
-  zh: '中文普通话',
-  en: '英语',
-  yue: '粤语',
-  ja: '日语',
-  ko: '韩语',
-  de: '德语',
-  fr: '法语',
-  ru: '俄语',
-  es: '西班牙语',
-  pt: '葡萄牙语',
-  ar: '阿拉伯语',
-  it: '意大利语',
-  id: '印尼语',
-  hi: '印地语',
-  th: '泰语',
-  tr: '土耳其语',
-  uk: '乌克兰语',
-  vi: '越南语',
-  cs: '捷克语',
-  da: '丹麦语',
-  fil: '菲律宾语',
-  fi: '芬兰语',
-  is: '冰岛语',
-  ms: '马来语',
-  no: '挪威语',
-  pl: '波兰语',
-  sv: '瑞典语',
+  'zh-CN': '中文普通话',
+  'en-US': '英语',
+  'ja-JP': '日语',
+  'id-ID': '印尼语',
+  'es-MX': '西班牙语',
+  'pt-BR': '葡萄牙语',
+  'de-DE': '德语',
+  'fr-FR': '法语',
+  'ko-KR': '韩语',
+  'fil-PH': '菲律宾语',
+  'ms-MY': '马来语',
+  'th-TH': '泰语',
+  'ar-SA': '阿拉伯语',
+  'it-IT': '意大利语',
+  'bn-BD': '孟加拉语',
+  'el-GR': '希腊语',
+  'nl-NL': '荷兰语',
+  'ru-RU': '俄语',
+  'tr-TR': '土耳其语',
+  'vi-VN': '越南语',
+  'pl-PL': '波兰语',
+  'ro-RO': '罗马尼亚语',
+  'ne-NP': '尼泊尔语',
+  'uk-UA': '乌克兰语',
+  'yue-CN': '粤语',
 };
 
 function doubaoTTSVoice(
@@ -117,15 +110,15 @@ export const TTS_PROVIDERS: Record<BuiltInTTSProviderId, TTSProviderConfig> = {
 };
 
 export const ASR_PROVIDERS: Record<BuiltInASRProviderId, ASRProviderConfig> = {
-  'bailian-asr': {
-    id: 'bailian-asr',
-    name: '百炼语音识别',
+  'volcengine-doubao-auc-asr': {
+    id: 'volcengine-doubao-auc-asr',
+    name: '火山豆包录音文件识别',
     requiresApiKey: true,
-    defaultBaseUrl: BAILIAN_COMPATIBLE_BASE_URL_TEMPLATE,
-    models: [{ id: BAILIAN_ASR_MODEL_ID, name: BAILIAN_ASR_MODEL_NAME }],
-    defaultModelId: BAILIAN_ASR_MODEL_ID,
-    supportedLanguages: BAILIAN_ASR_LANGUAGES,
-    supportedFormats: ['wav', 'mp3', 'm4a', 'ogg', 'flac'],
+    defaultBaseUrl: DOUBAO_AUC_ASR_QUERY_ENDPOINT,
+    models: [{ id: DOUBAO_AUC_ASR_MODEL_ID, name: DOUBAO_AUC_ASR_MODEL_NAME }],
+    defaultModelId: DOUBAO_AUC_ASR_MODEL_ID,
+    supportedLanguages: DOUBAO_AUC_ASR_LANGUAGES,
+    supportedFormats: ['wav', 'mp3', 'ogg'],
   },
 };
 
@@ -146,5 +139,5 @@ export function getASRSupportedLanguages(providerId: ASRProviderId): string[] {
 }
 
 export function getASRLanguageName(language: string): string {
-  return BAILIAN_ASR_LANGUAGE_NAMES[language] || language;
+  return DOUBAO_AUC_ASR_LANGUAGE_NAMES[language] || language;
 }

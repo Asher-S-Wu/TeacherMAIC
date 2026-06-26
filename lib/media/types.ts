@@ -7,7 +7,7 @@
  * - Volcengine Ark Image
  *
  * Currently Supported Video Providers:
- * - ZenMux Doubao Seedance
+ * - Volcengine Ark Video
  *
  */
 
