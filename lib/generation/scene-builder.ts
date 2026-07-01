@@ -16,43 +16,6 @@ import type { Scene } from '@/lib/types/stage';
 import type { Action } from '@/lib/types/action';
 
 /**
- * Replace sequential gen_img_N / gen_vid_N IDs in outlines with globally unique IDs.
- *
- * The LLM generates sequential placeholder IDs (gen_img_1, gen_img_2, ...) which are
- * only unique within a single course. Since the media store uses elementId as key
- * without stageId scoping, identical IDs across different courses cause thumbnail
- * contamination on the homepage. Using nanoid-based IDs ensures global uniqueness.
- */
-export function uniquifyMediaElementIds(outlines: SceneOutline[]): SceneOutline[] {
-  const idMap = new Map<string, string>();
-
-  // First pass: collect all sequential media IDs and assign unique replacements
-  for (const outline of outlines) {
-    if (!outline.mediaGenerations) continue;
-    for (const mg of outline.mediaGenerations) {
-      if (!idMap.has(mg.elementId)) {
-        const prefix = mg.type === 'video' ? 'gen_vid_' : 'gen_img_';
-        idMap.set(mg.elementId, `${prefix}${nanoid(8)}`);
-      }
-    }
-  }
-
-  if (idMap.size === 0) return outlines;
-
-  // Second pass: replace IDs in mediaGenerations
-  return outlines.map((outline) => {
-    if (!outline.mediaGenerations) return outline;
-    return {
-      ...outline,
-      mediaGenerations: outline.mediaGenerations.map((mg) => ({
-        ...mg,
-        elementId: idMap.get(mg.elementId) || mg.elementId,
-      })),
-    };
-  });
-}
-
-/**
  * Build complete Scene object (without API/store)
  */
 export function buildCompleteScene(

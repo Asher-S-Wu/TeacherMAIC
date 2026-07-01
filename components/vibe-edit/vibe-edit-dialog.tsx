@@ -50,8 +50,6 @@ export function VibeEditDialog({
   const outlines = useStageStore((state) => state.outlines);
   const stageLanguageDirective = useStageStore((state) => state.stage?.languageDirective);
   const ttsEnabled = useSettingsStore((state) => state.ttsEnabled);
-  const imageGenerationEnabled = useSettingsStore((state) => state.imageGenerationEnabled);
-  const videoGenerationEnabled = useSettingsStore((state) => state.videoGenerationEnabled);
   const selectedAgentIds = useSettingsStore((state) => state.selectedAgentIds);
   const agentsRecord = useAgentRegistry((state) => state.agents);
   const userBio = useUserProfileStore((state) => state.bio);
@@ -121,8 +119,6 @@ export function VibeEditDialog({
           agents,
           userProfile: userBio,
           languageDirective: stageLanguageDirective,
-          allowImageGeneration: imageGenerationEnabled,
-          allowVideoGeneration: videoGenerationEnabled,
         }),
       });
       const data = (await response.json()) as
@@ -159,7 +155,6 @@ export function VibeEditDialog({
           sceneId: draft.scene.id,
           outline: draft.outline,
           scene: draft.scene,
-          mediaMap: draft.previewMediaMap,
           ttsEnabled,
         }),
       });
@@ -256,7 +251,7 @@ export function VibeEditDialog({
           <div className="flex min-h-0 flex-col bg-white dark:bg-slate-950">
             <div className="border-b border-slate-200 px-5 py-3 dark:border-slate-800">
               <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                {draft?.previewScene.title || scene.title}
+                {draft?.scene.title || scene.title}
               </div>
               <div className="mt-0.5 text-xs text-slate-400">
                 {draft ? '这是改完后的样子' : '还没有新预览'}
@@ -269,7 +264,7 @@ export function VibeEditDialog({
             </div>
             <div className="min-h-0 flex-1">
               {draft ? (
-                <VibePreview scene={draft.previewScene} />
+                <VibePreview scene={draft.scene} />
               ) : (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-400">
                   先在左侧说出你的修改要求，这里会显示改完后的页面。

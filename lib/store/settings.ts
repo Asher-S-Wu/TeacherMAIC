@@ -8,20 +8,13 @@ import { createJSONStorage, persist, type StateStorage } from 'zustand/middlewar
 import type { ProviderId } from '@/lib/ai/providers';
 import type { ProvidersConfig } from '@/lib/types/settings';
 import { DEFAULT_MODEL_ID, DEFAULT_PROVIDER_ID, PROVIDERS } from '@/lib/ai/providers';
-import type { TTSProviderId, ASRProviderId, BuiltInTTSProviderId } from '@/lib/audio/types';
+import type { TTSProviderId, BuiltInTTSProviderId } from '@/lib/audio/types';
 import {
-  ASR_PROVIDERS,
-  DOUBAO_AUC_ASR_MODEL_ID,
   DEFAULT_TTS_MODELS,
   DEFAULT_TTS_VOICES,
   TTS_PROVIDERS,
 } from '@/lib/audio/constants';
-import {
-  DOUBAO_SEEDANCE_2_MODEL_ID,
-  DOUBAO_SEEDREAM_5_MODEL_ID,
-} from '@/lib/ai/ark-models';
 import type { PDFProviderId } from '@/lib/pdf/types';
-import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
 import { createLogger } from '@/lib/logger';
 
@@ -63,17 +56,11 @@ const accountSettingsStorage: StateStorage = {
 };
 
 const DEFAULT_TTS_PROVIDER_ID: TTSProviderId = 'volcengine-doubao-tts';
-const DEFAULT_ASR_PROVIDER_ID: ASRProviderId = 'volcengine-doubao-auc-asr';
 const DEFAULT_WEB_SEARCH_PROVIDER_ID: WebSearchProviderId = 'tavily';
 
 function isValidTTSVoice(providerId: TTSProviderId, voice: string | undefined): voice is string {
   if (!voice) return false;
   return TTS_PROVIDERS[providerId]?.voices.some((item) => item.id === voice) ?? false;
-}
-
-function normalizeASRLanguage(language: string | undefined): string {
-  const supportedLanguages = ASR_PROVIDERS[DEFAULT_ASR_PROVIDER_ID].supportedLanguages;
-  return language && supportedLanguages.includes(language) ? language : 'auto';
 }
 
 /** Available playback speed tiers */
@@ -91,26 +78,10 @@ export interface SettingsState {
   // Audio settings
   ttsProviderId: TTSProviderId;
   ttsVoice: string;
-  asrProviderId: ASRProviderId;
-  asrLanguage: string;
 
   // Audio provider configurations
   ttsProvidersConfig: Record<
     TTSProviderId,
-    {
-      apiKey: string;
-      baseUrl: string;
-      enabled: boolean;
-      modelId?: string;
-      isServerConfigured?: boolean;
-      serverBaseUrl?: string;
-      isBuiltIn?: boolean;
-      requiresApiKey?: boolean;
-    }
-  >;
-
-  asrProvidersConfig: Record<
-    ASRProviderId,
     {
       apiKey: string;
       baseUrl: string;
@@ -134,38 +105,6 @@ export interface SettingsState {
     }
   >;
 
-  // Image Generation settings
-  imageProviderId: ImageProviderId;
-  imageModelId: string;
-  imageProvidersConfig: Record<
-    ImageProviderId,
-    {
-      apiKey: string;
-      baseUrl: string;
-      enabled: boolean;
-      isServerConfigured?: boolean;
-      serverBaseUrl?: string;
-    }
-  >;
-
-  // Video Generation settings
-  videoProviderId: VideoProviderId;
-  videoModelId: string;
-  videoProvidersConfig: Record<
-    VideoProviderId,
-    {
-      apiKey: string;
-      baseUrl: string;
-      enabled: boolean;
-      isServerConfigured?: boolean;
-      serverBaseUrl?: string;
-    }
-  >;
-
-  // Media generation toggles
-  imageGenerationEnabled: boolean;
-  videoGenerationEnabled: boolean;
-
   // Web Search settings
   webSearchProviderId: WebSearchProviderId;
   webSearchProvidersConfig: Record<
@@ -179,9 +118,8 @@ export interface SettingsState {
     }
   >;
 
-  // Global TTS/ASR toggles
+  // Global TTS toggle
   ttsEnabled: boolean;
-  asrEnabled: boolean;
 
   // Playback controls
   ttsMuted: boolean;
@@ -220,8 +158,6 @@ export interface SettingsState {
   // Audio actions
   setTTSProvider: (providerId: TTSProviderId) => void;
   setTTSVoice: (voice: string) => void;
-  setASRProvider: (providerId: ASRProviderId) => void;
-  setASRLanguage: (language: string) => void;
   setTTSProviderConfig: (
     providerId: TTSProviderId,
     config: Partial<{
@@ -231,17 +167,7 @@ export interface SettingsState {
       modelId: string;
     }>,
   ) => void;
-  setASRProviderConfig: (
-    providerId: ASRProviderId,
-    config: Partial<{
-      apiKey: string;
-      baseUrl: string;
-      enabled: boolean;
-      modelId: string;
-    }>,
-  ) => void;
   setTTSEnabled: (enabled: boolean) => void;
-  setASREnabled: (enabled: boolean) => void;
 
   // PDF actions
   setPDFProvider: (providerId: PDFProviderId) => void;
@@ -249,34 +175,6 @@ export interface SettingsState {
     providerId: PDFProviderId,
     config: Partial<{ apiKey: string; enabled: boolean }>,
   ) => void;
-
-  // Image Generation actions
-  setImageProvider: (providerId: ImageProviderId) => void;
-  setImageModelId: (modelId: string) => void;
-  setImageProviderConfig: (
-    providerId: ImageProviderId,
-    config: Partial<{
-      apiKey: string;
-      baseUrl: string;
-      enabled: boolean;
-    }>,
-  ) => void;
-
-  // Video Generation actions
-  setVideoProvider: (providerId: VideoProviderId) => void;
-  setVideoModelId: (modelId: string) => void;
-  setVideoProviderConfig: (
-    providerId: VideoProviderId,
-    config: Partial<{
-      apiKey: string;
-      baseUrl: string;
-      enabled: boolean;
-    }>,
-  ) => void;
-
-  // Media generation toggle actions
-  setImageGenerationEnabled: (enabled: boolean) => void;
-  setVideoGenerationEnabled: (enabled: boolean) => void;
 
   // Web Search actions
   setWebSearchProvider: (providerId: WebSearchProviderId) => void;
@@ -312,8 +210,6 @@ const getDefaultProvidersConfig = (): ProvidersConfig => {
 const getDefaultAudioConfig = () => ({
   ttsProviderId: DEFAULT_TTS_PROVIDER_ID,
   ttsVoice: DEFAULT_TTS_VOICES[DEFAULT_TTS_PROVIDER_ID],
-  asrProviderId: DEFAULT_ASR_PROVIDER_ID,
-  asrLanguage: 'auto',
   ttsProvidersConfig: {
     [DEFAULT_TTS_PROVIDER_ID]: {
       apiKey: '',
@@ -325,9 +221,6 @@ const getDefaultAudioConfig = () => ({
     TTSProviderId,
     { apiKey: string; baseUrl: string; modelId?: string; enabled: boolean }
   >,
-  asrProvidersConfig: {
-    [DEFAULT_ASR_PROVIDER_ID]: { apiKey: '', baseUrl: '', modelId: DOUBAO_AUC_ASR_MODEL_ID, enabled: true },
-  } as Record<ASRProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
 // Initialize default PDF config
@@ -336,24 +229,6 @@ const getDefaultPDFConfig = () => ({
   pdfProvidersConfig: {
     'mineru-cloud': { apiKey: '', enabled: false },
   } as Record<PDFProviderId, { apiKey: string; enabled: boolean }>,
-});
-
-// Initialize default Image config
-const getDefaultImageConfig = () => ({
-  imageProviderId: 'volcengine-ark-image' as ImageProviderId,
-  imageModelId: DOUBAO_SEEDREAM_5_MODEL_ID,
-  imageProvidersConfig: {
-    'volcengine-ark-image': { apiKey: '', baseUrl: '', enabled: false },
-  } as Record<ImageProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
-});
-
-// Initialize default Video config
-const getDefaultVideoConfig = () => ({
-  videoProviderId: 'volcengine-ark-video' as VideoProviderId,
-  videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID,
-  videoProvidersConfig: {
-    'volcengine-ark-video': { apiKey: '', baseUrl: '', enabled: false },
-  } as Record<VideoProviderId, { apiKey: string; baseUrl: string; enabled: boolean }>,
 });
 
 // Initialize default Web Search config
@@ -369,8 +244,6 @@ export const useSettingsStore = create<SettingsState>()(
     (set, get) => {
       const defaultAudioConfig = getDefaultAudioConfig();
       const defaultPDFConfig = getDefaultPDFConfig();
-      const defaultImageConfig = getDefaultImageConfig();
-      const defaultVideoConfig = getDefaultVideoConfig();
       const defaultWebSearchConfig = getDefaultWebSearchConfig();
       const initialProvidersConfig = getDefaultProvidersConfig();
 
@@ -400,19 +273,8 @@ export const useSettingsStore = create<SettingsState>()(
         // PDF settings (use defaults)
         ...defaultPDFConfig,
 
-        // Image settings (use defaults)
-        ...defaultImageConfig,
-
-        // Video settings (use defaults)
-        ...defaultVideoConfig,
-
-        // Media generation toggles (off by default)
-        imageGenerationEnabled: false,
-        videoGenerationEnabled: false,
-
-        // Audio feature toggles (on by default)
+        // Audio feature toggle (on by default)
         ttsEnabled: true,
-        asrEnabled: true,
 
         // Web Search settings (use defaults)
         ...defaultWebSearchConfig,
@@ -472,19 +334,6 @@ export const useSettingsStore = create<SettingsState>()(
               : DEFAULT_TTS_VOICES[state.ttsProviderId as BuiltInTTSProviderId],
           })),
 
-        setASRProvider: (providerId) =>
-          set((state) => {
-            const supportedLanguages =
-              ASR_PROVIDERS[providerId as keyof typeof ASR_PROVIDERS]?.supportedLanguages || [];
-            const isLanguageValid = supportedLanguages.includes(state.asrLanguage);
-            return {
-              asrProviderId: providerId,
-              ...(isLanguageValid ? {} : { asrLanguage: supportedLanguages[0] || 'auto' }),
-            };
-          }),
-
-        setASRLanguage: (language) => set({ asrLanguage: language }),
-
         setTTSProviderConfig: (providerId, config) =>
           set((state) => {
             const { apiKey: _apiKey, baseUrl: _baseUrl, ...safeConfig } = config;
@@ -493,22 +342,6 @@ export const useSettingsStore = create<SettingsState>()(
                 ...state.ttsProvidersConfig,
                 [providerId]: {
                   ...state.ttsProvidersConfig[providerId],
-                  ...safeConfig,
-                  apiKey: '',
-                  baseUrl: '',
-                },
-              },
-            };
-          }),
-
-        setASRProviderConfig: (providerId, config) =>
-          set((state) => {
-            const { apiKey: _apiKey, baseUrl: _baseUrl, ...safeConfig } = config;
-            return {
-              asrProvidersConfig: {
-                ...state.asrProvidersConfig,
-                [providerId]: {
-                  ...state.asrProvidersConfig[providerId],
                   ...safeConfig,
                   apiKey: '',
                   baseUrl: '',
@@ -538,66 +371,7 @@ export const useSettingsStore = create<SettingsState>()(
             },
           })),
 
-        // Image Generation actions
-        setImageProvider: () =>
-          set({ imageProviderId: 'volcengine-ark-image' as ImageProviderId }),
-        setImageModelId: () => set({ imageModelId: DOUBAO_SEEDREAM_5_MODEL_ID }),
-
-        setImageProviderConfig: (providerId, config) =>
-          set((state) => {
-            const { apiKey: _apiKey, baseUrl: _baseUrl, ...safeConfig } = config;
-            return {
-              imageProvidersConfig: {
-                ...state.imageProvidersConfig,
-                [providerId]: {
-                  ...state.imageProvidersConfig[providerId],
-                  ...safeConfig,
-                  apiKey: '',
-                  baseUrl: '',
-                },
-              },
-            };
-          }),
-
-        // Video Generation actions
-        setVideoProvider: () => set({ videoProviderId: 'volcengine-ark-video' as VideoProviderId }),
-        setVideoModelId: () => set({ videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID }),
-
-        setVideoProviderConfig: (providerId, config) =>
-          set((state) => {
-            const { apiKey: _apiKey, baseUrl: _baseUrl, ...safeConfig } = config;
-            return {
-              videoProvidersConfig: {
-                ...state.videoProvidersConfig,
-                [providerId]: {
-                  ...state.videoProvidersConfig[providerId],
-                  ...safeConfig,
-                  apiKey: '',
-                  baseUrl: '',
-                },
-              },
-            };
-          }),
-
-        // Media generation toggle actions
-        setImageGenerationEnabled: (enabled) => {
-          if (enabled) {
-            const cfg = get().imageProvidersConfig;
-            const hasUsable = Object.values(cfg).some((c) => c.isServerConfigured);
-            if (!hasUsable) return;
-          }
-          set({ imageGenerationEnabled: enabled });
-        },
-        setVideoGenerationEnabled: (enabled) => {
-          if (enabled) {
-            const cfg = get().videoProvidersConfig;
-            const hasUsable = Object.values(cfg).some((c) => c.isServerConfigured);
-            if (!hasUsable) return;
-          }
-          set({ videoGenerationEnabled: enabled });
-        },
         setTTSEnabled: (enabled) => set({ ttsEnabled: enabled }),
-        setASREnabled: (enabled) => set({ asrEnabled: enabled }),
 
         // Web Search actions
         setWebSearchProvider: (providerId) => set({ webSearchProviderId: providerId }),
@@ -625,10 +399,7 @@ export const useSettingsStore = create<SettingsState>()(
             const data = (await res.json()) as {
               providers: Record<string, object>;
               tts: Record<string, { baseUrl?: string }>;
-              asr: Record<string, { baseUrl?: string }>;
               pdf: Record<string, object>;
-              image: Record<string, { baseUrl?: string }>;
-              video: Record<string, { baseUrl?: string }>;
               webSearch: Record<string, { baseUrl?: string }>;
             };
 
@@ -653,19 +424,6 @@ export const useSettingsStore = create<SettingsState>()(
                 },
               } as SettingsState['ttsProvidersConfig'];
 
-              const asrServerConfig = data.asr[DEFAULT_ASR_PROVIDER_ID];
-              const newASRConfig = {
-                [DEFAULT_ASR_PROVIDER_ID]: {
-                  ...defaultAudio.asrProvidersConfig[DEFAULT_ASR_PROVIDER_ID],
-                  enabled: state.asrProvidersConfig[DEFAULT_ASR_PROVIDER_ID]?.enabled ?? true,
-                  apiKey: '',
-                  baseUrl: '',
-                  modelId: DOUBAO_AUC_ASR_MODEL_ID,
-                  isServerConfigured: !!asrServerConfig,
-                  serverBaseUrl: asrServerConfig?.baseUrl,
-                },
-              } as SettingsState['asrProvidersConfig'];
-
               const defaultPDF = getDefaultPDFConfig();
               const newPDFConfig = {
                 'mineru-cloud': {
@@ -675,32 +433,6 @@ export const useSettingsStore = create<SettingsState>()(
                   isServerConfigured: !!data.pdf['mineru-cloud'],
                 },
               } as SettingsState['pdfProvidersConfig'];
-
-              const defaultImage = getDefaultImageConfig();
-              const imageServerConfig = data.image['volcengine-ark-image'];
-              const newImageConfig = {
-                'volcengine-ark-image': {
-                  ...defaultImage.imageProvidersConfig['volcengine-ark-image'],
-                  enabled: state.imageProvidersConfig['volcengine-ark-image']?.enabled ?? false,
-                  apiKey: '',
-                  baseUrl: '',
-                  isServerConfigured: !!imageServerConfig,
-                  serverBaseUrl: imageServerConfig?.baseUrl,
-                },
-              } as SettingsState['imageProvidersConfig'];
-
-              const defaultVideo = getDefaultVideoConfig();
-              const videoServerConfig = data.video['volcengine-ark-video'];
-              const newVideoConfig = {
-                'volcengine-ark-video': {
-                  ...defaultVideo.videoProvidersConfig['volcengine-ark-video'],
-                  enabled: state.videoProvidersConfig['volcengine-ark-video']?.enabled ?? false,
-                  apiKey: '',
-                  baseUrl: '',
-                  isServerConfigured: !!videoServerConfig,
-                  serverBaseUrl: videoServerConfig?.baseUrl,
-                },
-              } as SettingsState['videoProvidersConfig'];
 
               const defaultWebSearch = getDefaultWebSearchConfig();
               const webSearchServerConfig = data.webSearch[DEFAULT_WEB_SEARCH_PROVIDER_ID];
@@ -715,11 +447,6 @@ export const useSettingsStore = create<SettingsState>()(
                 },
               } as SettingsState['webSearchProvidersConfig'];
 
-              const imageGenerationEnabled =
-                state.imageGenerationEnabled &&
-                !!newImageConfig['volcengine-ark-image'].isServerConfigured;
-              const videoGenerationEnabled =
-                state.videoGenerationEnabled && !!newVideoConfig['volcengine-ark-video'].isServerConfigured;
               const ttsVoice = isValidTTSVoice(DEFAULT_TTS_PROVIDER_ID, state.ttsVoice)
                 ? state.ttsVoice
                 : DEFAULT_TTS_VOICES[DEFAULT_TTS_PROVIDER_ID];
@@ -729,25 +456,14 @@ export const useSettingsStore = create<SettingsState>()(
               return {
                 providersConfig: newProvidersConfig,
                 ttsProvidersConfig: newTTSConfig,
-                asrProvidersConfig: newASRConfig,
                 pdfProvidersConfig: newPDFConfig,
-                imageProvidersConfig: newImageConfig,
-                videoProvidersConfig: newVideoConfig,
                 webSearchProvidersConfig: newWebSearchConfig,
                 providerId: DEFAULT_PROVIDER_ID,
                 modelId: DEFAULT_MODEL_ID,
                 ttsProviderId: DEFAULT_TTS_PROVIDER_ID,
                 ttsVoice,
                 ttsEnabled,
-                asrProviderId: DEFAULT_ASR_PROVIDER_ID,
-                asrLanguage: normalizeASRLanguage(state.asrLanguage),
                 pdfProviderId: 'mineru-cloud' as PDFProviderId,
-                imageProviderId: 'volcengine-ark-image' as ImageProviderId,
-                imageModelId: DOUBAO_SEEDREAM_5_MODEL_ID,
-                imageGenerationEnabled,
-                videoProviderId: 'volcengine-ark-video' as VideoProviderId,
-                videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID,
-                videoGenerationEnabled,
                 webSearchProviderId: DEFAULT_WEB_SEARCH_PROVIDER_ID,
               };
             });
@@ -776,22 +492,13 @@ export const useSettingsStore = create<SettingsState>()(
           ...merged,
           providersConfig: currentState.providersConfig,
           ttsProvidersConfig: currentState.ttsProvidersConfig,
-          asrProvidersConfig: currentState.asrProvidersConfig,
           pdfProvidersConfig: currentState.pdfProvidersConfig,
-          imageProvidersConfig: currentState.imageProvidersConfig,
-          videoProvidersConfig: currentState.videoProvidersConfig,
           webSearchProvidersConfig: currentState.webSearchProvidersConfig,
           providerId: DEFAULT_PROVIDER_ID,
           modelId: DEFAULT_MODEL_ID,
           ttsProviderId: DEFAULT_TTS_PROVIDER_ID,
           ttsVoice,
-          asrProviderId: DEFAULT_ASR_PROVIDER_ID,
-          asrLanguage: normalizeASRLanguage(persisted.asrLanguage),
           pdfProviderId: currentState.pdfProviderId,
-          imageProviderId: 'volcengine-ark-image' as ImageProviderId,
-          imageModelId: DOUBAO_SEEDREAM_5_MODEL_ID,
-          videoProviderId: 'volcengine-ark-video' as VideoProviderId,
-          videoModelId: DOUBAO_SEEDANCE_2_MODEL_ID,
           webSearchProviderId: DEFAULT_WEB_SEARCH_PROVIDER_ID,
         } as SettingsState;
       },

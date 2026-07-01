@@ -79,5 +79,3 @@ export async function storePdfBlob(file: File): Promise<string> {
   const saved = await uploadAccountBlob(file, file.name, 'pdf');
   return saved.id;
 }
-
-export async function cleanupOldImages(_hoursOld: number = 24): Promise<void> {}

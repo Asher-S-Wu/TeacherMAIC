@@ -6,24 +6,10 @@ import { useStageStore } from '@/lib/store';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useSceneGenerator } from '@/lib/hooks/use-scene-generator';
-import { isMediaPlaceholder, useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useWhiteboardHistoryStore } from '@/lib/store/whiteboard-history';
 import { createLogger } from '@/lib/logger';
-import { MediaStageProvider } from '@/lib/contexts/media-stage-context';
-import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
-import type { Scene } from '@/lib/types/stage';
 
 const log = createLogger('Classroom');
-
-function hasUnresolvedMediaPlaceholders(scenes: Scene[]): boolean {
-  return scenes.some((scene) => {
-    if (scene.content?.type !== 'slide') return false;
-    return scene.content.canvas.elements.some(
-      (element) =>
-        'src' in element && typeof element.src === 'string' && isMediaPlaceholder(element.src),
-    );
-  });
-}
 
 export default function ClassroomDetailPage() {
   const params = useParams();
@@ -52,7 +38,6 @@ export default function ClassroomDetailPage() {
         log.info('Hydrated generated agents for stage:', loadedStage.id);
       }
 
-      await useMediaGenerationStore.getState().restoreFromDB(classroomId);
       // Restore agents for this stage
       const { loadGeneratedAgentsForStage, useAgentRegistry } =
         await import('@/lib/orchestration/registry/store');
@@ -95,13 +80,6 @@ export default function ClassroomDetailPage() {
     setError(null);
     generationStartedRef.current = false;
 
-    // Clear previous classroom's media tasks to prevent cross-classroom contamination.
-    // Placeholder IDs (gen_img_1, gen_vid_1) are NOT globally unique across stages,
-    // so stale tasks from a previous classroom would shadow the new one's.
-    const mediaStore = useMediaGenerationStore.getState();
-    mediaStore.revokeObjectUrls();
-    useMediaGenerationStore.setState({ tasks: {} });
-
     // Clear whiteboard history to prevent snapshots from a previous course leaking in.
     useWhiteboardHistoryStore.getState().clearHistory();
 
@@ -142,21 +120,12 @@ export default function ClassroomDetailPage() {
         userProfile: params.userProfile,
         languageDirective: params.languageDirective || stage.languageDirective,
       });
-    } else if (outlines.length > 0 && stage && hasUnresolvedMediaPlaceholders(scenes)) {
-      // All scenes are generated, but some media may not have finished.
-      // Resume media generation for any unfinished tasks.
-      // generateMediaForOutlines skips already-completed tasks automatically.
-      generationStartedRef.current = true;
-      generateMediaForOutlines(outlines, stage.id).catch((err) => {
-        log.warn('[Classroom] Media generation resume error:', err);
-      });
     }
   }, [loading, error, generateRemaining]);
 
   return (
     <ThemeProvider>
-      <MediaStageProvider value={classroomId}>
-        <div className="h-screen flex flex-col overflow-hidden">
+      <div className="h-screen flex flex-col overflow-hidden">
           {loading ? (
             <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
               <div className="text-center text-muted-foreground">
@@ -183,7 +152,6 @@ export default function ClassroomDetailPage() {
             <Stage onRetryOutline={retrySingleOutline} />
           )}
         </div>
-      </MediaStageProvider>
     </ThemeProvider>
   );
 }

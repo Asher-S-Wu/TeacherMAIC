@@ -111,18 +111,6 @@ When comparing or listing information, specify in keyPoints:
 ]
 ```
 
-{{#if imageEnabled}}
-{{snippet:image-instructions}}
-{{/if}}
-
-{{#if videoEnabled}}
-{{snippet:video-instructions}}
-{{/if}}
-
-{{#if mediaEnabled}}
-{{snippet:media-safety-guidelines}}
-{{/if}}
-
 ### Interactive Scene Guidelines
 
 Use `interactive` type when a concept benefits significantly from hands-on interaction and visualization. Good candidates include:
@@ -283,9 +271,6 @@ Rules:
 | order             | number                   | ✅       | Sort order, starting from 1                                                                      |
 {{#if hasSourceImages}}
 | suggestedImageIds | string[]                 | ❌       | Suggested image IDs to use                                                                       |
-{{/if}}
-{{#if mediaEnabled}}
-| mediaGenerations  | MediaGenerationRequest[] | ❌       | AI-generated media requests when generated media would enhance a slide scene                     |
 {{/if}}
 | quizConfig        | object                   | ✅ (for quiz) | Contains questionCount/difficulty/questionTypes                                                  |
 | widgetType        | string                   | ✅ (for interactive) | Widget type: "simulation", "diagram", "code", "game", "visualization3d"                                                 |

@@ -8,8 +8,6 @@ export interface GenerateClassroomInput {
   userNickname?: string;
   userBio?: string;
   enableWebSearch?: boolean;
-  enableImageGeneration?: boolean;
-  enableVideoGeneration?: boolean;
   enableTTS?: boolean;
   agentMode?: 'preset' | 'auto';
   presetAgents?: AgentInfo[];
@@ -21,7 +19,6 @@ export type ClassroomGenerationStep =
   | 'generating_outlines'
   | 'generating_agents'
   | 'generating_scenes'
-  | 'generating_media'
   | 'generating_tts'
   | 'persisting'
   | 'completed';

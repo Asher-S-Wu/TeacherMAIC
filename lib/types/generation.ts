@@ -5,8 +5,6 @@
  * Stage 2: Scene Outlines → Full Scenes (slide/quiz/interactive/pbl with actions)
  */
 
-import type { MediaGenerationRequest } from '@/lib/media/types';
-
 // ==================== PDF Image Types ====================
 
 /**
@@ -81,8 +79,6 @@ export interface SceneOutline {
   languageNote?: string; // LLM-inferred language note for this scene
   // Suggested image IDs (from PDF-extracted images)
   suggestedImageIds?: string[]; // e.g., ["img_1", "img_3"]
-  // AI-generated media requests (when PDF images are insufficient)
-  mediaGenerations?: MediaGenerationRequest[]; // e.g., [{ type: 'image', prompt: '...', elementId: 'gen_img_1' }]
   // Quiz-specific config
   quizConfig?: {
     questionCount: number;

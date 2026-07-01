@@ -32,8 +32,6 @@ export async function POST(req: NextRequest) {
       agents: body.agents,
       userProfile: body.userProfile,
       languageDirective: body.languageDirective,
-      allowImageGeneration: body.allowImageGeneration,
-      allowVideoGeneration: body.allowVideoGeneration,
       model,
     });
 

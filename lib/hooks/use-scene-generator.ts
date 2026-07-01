@@ -8,7 +8,6 @@ import type { AgentInfo } from '@/lib/generation/generation-pipeline';
 import type { Scene } from '@/lib/types/stage';
 import type { SpeechAction } from '@/lib/types/action';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
-import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
 import { CLASSROOM_GENERATION_CONCURRENCY } from '@/lib/constants/classroom-generation';
 import { createLogger } from '@/lib/logger';
@@ -30,13 +29,8 @@ interface SceneActionsResult {
 }
 
 function getApiHeaders(): HeadersInit {
-  const settings = useSettingsStore.getState();
-
   return {
     'Content-Type': 'application/json',
-    // Media generation toggles
-    'x-image-generation-enabled': String(settings.imageGenerationEnabled ?? false),
-    'x-video-generation-enabled': String(settings.videoGenerationEnabled ?? false),
   };
 }
 
@@ -205,7 +199,6 @@ export interface GenerationParams {
 export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
   const abortRef = useRef(false);
   const generatingRef = useRef(false);
-  const mediaAbortRef = useRef<AbortController | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
   const lastParamsRef = useRef<GenerationParams | null>(null);
   const generateRemainingRef = useRef<((params: GenerationParams) => Promise<void>) | null>(null);
@@ -253,12 +246,6 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
       }
 
       store.getState().setGeneratingOutlines(pending);
-
-      // Launch media generation in parallel — does not block content/action generation
-      mediaAbortRef.current = new AbortController();
-      generateMediaForOutlines(outlines, stage.id, mediaAbortRef.current.signal).catch((err) => {
-        log.warn('Media generation error:', err);
-      });
 
       // Five-lane queue — each page still runs content -> actions -> TTS in order.
       try {
@@ -408,7 +395,6 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
     abortRef.current = true;
     store.getState().bumpGenerationEpoch();
     fetchAbortRef.current?.abort();
-    mediaAbortRef.current?.abort();
   }, [store]);
 
   const isGenerating = useCallback(() => generatingRef.current, []);

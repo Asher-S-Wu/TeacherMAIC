@@ -13,7 +13,6 @@ import type { StageStore } from '@/lib/api/stage-api';
 import { createStageAPI } from '@/lib/api/stage-api';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useWhiteboardHistoryStore } from '@/lib/store/whiteboard-history';
-import { useMediaGenerationStore, isMediaPlaceholder } from '@/lib/store/media-generation';
 import type { AudioPlayer } from '@/lib/utils/audio-player';
 import type {
   Action,
@@ -228,38 +227,6 @@ export class ActionEngine {
   // ==================== Synchronous — Video ====================
 
   private async executePlayVideo(action: PlayVideoAction): Promise<void> {
-    // Resolve the video element's src to a media placeholder ID (e.g. gen_vid_1).
-    // action.elementId is the slide element ID (e.g. video_abc123), but the media
-    // store is keyed by placeholder IDs, so we need to bridge the two.
-    const placeholderId = this.resolveMediaPlaceholderId(action.elementId);
-
-    if (placeholderId) {
-      const task = useMediaGenerationStore.getState().getTask(placeholderId);
-      if (task && task.status !== 'done') {
-        // Wait for media to be ready (or fail)
-        await new Promise<void>((resolve) => {
-          const unsubscribe = useMediaGenerationStore.subscribe((state) => {
-            const t = state.tasks[placeholderId];
-            if (!t || t.status === 'done' || t.status === 'failed') {
-              unsubscribe();
-              resolve();
-            }
-          });
-          // Check again in case it resolved between getState and subscribe
-          const current = useMediaGenerationStore.getState().tasks[placeholderId];
-          if (!current || current.status === 'done' || current.status === 'failed') {
-            unsubscribe();
-            resolve();
-          }
-        });
-
-        // If failed, skip playback
-        if (useMediaGenerationStore.getState().tasks[placeholderId]?.status === 'failed') {
-          return;
-        }
-      }
-    }
-
     useCanvasStore.getState().playVideo(action.elementId);
 
     // Wait until the video finishes playing, with a safety timeout to prevent
@@ -285,39 +252,6 @@ export class ActionEngine {
         resolve();
       }
     });
-  }
-
-  // ==================== Helpers — Media Resolution ====================
-
-  /**
-   * Look up a video/image element's src in the current stage's scenes.
-   * Returns the src if it's a media placeholder ID (gen_vid_*, gen_img_*), null otherwise.
-   */
-  private resolveMediaPlaceholderId(elementId: string): string | null {
-    const { scenes, currentSceneId } = this.stageStore.getState();
-
-    // Search current scene first for efficiency, then remaining scenes
-    const orderedScenes = currentSceneId
-      ? [
-          scenes.find((s) => s.id === currentSceneId),
-          ...scenes.filter((s) => s.id !== currentSceneId),
-        ]
-      : scenes;
-
-    for (const scene of orderedScenes) {
-      if (!scene || scene.type !== 'slide') continue;
-      const elements = (
-        scene.content as {
-          canvas?: { elements?: Array<{ id: string; src?: string }> };
-        }
-      )?.canvas?.elements;
-      if (!Array.isArray(elements)) continue;
-      const el = elements.find((e: { id: string }) => e.id === elementId);
-      if (el && 'src' in el && typeof el.src === 'string' && isMediaPlaceholder(el.src)) {
-        return el.src;
-      }
-    }
-    return null;
   }
 
   // ==================== Synchronous — Whiteboard ====================

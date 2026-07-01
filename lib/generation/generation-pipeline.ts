@@ -32,5 +32,4 @@ export {
 // Scene builder
 export {
   buildCompleteScene,
-  uniquifyMediaElementIds,
 } from './scene-builder';

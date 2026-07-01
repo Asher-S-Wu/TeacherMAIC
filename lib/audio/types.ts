@@ -1,7 +1,7 @@
 /**
  * Audio Provider Type Definitions
  *
- * TTS and ASR use Volcengine Doubao Audio services.
+ * TTS uses Volcengine Doubao Audio services.
  */
 
 export type BuiltInTTSProviderId = 'volcengine-doubao-tts';
@@ -36,29 +36,4 @@ export interface TTSModelConfig {
   baseUrl?: string;
   voice: string;
   format?: string;
-}
-
-export type BuiltInASRProviderId = 'volcengine-doubao-auc-asr';
-export type ASRProviderId = BuiltInASRProviderId;
-
-export interface ASRProviderConfig {
-  id: ASRProviderId;
-  name: string;
-  requiresApiKey: boolean;
-  defaultBaseUrl?: string;
-  icon?: string;
-  models: Array<{ id: string; name: string }>;
-  defaultModelId: string;
-  supportedLanguages: string[];
-  supportedFormats: string[];
-}
-
-export interface ASRModelConfig {
-  providerId: ASRProviderId;
-  modelId?: string;
-  apiKey?: string;
-  baseUrl?: string;
-  language?: string;
-  mimeType?: string;
-  metadataUserId?: string;
 }

@@ -1,12 +1,7 @@
 import { NextRequest } from 'next/server';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
-import {
-  cleanupVibeEditMedia,
-  generateTTSForClassroom,
-  persistVibeEditMedia,
-  replaceMediaPlaceholders,
-} from '@/lib/server/classroom-media-generation';
+import { generateTTSForClassroom } from '@/lib/server/classroom-tts-generation';
 import type { VibeEditApplyRequest } from '@/lib/types/vibe-edit';
 import { createLogger } from '@/lib/logger';
 
@@ -24,28 +19,9 @@ export async function POST(req: NextRequest) {
       return apiError('INVALID_REQUEST', 400, '页面信息不匹配');
     }
 
-    const expectedIds = (body.outline.mediaGenerations || []).map((item) => item.elementId);
-    const mediaMap = body.mediaMap ?? {};
-    const providedIds = Object.keys(mediaMap);
-    if (expectedIds.length !== providedIds.length || expectedIds.some((id) => !(id in mediaMap))) {
-      return apiError('INVALID_REQUEST', 400, '预览媒体信息缺失，请重新生成预览');
-    }
-
     const scene = structuredClone(body.scene);
-    const { permanentMap, savedFileIds } = await persistVibeEditMedia(
-      mediaMap,
-      body.stageId,
-      user._id,
-    );
-
-    try {
-      replaceMediaPlaceholders([scene], permanentMap);
-      if (body.ttsEnabled) {
-        await generateTTSForClassroom([scene], body.stageId, user._id);
-      }
-    } catch (error) {
-      await cleanupVibeEditMedia(savedFileIds);
-      throw error;
+    if (body.ttsEnabled) {
+      await generateTTSForClassroom([scene], body.stageId, user._id);
     }
 
     return apiSuccess({

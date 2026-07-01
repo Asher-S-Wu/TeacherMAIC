@@ -64,7 +64,6 @@ export interface SceneContentOptions {
   imageMapping?: ImageMapping;
   languageModel?: ResponsesModel;
   visionEnabled?: boolean;
-  generatedMediaMapping?: ImageMapping;
   agents?: AgentInfo[];
   languageDirective?: string;
 }
@@ -95,7 +94,6 @@ export async function generateSceneContent(
     imageMapping,
     languageModel,
     visionEnabled,
-    generatedMediaMapping,
     agents,
     languageDirective,
   } = options;
@@ -117,7 +115,6 @@ export async function generateSceneContent(
         assignedImages,
         imageMapping,
         visionEnabled,
-        generatedMediaMapping,
         agents,
         languageDirective,
       );
@@ -151,15 +148,6 @@ function isImageIdReference(value: string): boolean {
 }
 
 /**
- * Check if a string looks like a generated image/video ID (e.g., "gen_img_1", "gen_img_xK8f2mQ")
- * These are placeholders for AI-generated media, not PDF-extracted images.
- */
-function isGeneratedImageId(value: string): boolean {
-  if (!value) return false;
-  return /^gen_(img|vid)_[\w-]+$/i.test(value);
-}
-
-/**
  * Resolve image ID references in src field to actual base64 URLs
  *
  * AI generates: { type: "image", src: "img_1", ... }
@@ -174,7 +162,6 @@ function isGeneratedImageId(value: string): boolean {
 function resolveImageIds(
   elements: GeneratedSlideData['elements'],
   imageMapping?: ImageMapping,
-  generatedMediaMapping?: ImageMapping,
 ): GeneratedSlideData['elements'] {
   return elements
     .map((el) => {
@@ -194,33 +181,12 @@ function resolveImageIds(
           log.debug(`Resolved image ID "${src}" to base64 URL`);
           return { ...el, src: imageMapping[src] };
         }
-
-        // Generated image reference — keep as placeholder for async backfill
-        if (isGeneratedImageId(src)) {
-          if (generatedMediaMapping && generatedMediaMapping[src]) {
-            log.debug(`Resolved generated image ID "${src}" to URL`);
-            return { ...el, src: generatedMediaMapping[src] };
-          }
-          // Keep element with placeholder ID — frontend renders skeleton
-          log.debug(`Keeping generated image placeholder: ${src}`);
-          return el;
-        }
       }
 
       if (el.type === 'video') {
         if (!('src' in el)) {
           log.warn(`Video element missing src, removing element`);
           return null;
-        }
-        const src = el.src as string;
-        if (isGeneratedImageId(src)) {
-          if (generatedMediaMapping && generatedMediaMapping[src]) {
-            log.debug(`Resolved generated video ID "${src}" to URL`);
-            return { ...el, src: generatedMediaMapping[src] };
-          }
-          // Keep element with placeholder ID — frontend renders skeleton
-          log.debug(`Keeping generated video placeholder: ${src}`);
-          return el;
         }
       }
 
@@ -393,7 +359,6 @@ async function generateSlideContent(
   assignedImages?: PdfImage[],
   imageMapping?: ImageMapping,
   visionEnabled?: boolean,
-  generatedMediaMapping?: ImageMapping,
   agents?: AgentInfo[],
   languageDirective?: string,
 ): Promise<GeneratedSlideContent | null> {
@@ -426,40 +391,8 @@ async function generateSlideContent(
     }
   }
 
-  const generatedImageEntries = outline.mediaGenerations?.filter((mg) => mg.type === 'image') ?? [];
-  const generatedVideoEntries = outline.mediaGenerations?.filter((mg) => mg.type === 'video') ?? [];
   const hasAssignedImages = (assignedImages?.length ?? 0) > 0;
-  const generatedImageEnabled = generatedImageEntries.length > 0;
-  const generatedVideoEnabled = generatedVideoEntries.length > 0;
-  const imageElementEnabled = hasAssignedImages || generatedImageEnabled;
-  const mediaElementEnabled = imageElementEnabled || generatedVideoEnabled;
-
-  // Add generated media placeholders info (images + videos)
-  if (outline.mediaGenerations && outline.mediaGenerations.length > 0) {
-    const genImgDescs = generatedImageEntries
-      .map((mg) => `- ${mg.elementId}: "${mg.prompt}" (aspect ratio: ${mg.aspectRatio || '16:9'})`)
-      .join('\n');
-    const genVidDescs = generatedVideoEntries
-      .map((mg) => `- ${mg.elementId}: "${mg.prompt}" (aspect ratio: ${mg.aspectRatio || '16:9'})`)
-      .join('\n');
-
-    const mediaParts: string[] = [];
-    if (genImgDescs) {
-      mediaParts.push(`AI-Generated Images (use these IDs as image element src):\n${genImgDescs}`);
-    }
-    if (genVidDescs) {
-      mediaParts.push(`AI-Generated Videos (use these IDs as video element src):\n${genVidDescs}`);
-    }
-
-    if (mediaParts.length > 0) {
-      const mediaText = mediaParts.join('\n\n');
-      if (assignedImagesText.includes('禁止插入') || assignedImagesText.includes('No images')) {
-        assignedImagesText = mediaText;
-      } else {
-        assignedImagesText += `\n\n${mediaText}`;
-      }
-    }
-  }
+  const imageElementEnabled = hasAssignedImages;
 
   // Canvas dimensions (matching viewportSize and viewportRatio)
   const canvasWidth = 1000;
@@ -478,9 +411,6 @@ async function generateSlideContent(
     teacherContext,
     languageDirective: languageDirective || '',
     imageElementEnabled,
-    generatedImageEnabled,
-    generatedVideoEnabled,
-    mediaElementEnabled,
   });
 
   if (!prompts) {
@@ -550,7 +480,6 @@ async function generateSlideContent(
   const resolvedElements = resolveImageIds(
     latexProcessedElements,
     imageMapping,
-    generatedMediaMapping,
   );
   log.debug(`After image resolution: ${resolvedElements.length} elements`);
 

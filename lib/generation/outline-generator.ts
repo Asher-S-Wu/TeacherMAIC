@@ -12,7 +12,6 @@ import type {
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompts';
 import { formatImageDescription, formatImagePlaceholder } from './prompt-formatters';
 import { parseJsonResponse } from './json-repair';
-import { uniquifyMediaElementIds } from './scene-builder';
 import { validateSceneOutline } from './outline-validation';
 import type { AICallFn, GenerationResult, GenerationCallbacks } from './pipeline-types';
 import { generateWithStructuredRetries } from './retry';
@@ -30,8 +29,6 @@ export async function generateSceneOutlinesFromRequirements(
   options?: {
     visionEnabled?: boolean;
     imageMapping?: ImageMapping;
-    imageGenerationEnabled?: boolean;
-    videoGenerationEnabled?: boolean;
     researchContext?: string;
     teacherContext?: string;
   },
@@ -72,10 +69,6 @@ export async function generateSceneOutlinesFromRequirements(
       ? `## Student Profile\n\nStudent: ${requirements.userNickname || 'Unknown'}${requirements.userBio ? ` — ${requirements.userBio}` : ''}\n\nConsider this student's background when designing the course. Adapt difficulty, examples, and teaching approach accordingly.\n\n---`
       : '';
 
-  // Build media snippet conditions based on enabled flags.
-  const imageEnabled = options?.imageGenerationEnabled ?? false;
-  const videoEnabled = options?.videoGenerationEnabled ?? false;
-  const mediaEnabled = imageEnabled || videoEnabled;
   const hasSourceImages = (pdfImages?.length ?? 0) > 0;
 
   const promptId = requirements.interactiveMode
@@ -90,9 +83,6 @@ export async function generateSceneOutlinesFromRequirements(
     availableImages: availableImagesText,
     userProfile: userProfileText,
     hasSourceImages,
-    imageEnabled,
-    videoEnabled,
-    mediaEnabled,
     researchContext: options?.researchContext || 'None',
     // Server-side generation populates this via options; client-side populates via formatTeacherPersonaForPrompt
     teacherContext: options?.teacherContext || '',
@@ -136,7 +126,7 @@ export async function generateSceneOutlinesFromRequirements(
         const validated = parsed.outlines.map(validateSceneOutline);
         return {
           languageDirective: parsed.languageDirective,
-          outlines: uniquifyMediaElementIds(validated),
+          outlines: validated,
         };
       },
     });

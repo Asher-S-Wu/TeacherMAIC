@@ -46,11 +46,9 @@ import {
 } from '@/lib/utils/stage-storage';
 import type { StageListItem } from '@/lib/utils/stage-storage';
 import type { Slide } from '@/lib/types/slides';
-import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
-import { SpeechButton } from '@/components/audio/speech-button';
 import { useImportClassroom } from '@/lib/import/use-import-classroom';
 import { AccountMenu } from '@/components/auth/account-menu';
 import { ClassroomCard, type ClassroomGenerationOverlay } from '@/components/home/classroom-card';
@@ -196,13 +194,6 @@ function HomePage() {
   );
 
   useEffect(() => {
-    // Clear stale media store to prevent cross-course thumbnail contamination.
-    // The store may hold tasks from a previously visited classroom whose elementIds
-    // (gen_img_1, etc.) collide with other courses' placeholders.
-    useMediaGenerationStore.getState().revokeObjectUrls();
-    useMediaGenerationStore.setState({ tasks: {} });
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Store hydration on mount
     loadClassrooms();
     loadGenerationJobs();
   }, []);
@@ -454,8 +445,6 @@ function HomePage() {
           userNickname: userProfile.nickname || undefined,
           userBio: userProfile.bio || undefined,
           enableWebSearch: form.webSearch,
-          enableImageGeneration: settings.imageGenerationEnabled,
-          enableVideoGeneration: settings.videoGenerationEnabled,
           enableTTS: settings.ttsEnabled,
           agentMode: settings.agentMode,
           ...(presetAgents?.length ? { presetAgents } : {}),
@@ -693,19 +682,6 @@ function HomePage() {
                   pdfFile={form.pdfFile}
                   onPdfFileChange={(f) => updateForm('pdfFile', f)}
                   onPdfError={setError}
-                  voiceButton={
-                    <SpeechButton
-                      size="md"
-                      className="h-[32px] w-[32px] rounded-full"
-                      onTranscription={(text) => {
-                        setForm((prev) => {
-                          const next = prev.requirement + (prev.requirement ? ' ' : '') + text;
-                          updateRequirementCache(next);
-                          return { ...prev, requirement: next };
-                        });
-                      }}
-                    />
-                  }
                 />
               </div>
 

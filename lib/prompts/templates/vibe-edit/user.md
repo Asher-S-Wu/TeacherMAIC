@@ -10,10 +10,6 @@
 当前弹窗内的对话记录：
 {{conversation}}
 
-媒体能力：
-- allowImageGeneration: {{allowImageGeneration}}
-- allowVideoGeneration: {{allowVideoGeneration}}
-
 语言要求：
 {{languageDirective}}
 

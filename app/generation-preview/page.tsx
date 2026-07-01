@@ -9,14 +9,11 @@ import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useStageStore } from '@/lib/store/stage';
-import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { getAvailableProvidersWithVoices } from '@/lib/audio/voice-resolver';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
-import { cleanupOldImages } from '@/lib/utils/image-storage';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
-import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
 import {
   CLASSROOM_GENERATION_CONCURRENCY,
@@ -68,8 +65,6 @@ function GenerationPreviewContent() {
 
   // Load in-progress generation session from this browser tab
   useEffect(() => {
-    cleanupOldImages(24).catch((e) => log.error(e));
-
     const saved = sessionStorage.getItem('generationSession');
     if (saved) {
       try {
@@ -89,14 +84,9 @@ function GenerationPreviewContent() {
     };
   }, []);
 
-  // Get feature toggles from the settings store. Model credentials live on the server.
   const getApiHeaders = () => {
-    const settings = useSettingsStore.getState();
     return {
       'Content-Type': 'application/json',
-      // Media generation toggles
-      'x-image-generation-enabled': String(settings.imageGenerationEnabled ?? false),
-      'x-video-generation-enabled': String(settings.videoGenerationEnabled ?? false),
     };
   };
 
@@ -128,45 +118,6 @@ function GenerationPreviewContent() {
     }
 
     return data;
-  };
-
-  const getEnabledMediaElementIds = (outlines: SceneOutline[]) => {
-    const settings = useSettingsStore.getState();
-    const ids = new Set<string>();
-
-    for (const outline of outlines) {
-      for (const media of outline.mediaGenerations || []) {
-        if (media.type === 'image' && !settings.imageGenerationEnabled) continue;
-        if (media.type === 'video' && !settings.videoGenerationEnabled) continue;
-        ids.add(media.elementId);
-      }
-    }
-
-    return [...ids];
-  };
-
-  const ensureMediaGenerationComplete = (stageId: string, outlines: SceneOutline[]) => {
-    const mediaElementIds = getEnabledMediaElementIds(outlines);
-    if (mediaElementIds.length === 0) return;
-
-    const tasks = useMediaGenerationStore.getState().tasks;
-    const failed = mediaElementIds
-      .map((id) => tasks[id])
-      .find((task) => task?.stageId === stageId && task.status === 'failed');
-
-    if (failed) {
-      log.warn('[GenerationPreview] Media generation failed:', failed.error || failed.elementId);
-      throw new Error('图片或视频生成失败');
-    }
-
-    const unfinished = mediaElementIds.some((id) => {
-      const task = tasks[id];
-      return !task || task.stageId !== stageId || task.status !== 'done';
-    });
-
-    if (unfinished) {
-      throw new Error('图片或视频生成失败');
-    }
   };
 
   const generateTTSForScene = async (scene: Scene, signal: AbortSignal) => {
@@ -686,7 +637,6 @@ function GenerationPreviewContent() {
           : undefined;
 
       const store = useStageStore.getState();
-      useMediaGenerationStore.setState({ tasks: {} });
       store.setStage(stage);
       store.setOutlines(outlines);
       store.setGeneratingOutlines(outlines);
@@ -794,14 +744,6 @@ function GenerationPreviewContent() {
       );
 
       throwIfAborted(signal);
-      const mediaElementIds = getEnabledMediaElementIds(outlines);
-      if (mediaElementIds.length > 0) {
-        if (actionsStepIdx >= 0) setCurrentStepIndex(actionsStepIdx);
-        setStatusMessage('正在生成图片和视频...');
-        await generateMediaForOutlines(outlines, stage.id, signal);
-        throwIfAborted(signal);
-        ensureMediaGenerationComplete(stage.id, outlines);
-      }
 
       const generatedScenes = [...useStageStore.getState().scenes].sort(
         (a, b) => a.order - b.order,

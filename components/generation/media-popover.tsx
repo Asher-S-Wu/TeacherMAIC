@@ -1,36 +1,17 @@
 'use client';
 
-import { useState, useCallback, useMemo, Fragment } from 'react';
+import { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
-  Image as ImageIcon,
-  Video,
   Volume2,
-  Mic,
   Globe2,
   SlidersHorizontal,
   ChevronRight,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useSettingsStore } from '@/lib/store/settings';
-import {
-  ASR_PROVIDERS,
-  getASRLanguageName,
-  getASRSupportedLanguages,
-} from '@/lib/audio/constants';
-import type { ASRProviderId } from '@/lib/audio/types';
 import { WEB_SEARCH_PROVIDERS } from '@/lib/web-search/constants';
 import type { SettingsSection } from '@/lib/types/settings';
 
@@ -40,14 +21,11 @@ interface MediaPopoverProps {
   onSettingsOpen: (section: SettingsSection) => void;
 }
 
-type TabId = 'search' | 'image' | 'video' | 'tts' | 'asr';
+type TabId = 'search' | 'tts';
 
 const TABS: Array<{ id: TabId; icon: LucideIcon; label: string }> = [
   { id: 'search', icon: Globe2, label: 'Search' },
-  { id: 'image', icon: ImageIcon, label: 'Image' },
-  { id: 'video', icon: Video, label: 'Video' },
   { id: 'tts', icon: Volume2, label: 'TTS' },
-  { id: 'asr', icon: Mic, label: 'ASR' },
 ];
 
 export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: MediaPopoverProps) {
@@ -55,38 +33,18 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
   const [activeTab, setActiveTab] = useState<TabId>('search');
 
   // ─── Store ───
-  const imageGenerationEnabled = useSettingsStore((s) => s.imageGenerationEnabled);
-  const videoGenerationEnabled = useSettingsStore((s) => s.videoGenerationEnabled);
   const ttsEnabled = useSettingsStore((s) => s.ttsEnabled);
-  const asrEnabled = useSettingsStore((s) => s.asrEnabled);
-  const setImageGenerationEnabled = useSettingsStore((s) => s.setImageGenerationEnabled);
-  const setVideoGenerationEnabled = useSettingsStore((s) => s.setVideoGenerationEnabled);
   const setTTSEnabled = useSettingsStore((s) => s.setTTSEnabled);
-  const setASREnabled = useSettingsStore((s) => s.setASREnabled);
 
   const webSearchProviderId = useSettingsStore((s) => s.webSearchProviderId);
   const webSearchProvidersConfig = useSettingsStore((s) => s.webSearchProvidersConfig);
-  const asrProviderId = useSettingsStore((s) => s.asrProviderId);
-  const asrLanguage = useSettingsStore((s) => s.asrLanguage);
-  const asrProvidersConfig = useSettingsStore((s) => s.asrProvidersConfig);
-  const setASRProvider = useSettingsStore((s) => s.setASRProvider);
-  const setASRLanguage = useSettingsStore((s) => s.setASRLanguage);
 
   const enabledMap: Record<TabId, boolean> = {
     search: webSearch,
-    image: imageGenerationEnabled,
-    video: videoGenerationEnabled,
     tts: ttsEnabled,
-    asr: asrEnabled,
   };
 
-  const enabledCount = [
-    webSearch,
-    imageGenerationEnabled,
-    videoGenerationEnabled,
-    ttsEnabled,
-    asrEnabled,
-  ].filter(Boolean).length;
+  const enabledCount = [webSearch, ttsEnabled].filter(Boolean).length;
 
   const webSearchProvider = WEB_SEARCH_PROVIDERS[webSearchProviderId];
   const webSearchConfig = webSearchProvidersConfig[webSearchProviderId];
@@ -95,41 +53,11 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
       !!webSearchConfig?.isServerConfigured
     : false;
 
-  const cfgOk = useCallback(
-    (
-      configs: Record<string, { isServerConfigured?: boolean }>,
-      id: string,
-      needsKey: boolean,
-    ) => !needsKey || !!configs[id]?.isServerConfigured,
-    [],
-  );
-
-  // ASR provider
-  const asrGroups = useMemo(() => {
-    const groups: SelectGroupData[] = [];
-
-    for (const p of Object.values(ASR_PROVIDERS)) {
-      if (!cfgOk(asrProvidersConfig, p.id, p.requiresApiKey)) continue;
-      groups.push({
-        groupId: p.id,
-        groupName: p.name,
-        groupIcon: p.icon,
-        available: true,
-        items: getASRSupportedLanguages(p.id).map((l) => ({
-          id: l,
-          name: getASRLanguageName(l),
-        })),
-      });
-    }
-
-    return groups;
-  }, [asrProvidersConfig, cfgOk]);
-
   // Auto-select first enabled tab on open
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      const first = (['search', 'image', 'video', 'tts', 'asr'] as TabId[]).find(
+      const first = (['search', 'tts'] as TabId[]).find(
         (id) => enabledMap[id],
       );
       setActiveTab(first || 'search');
@@ -155,10 +83,7 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
               className="size-[14px] shrink-0 rounded-sm"
             />
           ) : null}
-          {imageGenerationEnabled && <ImageIcon className="size-[14px]" />}
-          {videoGenerationEnabled && <Video className="size-[14px]" />}
           {ttsEnabled && <Volume2 className="size-[14px]" />}
-          {asrEnabled && <Mic className="size-[14px]" />}
         </button>
       </PopoverTrigger>
 
@@ -223,24 +148,6 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
             </TabPanel>
           )}
 
-          {activeTab === 'image' && (
-            <TabPanel
-              icon={ImageIcon}
-              label="图像生成"
-              enabled={imageGenerationEnabled}
-              onToggle={setImageGenerationEnabled}
-            />
-          )}
-
-          {activeTab === 'video' && (
-            <TabPanel
-              icon={Video}
-              label="视频生成"
-              enabled={videoGenerationEnabled}
-              onToggle={setVideoGenerationEnabled}
-            />
-          )}
-
           {activeTab === 'tts' && (
             <TabPanel
               icon={Volume2}
@@ -248,25 +155,6 @@ export function MediaPopover({ webSearch, onWebSearchChange, onSettingsOpen }: M
               enabled={ttsEnabled}
               onToggle={setTTSEnabled}
             />
-          )}
-
-          {activeTab === 'asr' && (
-            <TabPanel
-              icon={Mic}
-              label="语音识别"
-              enabled={asrEnabled}
-              onToggle={setASREnabled}
-            >
-              <GroupedSelect
-                groups={asrGroups}
-                selectedGroupId={asrProviderId}
-                selectedItemId={asrLanguage}
-                onSelect={(gid, iid) => {
-                  setASRProvider(gid as ASRProviderId);
-                  setASRLanguage(iid);
-                }}
-              />
-            </TabPanel>
           )}
         </div>
 
@@ -327,86 +215,5 @@ function TabPanel({
       </div>
       {enabled && children}
     </div>
-  );
-}
-
-// ─── Grouped provider+model select ───
-interface SelectGroupData {
-  groupId: string;
-  groupName: string;
-  groupIcon?: string;
-  available: boolean;
-  items: Array<{ id: string; name: string }>;
-}
-
-function GroupedSelect({
-  groups,
-  selectedGroupId,
-  selectedItemId,
-  onSelect,
-}: {
-  groups: SelectGroupData[];
-  selectedGroupId: string;
-  selectedItemId: string;
-  onSelect: (groupId: string, itemId: string) => void;
-}) {
-  const composite = `${selectedGroupId}::${selectedItemId}`;
-  // Find the group that contains the selected item.
-  const selectedGroup =
-    groups.find(
-      (g) => g.groupId === selectedGroupId && g.items.some((item) => item.id === selectedItemId),
-    ) || groups.find((g) => g.groupId === selectedGroupId);
-
-  return (
-    <Select
-      value={composite}
-      onValueChange={(v) => {
-        const sep = v.indexOf('::');
-        if (sep === -1) return;
-        onSelect(v.slice(0, sep), v.slice(sep + 2));
-      }}
-    >
-      <SelectTrigger className="h-8 w-full rounded-lg border-border/40 bg-background/80 hover:bg-muted/40 shadow-none text-xs focus:ring-1 focus:ring-ring/30 px-2.5">
-        <span className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
-          {selectedGroup?.groupIcon && (
-            <img src={selectedGroup.groupIcon} alt="" className="size-4 rounded-sm shrink-0" />
-          )}
-          <span className="font-medium truncate">{selectedGroup?.groupName}</span>
-          <span className="text-muted-foreground/40">/</span>
-          <span className="text-muted-foreground truncate">
-            <SelectValue />
-          </span>
-        </span>
-      </SelectTrigger>
-      <SelectContent>
-        {groups.map((group, i) => (
-          <Fragment key={`${group.groupId}-${i}`}>
-            {i > 0 && <SelectSeparator />}
-            <SelectGroup>
-              <SelectLabel className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
-                {group.groupIcon && (
-                  <img
-                    src={group.groupIcon}
-                    alt=""
-                    className={cn('size-3.5 rounded-sm', !group.available && 'opacity-40')}
-                  />
-                )}
-                {group.groupName}
-              </SelectLabel>
-              {group.items.map((item) => (
-                <SelectItem
-                  key={`${group.groupId}::${item.id}`}
-                  value={`${group.groupId}::${item.id}`}
-                  disabled={!group.available}
-                  className="text-xs"
-                >
-                  {item.name}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </Fragment>
-        ))}
-      </SelectContent>
-    </Select>
   );
 }

@@ -18,7 +18,6 @@ import { useRouter } from 'next/navigation';
 import { SettingsDialog } from './settings';
 import { cn } from '@/lib/utils';
 import { useStageStore } from '@/lib/store/stage';
-import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useExportPPTX } from '@/lib/export/use-export-pptx';
 import { useExportClassroom } from '@/lib/export/use-export-classroom';
 
@@ -40,13 +39,11 @@ export function Header({ currentSceneTitle }: HeaderProps) {
   const scenes = useStageStore((s) => s.scenes);
   const generatingOutlines = useStageStore((s) => s.generatingOutlines);
   const failedOutlines = useStageStore((s) => s.failedOutlines);
-  const mediaTasks = useMediaGenerationStore((s) => s.tasks);
 
   const canExport =
     scenes.length > 0 &&
     generatingOutlines.length === 0 &&
-    failedOutlines.length === 0 &&
-    Object.values(mediaTasks).every((task) => task.status === 'done' || task.status === 'failed');
+    failedOutlines.length === 0;
 
   const themeRef = useRef<HTMLDivElement>(null);
 

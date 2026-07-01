@@ -1,10 +1,6 @@
 import { callLLM } from '@/lib/ai/llm';
 import type { ResponsesModel } from '@/lib/ai/providers';
 import {
-  DOUBAO_SEEDANCE_2_MODEL_ID,
-  DOUBAO_SEEDREAM_5_MODEL_ID,
-} from '@/lib/ai/ark-models';
-import {
   buildPrompt,
   PROMPT_IDS,
 } from '@/lib/prompts';
@@ -13,7 +9,6 @@ import {
   generateSceneActions,
   generateSceneContent,
   parseJsonResponse,
-  uniquifyMediaElementIds,
 } from '@/lib/generation/generation-pipeline';
 import type {
   AICallFn,
@@ -24,16 +19,6 @@ import { validateSceneOutline } from '@/lib/generation/outline-validation';
 import type { SceneOutline } from '@/lib/types/generation';
 import type { Scene } from '@/lib/types/stage';
 import type { VibeEditDraft, VibeEditMessage } from '@/lib/types/vibe-edit';
-import { generateImage } from '@/lib/media/image-providers';
-import { generateVideo } from '@/lib/media/video-providers';
-import { normalizeVideoOptions } from '@/lib/media/video-constants';
-import type { ImageGenerationOptions, MediaGenerationRequest } from '@/lib/media/types';
-import {
-  resolveImageApiKey,
-  resolveImageBaseUrl,
-  resolveVideoApiKey,
-  resolveVideoBaseUrl,
-} from '@/lib/server/provider-config';
 
 interface VibeEditOutlinePayload {
   type: SceneOutline['type'];
@@ -47,7 +32,6 @@ interface VibeEditOutlinePayload {
   pblConfig?: SceneOutline['pblConfig'];
   widgetType?: SceneOutline['widgetType'];
   widgetOutline?: SceneOutline['widgetOutline'];
-  mediaGenerations?: MediaGenerationRequest[];
 }
 
 interface VibeEditPlanPayload {
@@ -63,8 +47,6 @@ interface CreateVibeEditDraftParams {
   agents?: AgentInfo[];
   userProfile?: string;
   languageDirective?: string;
-  allowImageGeneration: boolean;
-  allowVideoGeneration: boolean;
   model: ResponsesModel;
 }
 
@@ -101,15 +83,11 @@ export async function createVibeEditDraft(
   }
 
   const scene = adoptSceneIdentity(params.scene, generated);
-  const previewMediaMap = await generatePreviewMedia(nextOutline.mediaGenerations || []);
-  const previewScene = buildPreviewScene(scene, previewMediaMap);
 
   return {
     summary,
     outline: nextOutline,
     scene,
-    previewScene,
-    previewMediaMap,
   };
 }
 
@@ -125,8 +103,6 @@ async function generateEditedOutline(
     currentOutline: JSON.stringify(params.outline, null, 2),
     currentSceneSummary: summarizeSceneForPrompt(params.scene),
     conversation: formatConversation(params.messages),
-    allowImageGeneration: params.allowImageGeneration,
-    allowVideoGeneration: params.allowVideoGeneration,
     languageDirective: params.languageDirective || '保持与当前课程一致。',
   });
   if (!prompt) {
@@ -147,15 +123,7 @@ async function generateEditedOutline(
     throw new Error('Vibe 编辑结果无效');
   }
 
-  assertRequestedMediaAllowed(
-    parsed.outline.mediaGenerations || [],
-    params.allowImageGeneration,
-    params.allowVideoGeneration,
-  );
-
-  const outline = uniquifyMediaElementIds([
-    buildOutlineFromPayload(params.outline, parsed.outline),
-  ])[0];
+  const outline = buildOutlineFromPayload(params.outline, parsed.outline);
 
   return {
     outline: validateSceneOutline(outline, outline.order),
@@ -178,7 +146,6 @@ function buildOutlineFromPayload(
     estimatedDuration: payload.estimatedDuration ?? currentOutline.estimatedDuration,
     languageNote: payload.languageNote ?? currentOutline.languageNote,
     suggestedImageIds: currentOutline.suggestedImageIds,
-    mediaGenerations: payload.mediaGenerations,
     ...(payload.type === 'quiz' ? { quizConfig: payload.quizConfig } : {}),
     ...(payload.type === 'interactive'
       ? {
@@ -188,19 +155,6 @@ function buildOutlineFromPayload(
       : {}),
     ...(payload.type === 'pbl' ? { pblConfig: payload.pblConfig } : {}),
   };
-}
-
-function assertRequestedMediaAllowed(
-  mediaGenerations: MediaGenerationRequest[],
-  allowImageGeneration: boolean,
-  allowVideoGeneration: boolean,
-): void {
-  if (!allowImageGeneration && mediaGenerations.some((item) => item.type === 'image')) {
-    throw new Error('当前设置未开启图片生成');
-  }
-  if (!allowVideoGeneration && mediaGenerations.some((item) => item.type === 'video')) {
-    throw new Error('当前设置未开启视频生成');
-  }
 }
 
 function createAiCall(
@@ -243,98 +197,6 @@ function adoptSceneIdentity(original: Scene, generated: Scene): Scene {
     createdAt: original.createdAt,
     updatedAt: Date.now(),
   };
-}
-
-function buildPreviewScene(scene: Scene, mediaMap: Record<string, string>): Scene {
-  if (scene.content.type !== 'slide' || Object.keys(mediaMap).length === 0) {
-    return scene;
-  }
-
-  return {
-    ...scene,
-    content: {
-      ...scene.content,
-      canvas: {
-        ...scene.content.canvas,
-        elements: scene.content.canvas.elements.map((element) => {
-          if ('src' in element && typeof element.src === 'string' && mediaMap[element.src]) {
-            return { ...element, src: mediaMap[element.src] };
-          }
-          return element;
-        }),
-      },
-    },
-  };
-}
-
-function resolveImageAspectRatio(
-  aspectRatio: MediaGenerationRequest['aspectRatio'],
-): ImageGenerationOptions['aspectRatio'] {
-  if (aspectRatio && aspectRatio !== '21:9') return aspectRatio;
-  return '16:9';
-}
-
-async function generatePreviewMedia(
-  requests: MediaGenerationRequest[],
-): Promise<Record<string, string>> {
-  const mediaMap: Record<string, string> = {};
-
-  for (const request of requests) {
-    if (request.type === 'image') {
-      const providerId = 'volcengine-ark-image';
-      const apiKey = resolveImageApiKey(providerId);
-      const baseUrl = resolveImageBaseUrl(providerId);
-      if (!apiKey) {
-        throw new Error('图片生成暂时不可用');
-      }
-      const result = await generateImage(
-        {
-          providerId,
-          apiKey,
-          baseUrl,
-          model: DOUBAO_SEEDREAM_5_MODEL_ID,
-        },
-        {
-          prompt: request.prompt,
-          aspectRatio: resolveImageAspectRatio(request.aspectRatio),
-          style: request.style,
-        },
-      );
-      const url = result.base64
-        ? `data:image/png;base64,${result.base64}`
-        : result.url;
-      if (!url) {
-        throw new Error(`图片预览生成失败：${request.elementId}`);
-      }
-      mediaMap[request.elementId] = url;
-      continue;
-    }
-
-    const providerId = 'volcengine-ark-video';
-    const apiKey = resolveVideoApiKey(providerId);
-    const baseUrl = resolveVideoBaseUrl(providerId);
-    if (!apiKey) {
-      throw new Error('视频生成暂时不可用');
-    }
-    const result = await generateVideo(
-      {
-        providerId,
-        apiKey,
-        baseUrl,
-        model: DOUBAO_SEEDANCE_2_MODEL_ID,
-      },
-      normalizeVideoOptions(providerId, {
-        prompt: request.prompt,
-        aspectRatio: request.aspectRatio,
-      }),
-    );
-    if (!result.url && !result.base64) {
-      throw new Error(`视频预览生成失败：${request.elementId}`);
-    }
-    mediaMap[request.elementId] = result.url || `data:video/mp4;base64,${result.base64}`;
-  }
-
-  return mediaMap;
 }
 
 function summarizeSceneForPrompt(scene: Scene): string {

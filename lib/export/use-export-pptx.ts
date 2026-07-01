@@ -8,7 +8,6 @@ import { toast } from 'sonner';
 
 import { useStageStore } from '@/lib/store';
 import { useCanvasStore } from '@/lib/store/canvas';
-import { useMediaGenerationStore, isMediaPlaceholder } from '@/lib/store/media-generation';
 import type {
   Slide,
   PPTElementOutline,
@@ -466,16 +465,7 @@ async function buildPptxBlob(
 
       // ── IMAGE ──
       else if (el.type === 'image') {
-        // Resolve placeholder src → actual image data
         let resolvedSrc = el.src;
-        if (isMediaPlaceholder(el.src)) {
-          const task = useMediaGenerationStore.getState().tasks[el.src];
-          if (task?.status === 'done' && task.objectUrl) {
-            resolvedSrc = task.objectUrl;
-          } else {
-            continue; // Media not ready, skip
-          }
-        }
 
         // Fetch and convert to base64 for embedding in PPTX
         // (blob: URLs and remote URLs won't work in offline PPTX)
@@ -907,16 +897,7 @@ async function buildPptxBlob(
 
       // ── VIDEO / AUDIO ──
       else if (el.type === 'video' || el.type === 'audio') {
-        // Resolve placeholder src → blob URL from media generation store
         let resolvedSrc = el.src;
-        if (isMediaPlaceholder(el.src)) {
-          const task = useMediaGenerationStore.getState().tasks[el.src];
-          if (task?.status === 'done' && task.objectUrl) {
-            resolvedSrc = task.objectUrl;
-          } else {
-            continue; // Media not ready, skip
-          }
-        }
 
         // Fetch blob and convert to base64 for embedding in PPTX
         // (blob: URLs and remote URLs won't work in offline PPTX)
@@ -949,12 +930,8 @@ async function buildPptxBlob(
           if (el.type === 'video') {
             let coverBase64: string | undefined;
 
-            // 1. Try poster from element or media generation store
-            let posterUrl = 'poster' in el && el.poster ? el.poster : undefined;
-            if (!posterUrl && isMediaPlaceholder(el.src)) {
-              const task = useMediaGenerationStore.getState().tasks[el.src];
-              if (task?.poster) posterUrl = task.poster;
-            }
+            // 1. Try poster from element
+            const posterUrl = 'poster' in el && el.poster ? el.poster : undefined;
             if (posterUrl) {
               try {
                 const posterResp = await fetch(posterUrl);

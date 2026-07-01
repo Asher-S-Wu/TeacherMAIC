@@ -19,7 +19,6 @@ import {
   formatImageDescription,
   formatImagePlaceholder,
   buildVisionUserContent,
-  uniquifyMediaElementIds,
   formatTeacherPersonaForPrompt,
 } from '@/lib/generation/generation-pipeline';
 import type { AgentInfo } from '@/lib/generation/generation-pipeline';
@@ -188,10 +187,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Build media snippet conditions based on enabled flags.
-    const imageGenerationEnabled = req.headers.get('x-image-generation-enabled') === 'true';
-    const videoGenerationEnabled = req.headers.get('x-video-generation-enabled') === 'true';
-    const mediaGenerationEnabled = imageGenerationEnabled || videoGenerationEnabled;
     const hasSourceImages = (pdfImages?.length ?? 0) > 0;
 
     // Build teacher context from agents (if available)
@@ -204,9 +199,6 @@ export async function POST(req: NextRequest) {
       availableImages: availableImagesText,
       researchContext: researchContext || 'None',
       hasSourceImages,
-      imageEnabled: imageGenerationEnabled,
-      videoEnabled: videoGenerationEnabled,
-      mediaEnabled: mediaGenerationEnabled,
       teacherContext,
       userProfile: userProfileText,
     });
@@ -357,12 +349,10 @@ export async function POST(req: NextRequest) {
           }
 
           if (parsedOutlines.length > 0 && languageDirective) {
-            // Replace sequential gen_img_N/gen_vid_N with globally unique IDs
-            const uniquifiedOutlines = uniquifyMediaElementIds(parsedOutlines);
             // Send done event with all outlines
             const doneEvent = JSON.stringify({
               type: 'done',
-              outlines: uniquifiedOutlines,
+              outlines: parsedOutlines,
               languageDirective,
             });
             controller.enqueue(encoder.encode(`data: ${doneEvent}\n\n`));

@@ -2,78 +2,14 @@ import type {
   BuiltInTTSProviderId,
   TTSProviderConfig,
   TTSVoiceInfo,
-  BuiltInASRProviderId,
-  ASRProviderId,
-  ASRProviderConfig,
 } from './types';
 import {
   DOUBAO_AUDIO_TTS_ENDPOINT,
   DOUBAO_AUDIO_TTS_MODEL_ID,
   DOUBAO_AUDIO_TTS_MODEL_NAME,
-  DOUBAO_AUC_ASR_QUERY_ENDPOINT,
-  DOUBAO_AUC_ASR_MODEL_ID,
-  DOUBAO_AUC_ASR_MODEL_NAME,
 } from '@/lib/ai/doubao-audio-models';
 
-export { DOUBAO_AUDIO_TTS_MODEL_ID, DOUBAO_AUC_ASR_MODEL_ID };
-
-export const DOUBAO_AUC_ASR_LANGUAGES = [
-  'auto',
-  'zh-CN',
-  'en-US',
-  'ja-JP',
-  'id-ID',
-  'es-MX',
-  'pt-BR',
-  'de-DE',
-  'fr-FR',
-  'ko-KR',
-  'fil-PH',
-  'ms-MY',
-  'th-TH',
-  'ar-SA',
-  'it-IT',
-  'bn-BD',
-  'el-GR',
-  'nl-NL',
-  'ru-RU',
-  'tr-TR',
-  'vi-VN',
-  'pl-PL',
-  'ro-RO',
-  'ne-NP',
-  'uk-UA',
-  'yue-CN',
-];
-
-export const DOUBAO_AUC_ASR_LANGUAGE_NAMES: Record<string, string> = {
-  auto: '自动识别',
-  'zh-CN': '中文普通话',
-  'en-US': '英语',
-  'ja-JP': '日语',
-  'id-ID': '印尼语',
-  'es-MX': '西班牙语',
-  'pt-BR': '葡萄牙语',
-  'de-DE': '德语',
-  'fr-FR': '法语',
-  'ko-KR': '韩语',
-  'fil-PH': '菲律宾语',
-  'ms-MY': '马来语',
-  'th-TH': '泰语',
-  'ar-SA': '阿拉伯语',
-  'it-IT': '意大利语',
-  'bn-BD': '孟加拉语',
-  'el-GR': '希腊语',
-  'nl-NL': '荷兰语',
-  'ru-RU': '俄语',
-  'tr-TR': '土耳其语',
-  'vi-VN': '越南语',
-  'pl-PL': '波兰语',
-  'ro-RO': '罗马尼亚语',
-  'ne-NP': '尼泊尔语',
-  'uk-UA': '乌克兰语',
-  'yue-CN': '粤语',
-};
+export { DOUBAO_AUDIO_TTS_MODEL_ID };
 
 function doubaoTTSVoice(
   id: string,
@@ -109,19 +45,6 @@ export const TTS_PROVIDERS: Record<BuiltInTTSProviderId, TTSProviderConfig> = {
   },
 };
 
-export const ASR_PROVIDERS: Record<BuiltInASRProviderId, ASRProviderConfig> = {
-  'volcengine-doubao-auc-asr': {
-    id: 'volcengine-doubao-auc-asr',
-    name: '火山豆包录音文件识别',
-    requiresApiKey: true,
-    defaultBaseUrl: DOUBAO_AUC_ASR_QUERY_ENDPOINT,
-    models: [{ id: DOUBAO_AUC_ASR_MODEL_ID, name: DOUBAO_AUC_ASR_MODEL_NAME }],
-    defaultModelId: DOUBAO_AUC_ASR_MODEL_ID,
-    supportedLanguages: DOUBAO_AUC_ASR_LANGUAGES,
-    supportedFormats: ['wav', 'mp3', 'ogg'],
-  },
-};
-
 export const DEFAULT_TTS_VOICES: Record<BuiltInTTSProviderId, string> = {
   'volcengine-doubao-tts': 'zh_female_qingxinnvsheng_mars_bigtts',
 };
@@ -129,15 +52,3 @@ export const DEFAULT_TTS_VOICES: Record<BuiltInTTSProviderId, string> = {
 export const DEFAULT_TTS_MODELS: Record<BuiltInTTSProviderId, string> = {
   'volcengine-doubao-tts': DOUBAO_AUDIO_TTS_MODEL_ID,
 };
-
-export function getASRProvider(providerId: ASRProviderId): ASRProviderConfig | undefined {
-  return ASR_PROVIDERS[providerId];
-}
-
-export function getASRSupportedLanguages(providerId: ASRProviderId): string[] {
-  return getASRProvider(providerId)?.supportedLanguages || [];
-}
-
-export function getASRLanguageName(language: string): string {
-  return DOUBAO_AUC_ASR_LANGUAGE_NAMES[language] || language;
-}

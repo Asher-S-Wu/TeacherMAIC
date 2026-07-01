@@ -6,7 +6,7 @@
  */
 
 import { createLogger } from '@/lib/logger';
-import { DOUBAO_AUDIO_TTS_ENDPOINT, DOUBAO_AUC_ASR_QUERY_ENDPOINT } from '@/lib/ai/doubao-audio-models';
+import { DOUBAO_AUDIO_TTS_ENDPOINT } from '@/lib/ai/doubao-audio-models';
 import { ARK_BASE_URL } from '@/lib/ai/ark-models';
 
 const log = createLogger('ServerProviderConfig');
@@ -24,10 +24,7 @@ interface ServerProviderEntry {
 interface ServerConfig {
   providers: Record<string, ServerProviderEntry>;
   tts: Record<string, ServerProviderEntry>;
-  asr: Record<string, ServerProviderEntry>;
   pdf: Record<string, ServerProviderEntry>;
-  image: Record<string, ServerProviderEntry>;
-  video: Record<string, ServerProviderEntry>;
   webSearch: Record<string, ServerProviderEntry>;
 }
 
@@ -80,17 +77,6 @@ function loadArkSection(
   };
 }
 
-function loadVolcengineASRSection(): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[VOLCENGINE_SPEECH_API_KEY_ENV] || undefined;
-  if (!apiKey) return {};
-  return {
-    'volcengine-doubao-auc-asr': {
-      apiKey,
-      baseUrl: DOUBAO_AUC_ASR_QUERY_ENDPOINT,
-    },
-  };
-}
-
 function loadVolcengineSpeechSection(): Record<string, ServerProviderEntry> {
   const apiKey = process.env[VOLCENGINE_SPEECH_API_KEY_ENV] || undefined;
   if (!apiKey) return {};
@@ -117,10 +103,7 @@ function buildConfig(): ServerConfig {
   return {
     providers: loadLLMEnvSection(),
     tts: loadVolcengineSpeechSection(),
-    asr: loadVolcengineASRSection(),
     pdf: loadEnvSection(PDF_ENV_MAP),
-    image: loadArkSection('volcengine-ark-image', ARK_BASE_URL),
-    video: loadArkSection('volcengine-ark-video', ARK_BASE_URL),
     webSearch: loadTavilySection(),
   };
 }
@@ -129,15 +112,12 @@ function logConfig(config: ServerConfig, label: string): void {
   const counts = [
     Object.keys(config.providers).length,
     Object.keys(config.tts).length,
-    Object.keys(config.asr).length,
     Object.keys(config.pdf).length,
-    Object.keys(config.image).length,
-    Object.keys(config.video).length,
     Object.keys(config.webSearch).length,
   ];
   if (counts.some((c) => c > 0)) {
     log.info(
-      `[ServerProviderConfig] Loaded (${label}): ${counts[0]} LLM, ${counts[1]} TTS, ${counts[2]} ASR, ${counts[3]} PDF, ${counts[4]} Image, ${counts[5]} Video, ${counts[6]} WebSearch providers`,
+      `[ServerProviderConfig] Loaded (${label}): ${counts[0]} LLM, ${counts[1]} TTS, ${counts[2]} PDF, ${counts[3]} WebSearch providers`,
     );
   }
 }
@@ -197,30 +177,6 @@ export function resolveTTSBaseUrl(providerId: string, _clientBaseUrl?: string): 
 }
 
 // ---------------------------------------------------------------------------
-// Public API — ASR
-// ---------------------------------------------------------------------------
-
-export function getServerASRProviders(): Record<string, { baseUrl?: string }> {
-  const cfg = getConfig();
-  const result: Record<string, { baseUrl?: string }> = {};
-  for (const [id, entry] of Object.entries(cfg.asr)) {
-    result[id] = {};
-    if (entry.baseUrl) result[id].baseUrl = entry.baseUrl;
-  }
-  return result;
-}
-
-export function resolveASRApiConfig(
-  providerId: string,
-): { apiKey: string; baseUrl?: string } {
-  const entry = getConfig().asr[providerId];
-  return {
-    apiKey: entry?.apiKey || '',
-    baseUrl: entry?.baseUrl,
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Public API — PDF
 // ---------------------------------------------------------------------------
 
@@ -235,56 +191,6 @@ export function getServerPDFProviders(): Record<string, object> {
 
 export function resolvePDFApiKey(providerId: string): string {
   return getConfig().pdf[providerId]?.apiKey || '';
-}
-
-// ---------------------------------------------------------------------------
-// Public API — Image Generation
-// ---------------------------------------------------------------------------
-
-export function getServerImageProviders(): Record<string, { baseUrl?: string }> {
-  const cfg = getConfig();
-  const result: Record<string, { baseUrl?: string }> = {};
-  for (const [id, entry] of Object.entries(cfg.image)) {
-    result[id] = {};
-    if (entry.baseUrl) result[id].baseUrl = entry.baseUrl;
-  }
-  return result;
-}
-
-export function resolveImageApiKey(providerId: string): string {
-  return getConfig().image[providerId]?.apiKey || '';
-}
-
-export function resolveImageBaseUrl(
-  providerId: string,
-  _clientBaseUrl?: string,
-): string | undefined {
-  return getConfig().image[providerId]?.baseUrl;
-}
-
-// ---------------------------------------------------------------------------
-// Public API — Video Generation
-// ---------------------------------------------------------------------------
-
-export function getServerVideoProviders(): Record<string, { baseUrl?: string }> {
-  const cfg = getConfig();
-  const result: Record<string, { baseUrl?: string }> = {};
-  for (const [id, entry] of Object.entries(cfg.video)) {
-    result[id] = {};
-    if (entry.baseUrl) result[id].baseUrl = entry.baseUrl;
-  }
-  return result;
-}
-
-export function resolveVideoApiKey(providerId: string): string {
-  return getConfig().video[providerId]?.apiKey || '';
-}
-
-export function resolveVideoBaseUrl(
-  providerId: string,
-  _clientBaseUrl?: string,
-): string | undefined {
-  return getConfig().video[providerId]?.baseUrl;
 }
 
 // ---------------------------------------------------------------------------

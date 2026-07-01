@@ -13,7 +13,7 @@ import {
   buildVisionUserContent,
 } from '@/lib/generation/generation-pipeline';
 import type { AgentInfo } from '@/lib/generation/generation-pipeline';
-import type { SceneOutline, PdfImage, ImageMapping } from '@/lib/types/generation';
+import type { SceneOutline, PdfImage } from '@/lib/types/generation';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
@@ -104,11 +104,6 @@ async function runSceneContentGeneration(
   }
   const imageMapping = hasVision ? await loadImageMappingForUser(assignedImages, user) : {};
 
-  // ── 图片/视频生成由前端并行处理，这里只保留占位 ID ──
-  // 内容生成器会收到 gen_img_1、gen_vid_1 这类占位符。
-  // resolveImageIds() 会把这些占位符原样保留在元素里。
-  const generatedMediaMapping: ImageMapping = {};
-
   // ── 生成当前页面内容 ──
   log.info(
     `Generating content: "${effectiveOutline.title}" (${effectiveOutline.type}) [model=${modelString}]`,
@@ -119,7 +114,6 @@ async function runSceneContentGeneration(
     imageMapping,
     languageModel: effectiveOutline.type === 'pbl' ? languageModel : undefined,
     visionEnabled: hasVision,
-    generatedMediaMapping,
     agents,
     languageDirective,
   });

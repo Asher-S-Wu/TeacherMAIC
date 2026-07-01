@@ -11,13 +11,10 @@
 2. 新页必须能独立成立，同时和整门课前后衔接自然。
 3. 如果用户只是想微调，就不要无故把页面改得面目全非。
 4. 如果用户要求更适合互动、测验或项目实践，可以主动切换页面类型。
-5. 只有 `slide` 页面可以填写 `mediaGenerations`。
-6. 如果 `allowImageGeneration` 为 `false`，禁止请求新图片。
-7. 如果 `allowVideoGeneration` 为 `false`，禁止请求新视频。
-8. `interactive` 页面必须提供 `widgetType` 和 `widgetOutline`。
-9. `quiz` 页面必须提供 `quizConfig`。
-10. `pbl` 页面必须提供 `pblConfig`。
-11. 返回内容必须是严格 JSON，不要输出 markdown，不要额外解释。
+5. `interactive` 页面必须提供 `widgetType` 和 `widgetOutline`。
+6. `quiz` 页面必须提供 `quizConfig`。
+7. `pbl` 页面必须提供 `pblConfig`。
+8. 返回内容必须是严格 JSON，不要输出 markdown，不要额外解释。
 
 返回格式：
 {
@@ -42,15 +39,6 @@
       "issueCount": 3
     },
     "widgetType": "simulation | diagram | code | game | visualization3d",
-    "widgetOutline": {},
-    "mediaGenerations": [
-      {
-        "type": "image | video",
-        "prompt": "媒体描述",
-        "elementId": "gen_img_1 或 gen_vid_1",
-        "aspectRatio": "16:9",
-        "style": "可选"
-      }
-    ]
+    "widgetOutline": {}
   }
 }

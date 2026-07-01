@@ -27,10 +27,7 @@ function stripSettingsSecrets(key: string, value: string): string {
     for (const field of [
       'providersConfig',
       'ttsProvidersConfig',
-      'asrProvidersConfig',
       'pdfProvidersConfig',
-      'imageProvidersConfig',
-      'videoProvidersConfig',
       'webSearchProvidersConfig',
     ]) {
       clearProviderSecrets(state[field]);

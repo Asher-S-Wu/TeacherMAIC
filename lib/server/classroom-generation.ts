@@ -28,11 +28,7 @@ import {
   CLASSROOM_GENERATION_CONCURRENCY,
   formatSceneGenerationProgressMessage,
 } from '@/lib/constants/classroom-generation';
-import {
-  generateMediaForClassroom,
-  replaceMediaPlaceholders,
-  generateTTSForClassroom,
-} from '@/lib/server/classroom-media-generation';
+import { generateTTSForClassroom } from '@/lib/server/classroom-tts-generation';
 import type { PdfImage, UserRequirements } from '@/lib/types/generation';
 import type { Scene, Stage } from '@/lib/types/stage';
 import type { ObjectId } from 'mongodb';
@@ -255,8 +251,6 @@ export async function generateClassroom(
     {
       visionEnabled: hasVision,
       imageMapping: outlineImageMapping,
-      imageGenerationEnabled: input.enableImageGeneration,
-      videoGenerationEnabled: input.enableVideoGeneration,
       researchContext,
     },
   );
@@ -402,7 +396,6 @@ export async function generateClassroom(
       imageMapping,
       languageModel: outline.type === 'pbl' ? languageModel : undefined,
       visionEnabled: hasVision,
-      generatedMediaMapping: {},
       agents,
       languageDirective,
     });
@@ -439,24 +432,6 @@ export async function generateClassroom(
 
   if (scenes.length === 0) {
     throw new Error('No scenes were generated');
-  }
-
-  if (input.enableImageGeneration || input.enableVideoGeneration) {
-    await options.onProgress?.({
-      step: 'generating_media',
-      progress: 90,
-      message: '正在生成图片和视频',
-      scenesGenerated: scenes.length,
-      totalScenes: outlines.length,
-    });
-
-    const mediaMap = await generateMediaForClassroom(
-      outlines,
-      stageId,
-      options.userId,
-    );
-    replaceMediaPlaceholders(scenes, mediaMap);
-    log.info(`Media generation complete: ${Object.keys(mediaMap).length} files`);
   }
 
   if (input.enableTTS) {

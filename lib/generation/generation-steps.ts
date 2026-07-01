@@ -108,7 +108,6 @@ export function resolveJobProgressStep(
     stepId =
       halfDone && activeSteps.some((s) => s.id === 'actions') ? 'actions' : 'slide-content';
   } else if (
-    step === 'generating_media' ||
     step === 'generating_tts' ||
     step === 'persisting'
   ) {

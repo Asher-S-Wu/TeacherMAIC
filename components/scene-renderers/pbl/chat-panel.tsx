@@ -5,7 +5,6 @@ import { ArrowUp } from 'lucide-react';
 import type { PBLChatMessage, PBLIssue } from '@/lib/pbl/types';
 import { MessageResponse } from '@/components/ai-elements/message';
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
-import { SpeechButton } from '@/components/audio/speech-button';
 
 interface ChatPanelProps {
   readonly messages: PBLChatMessage[];
@@ -123,17 +122,6 @@ export function ChatPanel({
             disabled={isLoading}
             rows={1}
             className="flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
-          />
-          <SpeechButton
-            size="md"
-            disabled={isLoading}
-            onTranscription={(text) => {
-              setInput((prev) => {
-                const next = prev + (prev ? ' ' : '') + text;
-                updateDraftCache(next);
-                return next;
-              });
-            }}
           />
           <button
             onClick={handleSubmit}

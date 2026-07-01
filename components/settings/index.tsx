@@ -8,11 +8,8 @@ import {
   Box,
   Settings,
   FileText,
-  Image as ImageIcon,
-  Film,
   Search,
   Volume2,
-  Mic,
 } from 'lucide-react';
 import { useSettingsStore } from '@/lib/store/settings';
 import {
@@ -26,16 +23,8 @@ import { ProviderConfigPanel } from './provider-config-panel';
 import { PDFSettings } from './pdf-settings';
 import { PDF_PROVIDERS } from '@/lib/pdf/constants';
 import type { PDFProviderId } from '@/lib/pdf/types';
-import { ImageSettings } from './image-settings';
-import { IMAGE_PROVIDERS } from '@/lib/media/image-constants';
-import type { ImageProviderId } from '@/lib/media/types';
-import { VideoSettings } from './video-settings';
-import { VIDEO_PROVIDERS } from '@/lib/media/video-constants';
-import type { VideoProviderId } from '@/lib/media/types';
 import { TTSSettings } from './tts-settings';
 import { TTS_PROVIDERS } from '@/lib/audio/constants';
-import { ASRSettings } from './asr-settings';
-import { ASR_PROVIDERS } from '@/lib/audio/constants';
 import { WebSearchSettings } from './web-search-settings';
 import { WEB_SEARCH_PROVIDERS } from '@/lib/web-search/constants';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
@@ -112,18 +101,11 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   const pdfProvidersConfig = useSettingsStore((state) => state.pdfProvidersConfig);
   const webSearchProviderId = useSettingsStore((state) => state.webSearchProviderId);
   const webSearchProvidersConfig = useSettingsStore((state) => state.webSearchProvidersConfig);
-  const imageProviderId = useSettingsStore((state) => state.imageProviderId);
-  const imageProvidersConfig = useSettingsStore((state) => state.imageProvidersConfig);
-  const videoProviderId = useSettingsStore((state) => state.videoProviderId);
-  const videoProvidersConfig = useSettingsStore((state) => state.videoProvidersConfig);
   const ttsProviderId = useSettingsStore((state) => state.ttsProviderId);
   const ttsProvidersConfig = useSettingsStore((state) => state.ttsProvidersConfig);
-  const asrProviderId = useSettingsStore((state) => state.asrProviderId);
-  const asrProvidersConfig = useSettingsStore((state) => state.asrProvidersConfig);
 
   // Store actions
   const setTTSProvider = useSettingsStore((state) => state.setTTSProvider);
-  const setASRProvider = useSettingsStore((state) => state.setASRProvider);
 
   // Navigation
   const [activeSection, setActiveSection] = useState<SettingsSection>('providers');
@@ -131,10 +113,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   const [selectedPdfProviderId, setSelectedPdfProviderId] = useState<PDFProviderId>(pdfProviderId);
   const [selectedWebSearchProviderId, setSelectedWebSearchProviderId] =
     useState<WebSearchProviderId>(webSearchProviderId);
-  const [selectedImageProviderId, setSelectedImageProviderId] =
-    useState<ImageProviderId>(imageProviderId);
-  const [selectedVideoProviderId, setSelectedVideoProviderId] =
-    useState<VideoProviderId>(videoProviderId);
   // Navigate to initialSection when dialog opens
   useEffect(() => {
     if (open && initialSection) {
@@ -306,48 +284,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
           </>
         );
       }
-      case 'image': {
-        const imgProvider = IMAGE_PROVIDERS[selectedImageProviderId];
-        const imgIcon = imgProvider?.icon;
-        return (
-          <>
-            {imgIcon ? (
-              <img
-                src={imgIcon}
-                alt={imgProvider?.name}
-                className="w-8 h-8 rounded"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            ) : (
-              <Box className="h-8 w-8 text-muted-foreground" />
-            )}
-            <h2 className="text-lg font-semibold">{imgProvider?.name}</h2>
-          </>
-        );
-      }
-      case 'video': {
-        const vidProvider = VIDEO_PROVIDERS[selectedVideoProviderId];
-        const vidIcon = vidProvider?.icon;
-        return (
-          <>
-            {vidIcon ? (
-              <img
-                src={vidIcon}
-                alt={vidProvider?.name}
-                className="w-8 h-8 rounded"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            ) : (
-              <Box className="h-8 w-8 text-muted-foreground" />
-            )}
-            <h2 className="text-lg font-semibold">{vidProvider?.name}</h2>
-          </>
-        );
-      }
       case 'tts': {
         const ttsProvider = TTS_PROVIDERS[ttsProviderId];
         const ttsIcon = ttsProvider?.icon;
@@ -366,27 +302,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               <Volume2 className="h-6 w-6 text-muted-foreground" />
             )}
             <h2 className="text-lg font-semibold">{ttsProvider?.name}</h2>
-          </>
-        );
-      }
-      case 'asr': {
-        const asrProvider = ASR_PROVIDERS[asrProviderId];
-        const asrIcon = asrProvider?.icon;
-        return (
-          <>
-            {asrIcon ? (
-              <img
-                src={asrIcon}
-                alt=""
-                className="w-8 h-8 rounded"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            ) : (
-              <Mic className="h-6 w-6 text-muted-foreground" />
-            )}
-            <h2 className="text-lg font-semibold">{asrProvider?.name}</h2>
           </>
         );
       }
@@ -417,32 +332,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             </button>
 
             <button
-              onClick={() => setActiveSection('image')}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
-                activeSection === 'image'
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'hover:bg-muted',
-              )}
-            >
-              <ImageIcon className="h-4 w-4 shrink-0" />
-              <span className="truncate">图像生成</span>
-            </button>
-
-            <button
-              onClick={() => setActiveSection('video')}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
-                activeSection === 'video'
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'hover:bg-muted',
-              )}
-            >
-              <Film className="h-4 w-4 shrink-0" />
-              <span className="truncate">视频生成</span>
-            </button>
-
-            <button
               onClick={() => setActiveSection('tts')}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
@@ -453,19 +342,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             >
               <Volume2 className="h-4 w-4 shrink-0" />
               <span className="truncate">语音合成</span>
-            </button>
-
-            <button
-              onClick={() => setActiveSection('asr')}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
-                activeSection === 'asr'
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'hover:bg-muted',
-              )}
-            >
-              <Mic className="h-4 w-4 shrink-0" />
-              <span className="truncate">语音识别</span>
             </button>
 
             <button
@@ -570,50 +446,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             </>
           )}
 
-          {activeSection === 'image' && (
-            <>
-              <ProviderListColumn
-                providers={Object.values(IMAGE_PROVIDERS).map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  icon: p.icon,
-                }))}
-                configs={imageProvidersConfig}
-                selectedId={selectedImageProviderId}
-                onSelect={setSelectedImageProviderId}
-                width={providerListWidth}
-              />
-              <div
-                onMouseDown={(e) => handleResizeStart(e, 'providerList')}
-                className="flex-shrink-0 w-[5px] cursor-col-resize group flex justify-center"
-              >
-                <div className="w-px h-full bg-border group-hover:bg-primary/50 transition-colors" />
-              </div>
-            </>
-          )}
-
-          {activeSection === 'video' && (
-            <>
-              <ProviderListColumn
-                providers={Object.values(VIDEO_PROVIDERS).map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  icon: p.icon,
-                }))}
-                configs={videoProvidersConfig}
-                selectedId={selectedVideoProviderId}
-                onSelect={setSelectedVideoProviderId}
-                width={providerListWidth}
-              />
-              <div
-                onMouseDown={(e) => handleResizeStart(e, 'providerList')}
-                className="flex-shrink-0 w-[5px] cursor-col-resize group flex justify-center"
-              >
-                <div className="w-px h-full bg-border group-hover:bg-primary/50 transition-colors" />
-              </div>
-            </>
-          )}
-
           {activeSection === 'tts' && (
             <>
               <ProviderListColumn
@@ -625,28 +457,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 configs={ttsProvidersConfig}
                 selectedId={ttsProviderId}
                 onSelect={setTTSProvider}
-                width={providerListWidth}
-              />
-              <div
-                onMouseDown={(e) => handleResizeStart(e, 'providerList')}
-                className="flex-shrink-0 w-[5px] cursor-col-resize group flex justify-center"
-              >
-                <div className="w-px h-full bg-border group-hover:bg-primary/50 transition-colors" />
-              </div>
-            </>
-          )}
-
-          {activeSection === 'asr' && (
-            <>
-              <ProviderListColumn
-                providers={Object.values(ASR_PROVIDERS).map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  icon: p.icon,
-                }))}
-                configs={asrProvidersConfig}
-                selectedId={asrProviderId}
-                onSelect={setASRProvider}
                 width={providerListWidth}
               />
               <div
@@ -687,14 +497,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               {activeSection === 'web-search' && (
                 <WebSearchSettings selectedProviderId={selectedWebSearchProviderId} />
               )}
-              {activeSection === 'image' && (
-                <ImageSettings selectedProviderId={selectedImageProviderId} />
-              )}
-              {activeSection === 'video' && (
-                <VideoSettings selectedProviderId={selectedVideoProviderId} />
-              )}
               {activeSection === 'tts' && <TTSSettings selectedProviderId={ttsProviderId} />}
-              {activeSection === 'asr' && <ASRSettings selectedProviderId={asrProviderId} />}
             </div>
 
             {/* Footer */}

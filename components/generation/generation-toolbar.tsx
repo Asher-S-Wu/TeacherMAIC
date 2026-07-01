@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, type ReactNode } from 'react';
+import { useState, useRef } from 'react';
 import { Paperclip, FileText, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -22,7 +22,6 @@ export interface GenerationToolbarProps {
   pdfFile: File | null;
   onPdfFileChange: (file: File | null) => void;
   onPdfError: (error: string | null) => void;
-  voiceButton?: ReactNode;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -33,7 +32,6 @@ export function GenerationToolbar({
   pdfFile,
   onPdfFileChange,
   onPdfError,
-  voiceButton,
 }: GenerationToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -175,10 +173,6 @@ export function GenerationToolbar({
           </div>
         </PopoverContent>
       </Popover>
-
-      {voiceButton && (
-        <div className="order-2 flex h-[32px] shrink-0 items-center">{voiceButton}</div>
-      )}
 
       {/* ── Separator ── */}
       <div className="order-4 h-[18px] w-px shrink-0 bg-border/60" />

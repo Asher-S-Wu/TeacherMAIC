@@ -22,12 +22,6 @@ function parseGenerateClassroomInput(rawBody: Partial<GenerateClassroomInput>): 
     ...(rawBody.userNickname ? { userNickname: rawBody.userNickname } : {}),
     ...(rawBody.userBio ? { userBio: rawBody.userBio } : {}),
     enableWebSearch: rawBody.enableWebSearch ?? true,
-    ...(rawBody.enableImageGeneration != null
-      ? { enableImageGeneration: rawBody.enableImageGeneration }
-      : {}),
-    ...(rawBody.enableVideoGeneration != null
-      ? { enableVideoGeneration: rawBody.enableVideoGeneration }
-      : {}),
     ...(rawBody.enableTTS != null ? { enableTTS: rawBody.enableTTS } : {}),
     ...(rawBody.agentMode ? { agentMode: rawBody.agentMode } : {}),
     ...(rawBody.presetAgents?.length ? { presetAgents: rawBody.presetAgents } : {}),
