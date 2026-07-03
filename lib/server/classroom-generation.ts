@@ -217,7 +217,7 @@ export async function generateClassroom(
           void options.onProgress?.({
             step: 'researching',
             progress: 10 + Math.min(event.round, 4),
-            message: `联网检索 第 ${event.round} 轮：${event.query}`,
+            message: '联网中',
             scenesGenerated: 0,
           });
         }
