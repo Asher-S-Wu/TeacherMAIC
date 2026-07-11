@@ -136,7 +136,7 @@ function buildAgentProfilesPrompt(input: GenerateAgentProfilesInput): {
     : '';
 
   const voiceJsonField = voiceListStr
-    ? ',\n      "voice": "string (voice id from available list, e.g. \'volcengine-doubao-tts::zh_female_qingxinnvsheng_mars_bigtts\')"'
+    ? ',\n      "voice": "string (voice id from available list, e.g. \'aliyun-cosyvoice-tts::longanyang\')"'
     : '';
 
   const userPrompt = `Generate agent profiles for the following course:

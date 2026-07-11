@@ -29,11 +29,9 @@ Infer the course language from all available signals and produce:
    - "我想学日语" → teach in **Chinese**
    - Exception: advanced learners (TEM-8/专八, DALF C1, JLPT N1) aiming for native-level fluency → teach in the **target language** for immersion.
 
-4. **Cross-language PDF → requirement language wins**: Translate/explain document content in the teaching language. Never let the PDF language override the requirement language.
+4. **Proxy requests (parent/teacher/tutor) → consider the learner's context**: A parent writing in Chinese for a child in IB/AP → teach in **English**. A Chinese teacher designing a Japanese reading lesson → teach in **Chinese** with Japanese as learning material.
 
-5. **Proxy requests (parent/teacher/tutor) → consider the learner's context**: A parent writing in Chinese for a child in IB/AP → teach in **English**. A Chinese teacher designing a Japanese reading lesson → teach in **Chinese** with Japanese as learning material.
-
-6. **Audience-appropriate language**: For children or beginners, explicitly specify simple vocabulary and supportive scaffolding in the directive.
+5. **Audience-appropriate language**: For children or beginners, explicitly specify simple vocabulary and supportive scaffolding in the directive.
 
 ### Terminology
 

@@ -1,10 +1,10 @@
 /**
  * Audio Provider Type Definitions
  *
- * TTS uses Volcengine Doubao Audio services.
+ * TTS uses Alibaba Cloud CosyVoice services.
  */
 
-export type BuiltInTTSProviderId = 'volcengine-doubao-tts';
+export type BuiltInTTSProviderId = 'aliyun-cosyvoice-tts';
 export type TTSProviderId = BuiltInTTSProviderId;
 
 export interface TTSVoiceInfo {

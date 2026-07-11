@@ -15,19 +15,10 @@ Please generate scene outlines based on the following course requirements.
 Infer the course language directive by applying the decision rules from the system prompt. Key reminders:
 - Requirement language = teaching language (unless overridden by explicit request or learner context)
 - Foreign language learning → teach in user's native language, not the target language
-- PDF language does NOT override teaching language — translate/explain document content instead
 
 ---
 
 ## Reference Materials
-
-### PDF Content Summary
-
-{{pdfContent}}
-
-### Available Images
-
-{{availableImages}}
 
 ### Web Search Results
 
@@ -83,9 +74,6 @@ Never return a bare array. Never omit `languageDirective`. Both keys are require
      "questionTypes": ["single", "multiple"]
    }
    ```
-{{#if hasSourceImages}}
-- **If source images are available**, add `suggestedImageIds` to relevant slide scenes. Only use image IDs listed under Available Images.
-{{/if}}
 - **Interactive scenes**: If a concept benefits from hands-on simulation/visualization, use `"type": "interactive"` with `widgetType` and `widgetOutline` fields. Limit to 1-2 per course.
    - Select widgetType based on concept: simulation (physics/chem), diagram (processes), code (programming), game (practice), visualization3d (3D models)
    - Provide appropriate widgetOutline for the widget type

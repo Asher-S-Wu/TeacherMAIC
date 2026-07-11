@@ -10,11 +10,11 @@ import {
   WEB_SEARCH_QUERY_DIGEST_LIMIT,
 } from '@/lib/server/search-query-builder';
 import {
-  searchTavily,
-  tavilyItemToResearchPage,
-  type TavilyResearchPage,
-  type TavilySearchItem,
-} from '@/lib/web-search/tavily';
+  scrapeFirecrawl,
+  searchFirecrawl,
+  type FirecrawlResearchPage,
+  type FirecrawlSearchItem,
+} from '@/lib/web-search/firecrawl';
 import type { WebSearchResult, WebSearchSource } from '@/lib/web-search/types';
 
 const log = createLogger('WebResearch');
@@ -87,7 +87,7 @@ function truncate(value: string, maxLength: number): string {
 }
 
 // 把候选池压成给 LLM 看的字符串摘要，受总长度上限保护
-function formatCandidatesDigest(items: TavilySearchItem[]): string {
+function formatCandidatesDigest(items: FirecrawlSearchItem[]): string {
   if (items.length === 0) return '(empty)';
   const lines = items.map((item, index) => {
     const desc = item.description ? ` — ${truncate(item.description, CANDIDATE_LINE_MAX)}` : '';
@@ -97,7 +97,7 @@ function formatCandidatesDigest(items: TavilySearchItem[]): string {
 }
 
 // 把已抓页压成给 LLM 看的字符串摘要
-function formatScrapedDigest(pages: TavilyResearchPage[]): string {
+function formatScrapedDigest(pages: FirecrawlResearchPage[]): string {
   if (pages.length === 0) return '(empty)';
   const lines = pages.map((page, index) => {
     const body = page.summary || page.markdown;
@@ -108,7 +108,7 @@ function formatScrapedDigest(pages: TavilyResearchPage[]): string {
 }
 
 // 给 summarizeResearch 用的完整正文格式（与原实现一致，保留较长截断）
-function formatScrapedPages(pages: TavilyResearchPage[]): string {
+function formatScrapedPages(pages: FirecrawlResearchPage[]): string {
   return pages
     .map((page, index) => {
       const content = [
@@ -124,8 +124,8 @@ function formatScrapedPages(pages: TavilyResearchPage[]): string {
 }
 
 function buildSources(
-  pages: TavilyResearchPage[],
-  candidates: TavilySearchItem[],
+  pages: FirecrawlResearchPage[],
+  candidates: FirecrawlSearchItem[],
 ): WebSearchSource[] {
   const candidateByUrl = new Map(candidates.map((item) => [normalizeUrlKey(item.url), item]));
 
@@ -154,10 +154,10 @@ function formatResearchContext(summary: string, sources: WebSearchSource[]): str
 
 // 合并本轮搜索结果到候选池：按 normalizeUrlKey 去重，受候选池上限约束
 function mergeCandidates(
-  pool: TavilySearchItem[],
-  incoming: TavilySearchItem[],
+  pool: FirecrawlSearchItem[],
+  incoming: FirecrawlSearchItem[],
   cap: number,
-): { merged: TavilySearchItem[]; addedCount: number } {
+): { merged: FirecrawlSearchItem[]; addedCount: number } {
   const existingKeys = new Set(pool.map((item) => normalizeUrlKey(item.url)));
   const merged = [...pool];
   let addedCount = 0;
@@ -174,7 +174,7 @@ function mergeCandidates(
 
 // 规则函数：从本轮新增候选里取前 N 个未抓过的 URL，受总抓页预算约束
 function pickRoundUrls(
-  newCandidates: TavilySearchItem[],
+  newCandidates: FirecrawlSearchItem[],
   scrapedKeys: Set<string>,
   take: number,
   remainingBudget: number,
@@ -196,7 +196,7 @@ function pickRoundUrls(
 async function summarizeResearch(params: {
   requirement: string;
   searchQuery: string;
-  pages: TavilyResearchPage[];
+  pages: FirecrawlResearchPage[];
   aiCall: AICallFn;
 }): Promise<ResearchSummaryResponse> {
   const { requirement, searchQuery, pages, aiCall } = params;
@@ -226,10 +226,9 @@ ${formatScrapedPages(pages)}`;
   return { answer, summary };
 }
 
-// 多轮 Tavily 联网研究：搜 → 读结果正文 → 评估，必要时换关键词再来一轮
+// 多轮 Firecrawl 联网研究：搜 → 抓取结果正文 → 评估，必要时换关键词再来一轮
 export async function runAgentDrivenWebResearch(params: {
   requirement: string;
-  pdfText?: string;
   apiKey: string;
   createAiCall: AICallFactory;
   maxRounds?: number;
@@ -241,7 +240,6 @@ export async function runAgentDrivenWebResearch(params: {
 }): Promise<AgentDrivenWebResearchResult> {
   const {
     requirement,
-    pdfText,
     apiKey,
     createAiCall,
     maxRounds = WEB_SEARCH_MAX_ROUNDS,
@@ -256,7 +254,6 @@ export async function runAgentDrivenWebResearch(params: {
   // 第一步：是否需要联网（与单轮版本一致）
   const decision = await decideWebSearch(
     requirement,
-    pdfText,
     createAiCall('web-search-decision'),
   );
 
@@ -274,8 +271,8 @@ export async function runAgentDrivenWebResearch(params: {
 
   // 累积状态
   const previousQueries: string[] = [];
-  let candidatePool: TavilySearchItem[] = [];
-  const scrapedPages: TavilyResearchPage[] = [];
+  let candidatePool: FirecrawlSearchItem[] = [];
+  const scrapedPages: FirecrawlResearchPage[] = [];
   const scrapedKeys = new Set<string>();
   const rounds: WebResearchRound[] = [];
   let lastMissingAspects: string[] = [];
@@ -286,19 +283,16 @@ export async function runAgentDrivenWebResearch(params: {
     if (round === 1) {
       const initial = await buildSearchQuery(
         requirement,
-        pdfText,
         createAiCall('web-search-query-rewrite'),
       );
       query = initial.query;
       log.info('Round 1 initial query built', {
-        hasPdfContext: initial.hasPdfContext,
         rawRequirementLength: initial.rawRequirementLength,
         finalQueryLength: initial.finalQueryLength,
       });
     } else {
       const plan = await planNextSearchQuery({
         requirement,
-        pdfText,
         previousQueries,
         candidatesDigest: formatCandidatesDigest(candidatePool),
         scrapedDigest: formatScrapedDigest(scrapedPages),
@@ -328,7 +322,7 @@ export async function runAgentDrivenWebResearch(params: {
     log.info('Running search round', { round, query, queryLength: query.length });
 
     // 2. 搜索 + 合并候选池
-    const searchItems = await searchTavily({
+    const searchItems = await searchFirecrawl({
       query,
       apiKey,
       limit: searchLimitPerRound,
@@ -373,16 +367,14 @@ export async function runAgentDrivenWebResearch(params: {
       scrapePerRound,
       remainingBudget,
     );
-    const newPages: TavilyResearchPage[] = [];
+    let newPages: FirecrawlResearchPage[] = [];
     if (toScrape.length > 0) {
-      const itemByUrl = new Map(searchItems.map((item) => [normalizeUrlKey(item.url), item]));
-      for (const url of toScrape) {
-        const item = itemByUrl.get(normalizeUrlKey(url));
-        if (!item) continue;
-        const page = tavilyItemToResearchPage(item);
+      newPages = await Promise.all(
+        toScrape.map((url) => scrapeFirecrawl({ url, apiKey })),
+      );
+      for (const page of newPages) {
         scrapedPages.push(page);
         scrapedKeys.add(normalizeUrlKey(page.finalUrl));
-        newPages.push(page);
       }
     }
 
@@ -397,7 +389,6 @@ export async function runAgentDrivenWebResearch(params: {
     } else {
       const assess = await assessSearchSufficiency({
         requirement,
-        pdfText,
         candidatesDigest: formatCandidatesDigest(candidatePool),
         scrapedDigest: formatScrapedDigest(scrapedPages),
         currentRound: round,

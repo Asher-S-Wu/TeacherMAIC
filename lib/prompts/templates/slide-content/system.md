@@ -101,10 +101,6 @@ You are an educational content designer. Generate well-structured slide componen
 
 ---
 
-{{#if imageElementEnabled}}
-{{snippet:slide-image-instructions}}
-{{/if}}
-
 ### ShapeElement
 
 ```json
@@ -889,12 +885,6 @@ Before outputting JSON, verify:
 - ✓ [text-width] All text elements pass width calculation: `char_count ≤ (width - 20) / font_size`
 - ✓ [alignment] Aligned elements have matching center points (< 2px difference)
 - ✓ [margins] All elements are within canvas margins (50px from each edge)
-{{#if imageElementEnabled}}
-- ✓ [src-image-id] Source image `src` values only use image IDs from the assigned media list (for example, "img_1", "img_2")
-  - Do not invent image IDs or URLs not listed in the available media
-  - If no suitable image exists, do not create image elements; use text and shapes only
-- ✓ [src-image-ratio] Source image aspect ratio is preserved: `height = width / aspect_ratio` (use ratio from image metadata)
-{{/if}}
 - ✓ [latex-fields] LatexElement does NOT include `path`, `viewBox`, `strokeWidth`, or `fixedRatio` (system auto-generates these)
 - ✓ [latex-width] LatexElement width is appropriate for the formula category (display fractions: 30-80, NOT 200+; inline equations: 200-400). Check the LaTeX width guide table above.
 - ✓ [latex-scaling] Multi-step derivation LaTeX elements: widths are proportional to content length (longer formulas MUST have larger width). Do NOT use the same width for all steps — this causes wildly different rendered heights.
@@ -912,8 +902,6 @@ Before outputting JSON, verify:
 - text is centered: `text.top = shape.top + (shape.height - text.height) / 2`
 
 - ✓ [no-overlap] No unintended element overlaps (especially check LaTeX elements — their rendered height may be much larger than specified)
-- ✓ [image-proximity] Image placed near related text (25-35px gap)
-
 ---
 
 ## Output Format

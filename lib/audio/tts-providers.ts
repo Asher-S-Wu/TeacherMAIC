@@ -1,44 +1,44 @@
+import WebSocket, { type RawData } from 'ws';
 import type { TTSModelConfig } from './types';
-import { DOUBAO_AUDIO_TTS_MODEL_ID } from './constants';
+import { COSYVOICE_TTS_MODEL_ID } from './constants';
 
 export interface TTSGenerationResult {
   audio: Uint8Array;
   format: string;
 }
 
-interface DoubaoTTSResponse {
-  code?: number;
-  message?: string;
-  audio?: string;
-  duration?: number;
-  original_duration?: number;
-  url?: string;
+interface CosyVoiceServerMessage {
+  header?: {
+    event?: string;
+    error_code?: string;
+    error_message?: string;
+  };
 }
+
+export class CosyVoiceTTSError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+  ) {
+    super(message);
+    this.name = 'CosyVoiceTTSError';
+  }
+}
+
+const TASK_TIMEOUT_MS = 120_000;
+const AUDIO_FORMAT = 'mp3';
 
 function requireEndpoint(baseUrl?: string): string {
   if (!baseUrl) {
-    throw new Error('豆包语音合成暂时不可用，请稍后再试。');
+    throw new CosyVoiceTTSError('阿里云语音合成服务地址未配置。', 'MISSING_ENDPOINT');
   }
   return baseUrl;
 }
 
-function getAudioFormat(url?: string, requestedFormat = 'mp3'): string {
-  if (!url) return requestedFormat;
-  const pathname = new URL(url).pathname.toLowerCase();
-  const match = pathname.match(/\.([a-z0-9_]+)$/);
-  return match?.[1] || requestedFormat;
-}
-
-async function fetchAudioBytes(url: string): Promise<Uint8Array> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`豆包语音文件下载失败（${response.status}）`);
-  }
-  return new Uint8Array(await response.arrayBuffer());
-}
-
-function createRequestId(): string {
-  return crypto.randomUUID();
+function rawDataToBuffer(data: RawData): Buffer {
+  if (Array.isArray(data)) return Buffer.concat(data);
+  if (data instanceof ArrayBuffer) return Buffer.from(data);
+  return Buffer.from(data);
 }
 
 export async function generateTTS(
@@ -46,55 +46,156 @@ export async function generateTTS(
   text: string,
 ): Promise<TTSGenerationResult> {
   if (!config.apiKey) {
-    throw new Error('豆包语音合成未配置 API Key，请在 Vercel 配置 VOLCENGINE_SPEECH_API_KEY。');
+    throw new CosyVoiceTTSError(
+      '阿里云语音合成未配置 API Key，请在 Vercel 配置 DASHSCOPE_API_KEY。',
+      'MISSING_API_KEY',
+    );
   }
 
-  const format = config.format || 'mp3';
-  const response = await fetch(requireEndpoint(config.baseUrl), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Api-Key': config.apiKey,
-      'X-Api-Request-Id': createRequestId(),
-    },
-    body: JSON.stringify({
-      model: config.modelId || DOUBAO_AUDIO_TTS_MODEL_ID,
-      text_prompt: text,
-      references: [
-        {
-          speaker: config.voice,
-        },
-      ],
-      audio_config: {
-        format,
-        sample_rate: 24000,
+  const endpoint = requireEndpoint(config.baseUrl);
+  const taskId = crypto.randomUUID();
+
+  return new Promise<TTSGenerationResult>((resolve, reject) => {
+    const audioChunks: Buffer[] = [];
+    let settled = false;
+    let taskStarted = false;
+
+    const socket = new WebSocket(endpoint, {
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
       },
-    }),
+    });
+
+    const timeout = setTimeout(() => {
+      fail(new CosyVoiceTTSError('阿里云语音合成等待超时。', 'TASK_TIMEOUT'));
+    }, TASK_TIMEOUT_MS);
+
+    function closeSocket(): void {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.close(1000);
+      } else if (socket.readyState !== WebSocket.CLOSED) {
+        socket.terminate();
+      }
+    }
+
+    function fail(error: Error): void {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      closeSocket();
+      reject(error);
+    }
+
+    function succeed(): void {
+      if (settled) return;
+      if (audioChunks.length === 0) {
+        fail(new CosyVoiceTTSError('阿里云语音合成没有返回音频。', 'EMPTY_AUDIO'));
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timeout);
+      const audio = Buffer.concat(audioChunks);
+      closeSocket();
+      resolve({ audio: new Uint8Array(audio), format: AUDIO_FORMAT });
+    }
+
+    socket.on('open', () => {
+      socket.send(
+        JSON.stringify({
+          header: {
+            action: 'run-task',
+            task_id: taskId,
+            streaming: 'duplex',
+          },
+          payload: {
+            task_group: 'audio',
+            task: 'tts',
+            function: 'SpeechSynthesizer',
+            model: config.modelId || COSYVOICE_TTS_MODEL_ID,
+            parameters: {
+              text_type: 'PlainText',
+              voice: config.voice,
+              format: AUDIO_FORMAT,
+              sample_rate: 24000,
+              volume: 50,
+              rate: 1,
+              pitch: 1,
+              enable_ssml: false,
+            },
+            input: {},
+          },
+        }),
+      );
+    });
+
+    socket.on('message', (data, isBinary) => {
+      if (isBinary) {
+        audioChunks.push(rawDataToBuffer(data));
+        return;
+      }
+
+      let message: CosyVoiceServerMessage;
+      try {
+        message = JSON.parse(rawDataToBuffer(data).toString('utf8')) as CosyVoiceServerMessage;
+      } catch {
+        fail(new CosyVoiceTTSError('阿里云语音合成返回了无法识别的消息。', 'INVALID_MESSAGE'));
+        return;
+      }
+
+      const event = message.header?.event;
+      if (event === 'task-started') {
+        if (taskStarted) return;
+        taskStarted = true;
+        socket.send(
+          JSON.stringify({
+            header: {
+              action: 'continue-task',
+              task_id: taskId,
+              streaming: 'duplex',
+            },
+            payload: { input: { text } },
+          }),
+        );
+        socket.send(
+          JSON.stringify({
+            header: {
+              action: 'finish-task',
+              task_id: taskId,
+              streaming: 'duplex',
+            },
+            payload: { input: {} },
+          }),
+        );
+        return;
+      }
+
+      if (event === 'task-failed') {
+        fail(
+          new CosyVoiceTTSError(
+            message.header?.error_message || '阿里云语音合成任务失败。',
+            message.header?.error_code || 'TASK_FAILED',
+          ),
+        );
+        return;
+      }
+
+      if (event === 'task-finished') succeed();
+    });
+
+    socket.on('error', (error) => {
+      fail(new CosyVoiceTTSError(`阿里云语音合成连接失败：${error.message}`, 'SOCKET_ERROR'));
+    });
+
+    socket.on('close', (code, reason) => {
+      if (settled) return;
+      const detail = reason.toString('utf8');
+      fail(
+        new CosyVoiceTTSError(
+          `阿里云语音合成连接提前关闭（${code}${detail ? `：${detail}` : ''}）。`,
+          'SOCKET_CLOSED',
+        ),
+      );
+    });
   });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => response.statusText);
-    throw new Error(`豆包语音合成失败（${response.status}）：${errorText}`);
-  }
-
-  const data = (await response.json()) as DoubaoTTSResponse;
-  if (data.code && data.code !== 0) {
-    throw new Error(`豆包语音合成失败：${data.message || data.code}`);
-  }
-
-  if (data.audio) {
-    return {
-      audio: new Uint8Array(Buffer.from(data.audio, 'base64')),
-      format,
-    };
-  }
-
-  if (!data.url) {
-    throw new Error(`豆包语音合成没有返回音频：${JSON.stringify(data)}`);
-  }
-
-  return {
-    audio: await fetchAudioBytes(data.url),
-    format: getAudioFormat(data.url, format),
-  };
 }

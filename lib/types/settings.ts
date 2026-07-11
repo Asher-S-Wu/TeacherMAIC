@@ -5,7 +5,6 @@ export type SettingsSection =
   | 'providers'
   | 'agents'
   | 'tts'
-  | 'pdf'
   | 'web-search';
 
 /**

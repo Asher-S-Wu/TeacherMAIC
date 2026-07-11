@@ -110,7 +110,6 @@ export default function ClassroomDetailPage() {
       const params = genParamsStr ? JSON.parse(genParamsStr) : {};
 
       generateRemaining({
-        pdfImages: params.pdfImages,
         stageInfo: {
           name: stage.name || '',
           description: stage.description,

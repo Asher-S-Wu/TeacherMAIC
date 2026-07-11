@@ -1,4 +1,4 @@
-import { ScanLine, Search, Bot, FileText, LayoutPanelLeft, Clapperboard } from 'lucide-react';
+import { Search, Bot, FileText, LayoutPanelLeft, Clapperboard } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export type GenerationStep = {
@@ -10,13 +10,6 @@ export type GenerationStep = {
 };
 
 export const ALL_GENERATION_STEPS: GenerationStep[] = [
-  {
-    id: 'pdf-analysis',
-    title: '解析 PDF 文档',
-    description: '正在提取文档结构和内容...',
-    icon: ScanLine,
-    type: 'analysis',
-  },
   {
     id: 'web-search',
     title: '网络搜索',
@@ -55,14 +48,12 @@ export const ALL_GENERATION_STEPS: GenerationStep[] = [
 ];
 
 export interface JobDisplayContext {
-  hasPdf: boolean;
   webSearch: boolean;
   agentMode: 'preset' | 'auto';
 }
 
 export function getActiveStepsForJob(ctx: JobDisplayContext): GenerationStep[] {
   return ALL_GENERATION_STEPS.filter((step) => {
-    if (step.id === 'pdf-analysis') return ctx.hasPdf;
     if (step.id === 'web-search') return ctx.webSearch;
     if (step.id === 'agent-generation') return ctx.agentMode === 'auto';
     return true;

@@ -21,12 +21,8 @@ export interface ClassroomGenerationJob {
   completedAt?: string;
   inputSummary: {
     requirementPreview: string;
-    hasPdf: boolean;
-    pdfTextLength: number;
-    pdfImageCount: number;
   };
   displayContext: {
-    hasPdf: boolean;
     webSearch: boolean;
     agentMode: 'preset' | 'auto';
   };
@@ -42,13 +38,9 @@ export interface ClassroomGenerationJob {
 }
 
 function buildInputSummary(input: GenerateClassroomInput): ClassroomGenerationJob['inputSummary'] {
-  const pdfImageCount = input.pdfImages?.length ?? input.pdfContent?.images?.length ?? 0;
   return {
     requirementPreview:
       input.requirement.length > 200 ? `${input.requirement.slice(0, 197)}...` : input.requirement,
-    hasPdf: !!(input.pdfContent?.text || input.pdfImages?.length),
-    pdfTextLength: input.pdfContent?.text.length || 0,
-    pdfImageCount,
   };
 }
 
@@ -56,10 +48,8 @@ const STALE_JOB_TIMEOUT_MS = 30 * 60 * 1000;
 
 function buildDisplayContext(
   input: GenerateClassroomInput,
-  inputSummary: ClassroomGenerationJob['inputSummary'],
 ): ClassroomGenerationJob['displayContext'] {
   return {
-    hasPdf: inputSummary.hasPdf,
     webSearch: input.enableWebSearch ?? true,
     agentMode: input.agentMode ?? 'auto',
   };
@@ -68,9 +58,8 @@ function buildDisplayContext(
 function toPublicJob(job: ClassroomJobDoc): ClassroomGenerationJob {
   const inputSummary = job.inputSummary;
   const displayContext = job.input
-    ? buildDisplayContext(job.input, inputSummary)
+    ? buildDisplayContext(job.input)
     : {
-        hasPdf: inputSummary.hasPdf,
         webSearch: true,
         agentMode: 'auto' as const,
       };

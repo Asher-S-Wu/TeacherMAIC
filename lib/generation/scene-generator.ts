@@ -7,7 +7,6 @@
 
 import { nanoid } from 'nanoid';
 import katex from 'katex';
-import { MAX_VISION_IMAGES } from '@/lib/constants/generation';
 import type {
   SceneOutline,
   GeneratedSlideContent,
@@ -15,8 +14,6 @@ import type {
   GeneratedInteractiveContent,
   GeneratedPBLContent,
   ScientificModel,
-  PdfImage,
-  ImageMapping,
 } from '@/lib/types/generation';
 import type { WidgetType, WidgetConfig, TeacherAction } from '@/lib/types/widgets';
 import type { PromptId } from '@/lib/prompts/types';
@@ -35,8 +32,6 @@ import {
   buildLanguageText,
   formatAgentsForPrompt,
   formatTeacherPersonaForPrompt,
-  formatImageDescription,
-  formatImagePlaceholder,
 } from './prompt-formatters';
 import type { PPTElement, Slide, SlideBackground, SlideTheme } from '@/lib/types/slides';
 import type { QuizOption, QuizQuestion } from '@/lib/types/stage';
@@ -60,10 +55,7 @@ const log = createLogger('Generation');
 // ── Options interfaces for scene generation functions ──
 
 export interface SceneContentOptions {
-  assignedImages?: PdfImage[];
-  imageMapping?: ImageMapping;
   languageModel?: ResponsesModel;
-  visionEnabled?: boolean;
   agents?: AgentInfo[];
   languageDirective?: string;
 }
@@ -90,10 +82,7 @@ export async function generateSceneContent(
   | null
 > {
   const {
-    assignedImages,
-    imageMapping,
     languageModel,
-    visionEnabled,
     agents,
     languageDirective,
   } = options;
@@ -112,9 +101,6 @@ export async function generateSceneContent(
       return generateSlideContent(
         outline,
         aiCall,
-        assignedImages,
-        imageMapping,
-        visionEnabled,
         agents,
         languageDirective,
       );
@@ -128,81 +114,10 @@ export async function generateSceneContent(
 }
 
 /**
- * Check if a string looks like an image ID (e.g., "img_1", "img_2")
- * rather than a base64 data URL or actual URL
- *
- * This function distinguishes between:
- * - Image IDs: "img_1", "img_2", etc. → returns true
- * - Base64 data URLs: "data:image/..." → returns false
- * - HTTP URLs: "http://...", "https://..." → returns false
- * - Relative paths: "/images/..." → returns false
- */
-function isImageIdReference(value: string): boolean {
-  if (!value) return false;
-  // Exclude real URLs and paths
-  if (value.startsWith('data:')) return false;
-  if (value.startsWith('http://') || value.startsWith('https://')) return false;
-  if (value.startsWith('/')) return false; // Relative paths
-  // Match image ID format: img_1, img_2, etc.
-  return /^img_\d+$/i.test(value);
-}
-
-/**
- * Resolve image ID references in src field to actual base64 URLs
- *
- * AI generates: { type: "image", src: "img_1", ... }
- * This function replaces: { type: "image", src: "data:image/png;base64,...", ... }
- *
- * Design rationale (Plan B):
- * - Simpler: AI only needs to know one field (src)
- * - Consistent: Generated JSON structure matches final PPTImageElement
- * - Intuitive: src is the image source, first as ID then as actual URL
- * - Less prompt complexity: No need to explain imageId vs src distinction
- */
-function resolveImageIds(
-  elements: GeneratedSlideData['elements'],
-  imageMapping?: ImageMapping,
-): GeneratedSlideData['elements'] {
-  return elements
-    .map((el) => {
-      if (el.type === 'image') {
-        if (!('src' in el)) {
-          log.warn(`Image element missing src, removing element`);
-          return null; // Remove invalid image elements
-        }
-        const src = el.src as string;
-
-        // If src is an image ID reference, replace with actual URL
-        if (isImageIdReference(src)) {
-          if (!imageMapping || !imageMapping[src]) {
-            log.warn(`No mapping for image ID: ${src}, removing element`);
-            return null; // Remove invalid image elements
-          }
-          log.debug(`Resolved image ID "${src}" to base64 URL`);
-          return { ...el, src: imageMapping[src] };
-        }
-      }
-
-      if (el.type === 'video') {
-        if (!('src' in el)) {
-          log.warn(`Video element missing src, removing element`);
-          return null;
-        }
-      }
-
-      return el;
-    })
-    .filter((el): el is NonNullable<typeof el> => el !== null);
-}
-
-/**
  * Fix elements with missing required fields
  * Adds default values for fields that AI might not have generated correctly
  */
-function fixElementDefaults(
-  elements: GeneratedSlideData['elements'],
-  assignedImages?: PdfImage[],
-): GeneratedSlideData['elements'] {
+function fixElementDefaults(elements: GeneratedSlideData['elements']): GeneratedSlideData['elements'] {
   return elements.map((el) => {
     // Fix line elements
     if (el.type === 'line') {
@@ -258,28 +173,6 @@ function fixElementDefaults(
 
       if (imageEl.fixedRatio === undefined) {
         imageEl.fixedRatio = true;
-      }
-
-      // Correct dimensions using known aspect ratio (src is still img_id at this point)
-      if (assignedImages && typeof imageEl.src === 'string') {
-        const imgMeta = assignedImages.find((img) => img.id === imageEl.src);
-        if (imgMeta?.width && imgMeta?.height) {
-          const knownRatio = imgMeta.width / imgMeta.height;
-          const curW = (el.width || 400) as number;
-          const curH = (el.height || 300) as number;
-          if (Math.abs(curW / curH - knownRatio) / knownRatio > 0.1) {
-            // Keep width, correct height
-            const newH = Math.round(curW / knownRatio);
-            if (newH > 462) {
-              // canvas 562.5 - margins 50×2
-              const newW = Math.round(462 * knownRatio);
-              imageEl.width = newW;
-              imageEl.height = 462;
-            } else {
-              imageEl.height = newH;
-            }
-          }
-        }
       }
 
       return imageEl as typeof el;
@@ -356,44 +249,9 @@ function processLatexElements(
 async function generateSlideContent(
   outline: SceneOutline,
   aiCall: AICallFn,
-  assignedImages?: PdfImage[],
-  imageMapping?: ImageMapping,
-  visionEnabled?: boolean,
   agents?: AgentInfo[],
   languageDirective?: string,
 ): Promise<GeneratedSlideContent | null> {
-  // Build assigned images description for the prompt
-  let assignedImagesText = '无可用图片，禁止插入任何 image 元素';
-  let visionImages: Array<{ id: string; src: string }> | undefined;
-
-  if (assignedImages && assignedImages.length > 0) {
-    if (visionEnabled && imageMapping) {
-      // Vision mode: split into vision images and text-only
-      const withSrc = assignedImages.filter((img) => imageMapping[img.id]);
-      const visionSlice = withSrc.slice(0, MAX_VISION_IMAGES);
-      const textOnlySlice = withSrc.slice(MAX_VISION_IMAGES);
-      const noSrcImages = assignedImages.filter((img) => !imageMapping[img.id]);
-
-      const visionDescriptions = visionSlice.map((img) => formatImagePlaceholder(img));
-      const textDescriptions = [...textOnlySlice, ...noSrcImages].map((img) =>
-        formatImageDescription(img),
-      );
-      assignedImagesText = [...visionDescriptions, ...textDescriptions].join('\n');
-
-      visionImages = visionSlice.map((img) => ({
-        id: img.id,
-        src: imageMapping[img.id],
-        width: img.width,
-        height: img.height,
-      }));
-    } else {
-      assignedImagesText = assignedImages.map((img) => formatImageDescription(img)).join('\n');
-    }
-  }
-
-  const hasAssignedImages = (assignedImages?.length ?? 0) > 0;
-  const imageElementEnabled = hasAssignedImages;
-
   // Canvas dimensions (matching viewportSize and viewportRatio)
   const canvasWidth = 1000;
   const canvasHeight = 562.5;
@@ -405,12 +263,10 @@ async function generateSlideContent(
     description: outline.description,
     keyPoints: (outline.keyPoints || []).map((p, i) => `${i + 1}. ${p}`).join('\n'),
     elements: '（根据要点自动生成）',
-    assignedImages: assignedImagesText,
     canvas_width: canvasWidth,
     canvas_height: canvasHeight,
     teacherContext,
     languageDirective: languageDirective || '',
-    imageElementEnabled,
   });
 
   if (!prompts) {
@@ -418,13 +274,6 @@ async function generateSlideContent(
   }
 
   log.debug(`Generating slide content for: ${outline.title}`);
-  if (assignedImages && assignedImages.length > 0) {
-    log.debug(`Assigned images: ${assignedImages.map((img) => img.id).join(', ')}`);
-  }
-  if (visionImages && visionImages.length > 0) {
-    log.debug(`Vision images: ${visionImages.map((img) => img.id).join(', ')}`);
-  }
-
   let generatedData: GeneratedSlideData;
   try {
     generatedData = await generateWithStructuredRetries({
@@ -432,7 +281,6 @@ async function generateSlideContent(
       systemPrompt: prompts.system,
       userPrompt: prompts.user,
       aiCall,
-      images: visionImages,
       parse: (response) => {
         const parsed = parseJsonResponse<GeneratedSlideData>(response);
         if (
@@ -453,38 +301,15 @@ async function generateSlideContent(
 
   log.debug(`Got ${generatedData.elements.length} elements for: ${outline.title}`);
 
-  // Debug: Log image elements before resolution
-  const imageElements = generatedData.elements.filter((el) => el.type === 'image');
-  if (imageElements.length > 0) {
-    log.debug(
-      `Image elements before resolution:`,
-      imageElements.map((el) => ({
-        type: el.type,
-        src:
-          (el as Record<string, unknown>).src &&
-          String((el as Record<string, unknown>).src).substring(0, 50),
-      })),
-    );
-    log.debug(`imageMapping keys:`, imageMapping ? Object.keys(imageMapping).length : '0 keys');
-  }
-
-  // Fix elements with missing required fields + aspect ratio correction (while src is still img_id)
-  const fixedElements = fixElementDefaults(generatedData.elements, assignedImages);
+  const fixedElements = fixElementDefaults(generatedData.elements);
   log.debug(`After element fixing: ${fixedElements.length} elements`);
 
   // Process LaTeX elements: render latex string → HTML via KaTeX
   const latexProcessedElements = processLatexElements(fixedElements);
   log.debug(`After LaTeX processing: ${latexProcessedElements.length} elements`);
 
-  // Resolve image_id references to actual URLs
-  const resolvedElements = resolveImageIds(
-    latexProcessedElements,
-    imageMapping,
-  );
-  log.debug(`After image resolution: ${resolvedElements.length} elements`);
-
   // Process elements, assign unique IDs
-  const processedElements: PPTElement[] = resolvedElements.map((el) => ({
+  const processedElements: PPTElement[] = latexProcessedElements.map((el) => ({
     ...el,
     id: `${el.type}_${nanoid(8)}`,
     rotate: 0,

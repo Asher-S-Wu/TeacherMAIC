@@ -7,7 +7,6 @@ const log = createLogger('SearchQueryBuilder');
 const WEB_SEARCH_QUERY_MAX_LENGTH = 350;
 const WEB_SEARCH_REPLAN_QUERY_MAX_LENGTH = 320;
 const WEB_SEARCH_DECISION_MAX_ATTEMPTS = 5;
-export const SEARCH_QUERY_REWRITE_EXCERPT_LENGTH = 7000;
 export const WEB_SEARCH_MAX_ROUNDS = 5;
 export const WEB_SEARCH_QUERY_DIGEST_LIMIT = 1200;
 
@@ -24,7 +23,6 @@ export interface WebSearchDecisionResult {
   shouldSearch: boolean;
   reason: string;
   rawRequirementLength: number;
-  hasPdfContext: boolean;
 }
 
 export interface SearchQueryBuildResult {
@@ -32,19 +30,10 @@ export interface SearchQueryBuildResult {
   rewriteAttempted: boolean;
   rawRequirementLength: number;
   finalQueryLength: number;
-  hasPdfContext: boolean;
 }
 
 function normalizeSearchRequirement(requirement: string): string {
   return requirement.replace(/\s+/g, ' ').trim();
-}
-
-function normalizePdfExcerpt(pdfText?: string): string {
-  if (!pdfText) {
-    return '';
-  }
-
-  return pdfText.replace(/\s+/g, ' ').trim().slice(0, SEARCH_QUERY_REWRITE_EXCERPT_LENGTH);
 }
 
 function shouldRewriteSearchQuery(normalizedRequirement: string): boolean {
@@ -53,14 +42,11 @@ function shouldRewriteSearchQuery(normalizedRequirement: string): boolean {
 
 export async function decideWebSearch(
   requirement: string,
-  pdfText: string | undefined,
   aiCall: AICallFn,
 ): Promise<WebSearchDecisionResult> {
   const normalizedRequirement = normalizeSearchRequirement(requirement);
-  const pdfExcerpt = normalizePdfExcerpt(pdfText);
   const prompts = buildPrompt(PROMPT_IDS.WEB_SEARCH_DECISION, {
     requirement: normalizedRequirement,
-    pdfExcerpt: pdfExcerpt || 'None',
   });
 
   if (!prompts) {
@@ -82,7 +68,6 @@ export async function decideWebSearch(
         shouldSearch: parsed.shouldSearch,
         reason: normalizeSearchRequirement(parsed.reason || ''),
         rawRequirementLength: normalizedRequirement.length,
-        hasPdfContext: Boolean(pdfExcerpt),
       };
     } catch (error) {
       lastError = error;
@@ -98,12 +83,9 @@ export async function decideWebSearch(
 
 export async function buildSearchQuery(
   requirement: string,
-  pdfText: string | undefined,
   aiCall?: AICallFn,
 ): Promise<SearchQueryBuildResult> {
   const normalizedRequirement = normalizeSearchRequirement(requirement);
-  const pdfExcerpt = normalizePdfExcerpt(pdfText);
-  const hasPdfContext = Boolean(pdfExcerpt);
   const rewriteAttempted = shouldRewriteSearchQuery(normalizedRequirement);
 
   const baseResult = {
@@ -111,7 +93,6 @@ export async function buildSearchQuery(
     rewriteAttempted,
     rawRequirementLength: normalizedRequirement.length,
     finalQueryLength: normalizedRequirement.length,
-    hasPdfContext,
   } satisfies SearchQueryBuildResult;
 
   if (!normalizedRequirement || !rewriteAttempted) {
@@ -124,7 +105,6 @@ export async function buildSearchQuery(
 
   const prompts = buildPrompt(PROMPT_IDS.WEB_SEARCH_QUERY_REWRITE, {
     requirement: normalizedRequirement,
-    pdfExcerpt: pdfExcerpt || 'None',
   });
 
   if (!prompts) {
@@ -156,7 +136,6 @@ export async function buildSearchQuery(
 // 多轮检索：根据已搜历史 + 候选池 + 已抓正文 + 缺失方面，规划下一轮关键词
 export interface PlanNextSearchQueryParams {
   requirement: string;
-  pdfText?: string;
   previousQueries: string[];
   candidatesDigest: string;
   scrapedDigest: string;
@@ -195,7 +174,6 @@ export async function planNextSearchQuery(
 ): Promise<PlanNextSearchQueryResult> {
   const {
     requirement,
-    pdfText,
     previousQueries,
     candidatesDigest,
     scrapedDigest,
@@ -206,11 +184,9 @@ export async function planNextSearchQuery(
   } = params;
 
   const normalizedRequirement = normalizeSearchRequirement(requirement);
-  const pdfExcerpt = normalizePdfExcerpt(pdfText);
 
   const prompts = buildPrompt(PROMPT_IDS.WEB_SEARCH_QUERY_REPLAN, {
     requirement: normalizedRequirement,
-    pdfExcerpt: pdfExcerpt || 'None',
     previousQueries: formatPreviousQueries(previousQueries),
     candidatesDigest: candidatesDigest || '(empty)',
     scrapedDigest: scrapedDigest || '(empty)',
@@ -250,7 +226,6 @@ export async function planNextSearchQuery(
 // 多轮检索：判定当前已收集的资料是否足以满足需求
 export interface AssessSearchSufficiencyParams {
   requirement: string;
-  pdfText?: string;
   candidatesDigest: string;
   scrapedDigest: string;
   currentRound: number;
@@ -275,7 +250,6 @@ export async function assessSearchSufficiency(
 ): Promise<AssessSearchSufficiencyResult> {
   const {
     requirement,
-    pdfText,
     candidatesDigest,
     scrapedDigest,
     currentRound,
@@ -284,11 +258,9 @@ export async function assessSearchSufficiency(
   } = params;
 
   const normalizedRequirement = normalizeSearchRequirement(requirement);
-  const pdfExcerpt = normalizePdfExcerpt(pdfText);
 
   const prompts = buildPrompt(PROMPT_IDS.WEB_SEARCH_SUFFICIENCY, {
     requirement: normalizedRequirement,
-    pdfExcerpt: pdfExcerpt || 'None',
     candidatesDigest: candidatesDigest || '(empty)',
     scrapedDigest: scrapedDigest || '(empty)',
     currentRound,

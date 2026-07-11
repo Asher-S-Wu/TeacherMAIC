@@ -1,11 +1,12 @@
 /**
  * Unified LLM Call Layer
  *
- * Text generation uses Volcengine Ark through the OpenAI-compatible Chat Completions API.
+ * Text generation uses the official Google Gemini GenerateContent REST API.
  */
 
-import OpenAI from 'openai';
 import { createLogger } from '@/lib/logger';
+import { proxyFetch } from '@/lib/server/proxy-fetch';
+import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 import { LLMTransportError } from './llm-transport-error';
 import type { ResponsesModel } from './providers';
 
@@ -15,7 +16,7 @@ export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high';
 
 type TextPart = { type: 'text'; text: string };
 type ImagePart = { type: 'image'; image: string; mimeType?: string };
-type UnsupportedMediaPart =
+type MediaPart =
   | { type: 'video'; video: string | string[]; mimeType?: string }
   | { type: 'input_audio'; input_audio: { data: string } };
 
@@ -31,7 +32,7 @@ type TextLikeContentPart =
 export type LLMMessageContent =
   | string
   | null
-  | Array<TextPart | ImagePart | ChatContentPart | UnsupportedMediaPart>;
+  | Array<TextPart | ImagePart | ChatContentPart | MediaPart>;
 
 export type LLMMessage = {
   role: 'system' | 'developer' | 'user' | 'assistant';
@@ -96,116 +97,73 @@ export interface LLMToolLoopParams extends LLMStreamParams {
   maxToolIterations?: number;
 }
 
-type OpenAIChatContentPart =
-  | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string } };
-
-type OpenAIChatToolCall = {
-  id: string;
-  type: 'function';
-  function: {
-    name: string;
-    arguments: string;
-  };
-};
-
-type OpenAIChatMessage = {
-  role: 'system' | 'developer' | 'user' | 'assistant';
-  content: string | OpenAIChatContentPart[] | null;
-  tool_calls?: OpenAIChatToolCall[];
-  reasoning?: string;
-  reasoning_details?: unknown;
-};
-
-type OpenAIChatToolMessage = {
-  role: 'tool';
-  tool_call_id: string;
-  content: string;
-};
-
-type OpenAIChatRequestMessage = OpenAIChatMessage | OpenAIChatToolMessage;
-
-type OpenAIChatTool = {
-  type: 'function';
-  function: {
-    name: string;
-    description?: string;
-    parameters: Record<string, unknown>;
-  };
-};
-
-type OpenAIChatCreateBody = Parameters<OpenAI['chat']['completions']['create']>[0];
-type OpenAIChatStreamRequestBody = OpenAIChatCreateBody & { stream: true };
-
-type OpenAIChatToolCallDelta = {
-  index?: number;
+type GeminiFunctionCall = {
   id?: string;
-  type?: string;
-  function?: {
-    name?: string;
-    arguments?: string;
+  name: string;
+  args?: Record<string, unknown>;
+};
+
+type GeminiPart = Record<string, unknown> & {
+  text?: string;
+  thought?: boolean;
+  inlineData?: {
+    mimeType: string;
+    data: string;
+  };
+  functionCall?: GeminiFunctionCall;
+  functionResponse?: {
+    id: string;
+    name: string;
+    response: Record<string, unknown>;
   };
 };
 
-type OpenAIChatStreamChoice = {
-  delta?: {
-    role?: string;
-    content?: string | null;
-    reasoning?: string | null;
-    reasoning_details?: unknown;
-    tool_calls?: OpenAIChatToolCallDelta[];
-  };
-  finish_reason?: string | null;
+type GeminiContent = {
+  role: 'user' | 'model';
+  parts: GeminiPart[];
 };
 
-type OpenAIChatStreamChunk = {
-  id?: string;
-  choices?: OpenAIChatStreamChoice[];
-  code?: string | number;
-  message?: string;
+type GeminiGenerateRequest = {
+  contents: GeminiContent[];
+  systemInstruction?: { parts: Array<{ text: string }> };
+  tools?: Array<{
+    functionDeclarations: Array<{
+      name: string;
+      description?: string;
+      parameters: Record<string, unknown>;
+    }>;
+  }>;
+  generationConfig: {
+    maxOutputTokens: number;
+    thinkingConfig?: { thinkingLevel: 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH' };
+  };
+};
+
+type GeminiGenerateResponse = {
+  candidates?: Array<{
+    content?: GeminiContent;
+    finishReason?: string;
+  }>;
+  responseId?: string;
   error?: unknown;
 };
 
-type ToolCallAccumulator = {
-  index: number;
-  id?: string;
-  type?: string;
-  name?: string;
-  arguments: string;
-};
-
-type ChatStreamFinalEvent = {
+type GeminiStreamFinalEvent = {
   responseId?: string;
-  finishReason?: string;
-  assistantMessage: OpenAIChatMessage;
-  toolCalls: OpenAIChatToolCall[];
+  assistantContent: GeminiContent;
+  functionCalls: GeminiFunctionCall[];
 };
 
-type ChatStreamEvent =
+type GeminiStreamEvent =
   | { textDelta: string }
-  | { final: ChatStreamFinalEvent };
+  | { final: GeminiStreamFinalEvent };
 
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
-const DEFAULT_MAX_COMPLETION_TOKENS = 32768;
+const DEFAULT_MAX_OUTPUT_TOKENS = 65_536;
 const DEFAULT_MAX_TOOL_ITERATIONS = 16;
-const clientCache = new Map<string, OpenAI>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function getOpenAIClient(model: ResponsesModel): OpenAI {
-  const baseURL = model.baseUrl.replace(/\/$/, '');
-  const cacheKey = `${baseURL}\n${model.apiKey}`;
-  const cached = clientCache.get(cacheKey);
-  if (cached) return cached;
-
-  const client = new OpenAI({
-    apiKey: model.apiKey,
-    baseURL,
-  });
-  clientCache.set(cacheKey, client);
-  return client;
 }
 
 function getErrorCode(error: unknown): string | undefined {
@@ -226,10 +184,7 @@ function describeError(error: unknown): string {
     if (code) parts.push(`code=${code}`);
 
     const cause = getErrorCause(error);
-    if (cause) {
-      parts.push(`cause=${describeError(cause)}`);
-    }
-
+    if (cause) parts.push(`cause=${describeError(cause)}`);
     return parts.join(': ');
   }
 
@@ -248,13 +203,6 @@ function wrapLLMError(error: unknown, source: string, modelId: string): Error {
     `LLM request failed [${source}, model=${modelId}]: ${describeError(error)}`,
     error,
   );
-}
-
-function withMimeDataUri(value: string, mimeType?: string): string {
-  if (value.startsWith('data:') || value.startsWith('http://') || value.startsWith('https://')) {
-    return value;
-  }
-  return `data:${mimeType || 'image/png'};base64,${value}`;
 }
 
 function isChatContentPart(part: unknown): part is ChatContentPart {
@@ -280,248 +228,312 @@ function contentToPlainText(content: LLMMessageContent): string {
     .join('\n');
 }
 
-function contentToOpenAIChatContent(
-  content: LLMMessageContent,
-  role: LLMMessage['role'],
-): string | OpenAIChatContentPart[] | null {
-  if (typeof content === 'string') return content;
-  if (content === null) return null;
-
-  if (role !== 'user') {
-    const text = contentToPlainText(content);
-    return text || null;
+async function resolveMediaData(
+  value: string,
+  mimeType: string | undefined,
+  defaultMimeType: string,
+  abortSignal?: AbortSignal,
+): Promise<{ mimeType: string; data: string }> {
+  const dataUriMatch = value.match(/^data:([^;,]+);base64,([\s\S]+)$/);
+  if (dataUriMatch) {
+    return { mimeType: dataUriMatch[1], data: dataUriMatch[2] };
   }
 
-  const parts: OpenAIChatContentPart[] = [];
-  for (const part of content) {
-    if (part.type === 'video' || part.type === 'input_audio') {
-      throw new Error('Chat Completions text generation does not support video or audio input.');
+  if (value.startsWith('https://') || value.startsWith('http://')) {
+    const validationError = await validateUrlForSSRF(value);
+    if (validationError) {
+      throw new Error(`媒体地址不可用：${validationError}`);
     }
 
+    const response = await proxyFetch(value, {
+      signal: abortSignal,
+      redirect: 'error',
+    });
+    if (!response.ok) {
+      throw new Error(`媒体读取失败：HTTP ${response.status}`);
+    }
+
+    const resolvedMimeType = response.headers.get('content-type')?.split(';')[0]?.trim();
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return {
+      mimeType: resolvedMimeType || mimeType || defaultMimeType,
+      data: buffer.toString('base64'),
+    };
+  }
+
+  return { mimeType: mimeType || defaultMimeType, data: value };
+}
+
+async function contentToGeminiParts(
+  content: LLMMessageContent,
+  abortSignal?: AbortSignal,
+): Promise<GeminiPart[]> {
+  if (typeof content === 'string') return content ? [{ text: content }] : [];
+  if (content === null) return [];
+
+  const parts: GeminiPart[] = [];
+  for (const part of content) {
     if (part.type === 'text') {
-      if (part.text) parts.push({ type: 'text', text: part.text });
+      if (part.text) parts.push({ text: part.text });
       continue;
     }
 
     if (part.type === 'image') {
       parts.push({
-        type: 'image_url',
-        image_url: { url: withMimeDataUri(part.image, part.mimeType) },
+        inlineData: await resolveMediaData(
+          part.image,
+          part.mimeType,
+          'image/png',
+          abortSignal,
+        ),
       });
       continue;
     }
 
-    if (isChatContentPart(part)) {
-      if (part.type === 'input_image') {
+    if (part.type === 'video') {
+      const videos = Array.isArray(part.video) ? part.video : [part.video];
+      for (const video of videos) {
         parts.push({
-          type: 'image_url',
-          image_url: { url: withMimeDataUri(part.image_url) },
+          inlineData: await resolveMediaData(
+            video,
+            part.mimeType,
+            'video/mp4',
+            abortSignal,
+          ),
         });
-        continue;
       }
-
-      if (part.text) {
-        parts.push({ type: 'text', text: part.text });
-      }
+      continue;
     }
+
+    if (part.type === 'input_audio') {
+      parts.push({
+        inlineData: await resolveMediaData(
+          part.input_audio.data,
+          undefined,
+          'audio/mpeg',
+          abortSignal,
+        ),
+      });
+      continue;
+    }
+
+    if (!isChatContentPart(part)) continue;
+    if (part.type === 'input_image') {
+      parts.push({
+        inlineData: await resolveMediaData(
+          part.image_url,
+          undefined,
+          'image/png',
+          abortSignal,
+        ),
+      });
+      continue;
+    }
+
+    if (part.text) parts.push({ text: part.text });
   }
 
-  if (parts.length === 0) return null;
-  if (parts.length === 1 && parts[0].type === 'text') return parts[0].text;
   return parts;
 }
 
-function buildChatMessages(params: LLMGenerateParams): OpenAIChatRequestMessage[] {
-  const messages: OpenAIChatRequestMessage[] = [];
-
-  if (params.system?.trim()) {
-    messages.push({ role: 'system', content: params.system.trim() });
+function appendContent(
+  contents: GeminiContent[],
+  role: GeminiContent['role'],
+  parts: GeminiPart[],
+): void {
+  if (parts.length === 0) return;
+  const previous = contents[contents.length - 1];
+  if (previous?.role === role) {
+    previous.parts.push(...parts);
+    return;
   }
+  contents.push({ role, parts });
+}
+
+function toThinkingLevel(
+  effort?: ReasoningEffort,
+): 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH' | undefined {
+  if (!effort) return undefined;
+  if (effort === 'none' || effort === 'minimal') return 'MINIMAL';
+  return effort.toUpperCase() as 'LOW' | 'MEDIUM' | 'HIGH';
+}
+
+async function buildGeminiRequest(
+  params: LLMGenerateParams,
+  tools?: LLMToolDefinition[],
+): Promise<GeminiGenerateRequest> {
+  const systemInstructions: string[] = [];
+  const contents: GeminiContent[] = [];
+
+  if (params.system?.trim()) systemInstructions.push(params.system.trim());
 
   for (const message of params.messages ?? []) {
-    const content = contentToOpenAIChatContent(message.content, message.role);
-    if (content === null || (typeof content === 'string' && content.trim().length === 0)) {
+    if (message.role === 'system' || message.role === 'developer') {
+      const instruction = contentToPlainText(message.content).trim();
+      if (instruction) systemInstructions.push(instruction);
       continue;
     }
-    messages.push({
-      role: message.role,
-      content,
-    });
+
+    const parts = await contentToGeminiParts(
+      message.content,
+      params.abortSignal,
+    );
+    appendContent(contents, message.role === 'assistant' ? 'model' : 'user', parts);
   }
 
   if (params.prompt !== undefined) {
-    messages.push({ role: 'user', content: params.prompt });
+    appendContent(contents, 'user', [{ text: params.prompt }]);
   }
 
-  if (messages.length === 0) {
+  if (contents.length === 0) {
     throw new Error('LLM request missing input');
   }
 
-  return messages;
-}
-
-function toOpenAIChatTools(tools: LLMToolDefinition[]): OpenAIChatTool[] {
-  return tools.map((tool) => ({
-    type: 'function',
-    function: {
-      name: tool.name,
-      ...(tool.description ? { description: tool.description } : {}),
-      parameters: tool.parameters ?? { type: 'object', properties: {} },
-    },
-  }));
-}
-
-function buildChatStreamRequestBody(
-  params: LLMGenerateParams,
-  options?: {
-    tools?: LLMToolDefinition[];
-    messages?: OpenAIChatRequestMessage[];
-  },
-): OpenAIChatStreamRequestBody {
+  const thinkingLevel = toThinkingLevel(params.reasoningEffort);
   return {
-    model: params.model.modelId,
-    messages: options?.messages ?? buildChatMessages(params),
-    max_completion_tokens: DEFAULT_MAX_COMPLETION_TOKENS,
-    stream: true,
-    ...(options?.tools?.length
+    contents,
+    ...(systemInstructions.length > 0
+      ? { systemInstruction: { parts: [{ text: systemInstructions.join('\n\n') }] } }
+      : {}),
+    ...(tools?.length
       ? {
-          tools: toOpenAIChatTools(options.tools),
-          tool_choice: 'auto',
+          tools: [
+            {
+              functionDeclarations: tools.map((tool) => ({
+                name: tool.name,
+                ...(tool.description ? { description: tool.description } : {}),
+                parameters: tool.parameters ?? { type: 'object', properties: {} },
+              })),
+            },
+          ],
         }
       : {}),
-  } as OpenAIChatStreamRequestBody;
+    generationConfig: {
+      maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
+      ...(thinkingLevel ? { thinkingConfig: { thinkingLevel } } : {}),
+    },
+  };
 }
 
-async function createChatCompletionStream(
+function parseGeminiPayload(payload: string): GeminiGenerateResponse | null {
+  const data = payload
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart())
+    .join('\n')
+    .trim();
+
+  if (!data || data === '[DONE]') return null;
+  return JSON.parse(data) as GeminiGenerateResponse;
+}
+
+async function* parseGeminiSSE(
+  body: ReadableStream<Uint8Array>,
+): AsyncIterable<GeminiGenerateResponse> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+
+    const events = buffer.split(/\r?\n\r?\n/);
+    buffer = events.pop() ?? '';
+    for (const event of events) {
+      const response = parseGeminiPayload(event);
+      if (response) yield response;
+    }
+
+    if (done) break;
+  }
+
+  const finalResponse = parseGeminiPayload(buffer);
+  if (finalResponse) yield finalResponse;
+}
+
+async function createGeminiStream(
   params: LLMGenerateParams,
   source: string,
-  body: OpenAIChatStreamRequestBody,
-): Promise<AsyncIterable<OpenAIChatStreamChunk>> {
+  request: GeminiGenerateRequest,
+): Promise<AsyncIterable<GeminiGenerateResponse>> {
+  const baseUrl = params.model.baseUrl.replace(/\/$/, '');
+  const url = `${baseUrl}/models/${encodeURIComponent(params.model.modelId)}:streamGenerateContent?alt=sse`;
+
   try {
-    const stream = await getOpenAIClient(params.model).chat.completions.create(body, {
+    const response = await proxyFetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': params.model.apiKey,
+      },
+      body: JSON.stringify(request),
       signal: params.abortSignal,
     });
-    return stream as unknown as AsyncIterable<OpenAIChatStreamChunk>;
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(`Gemini API HTTP ${response.status}: ${message}`);
+    }
+    if (!response.body) {
+      throw new Error('Gemini API returned an empty stream');
+    }
+
+    return parseGeminiSSE(response.body);
   } catch (error) {
     throw wrapLLMError(error, source, params.model.modelId);
   }
 }
 
-function throwIfChatStreamError(
-  chunk: OpenAIChatStreamChunk,
-  source: string,
-  modelId: string,
-): void {
-  if (chunk.code || chunk.error) {
-    throw wrapLLMError(chunk.error ?? chunk, source, modelId);
-  }
+function getFunctionCalls(parts: GeminiPart[]): GeminiFunctionCall[] {
+  return parts.flatMap((part) => (part.functionCall ? [part.functionCall] : []));
 }
 
-function mergeToolCallDelta(
-  toolCalls: Map<number, ToolCallAccumulator>,
-  delta: OpenAIChatToolCallDelta,
-): void {
-  const index = delta.index ?? 0;
-  const current =
-    toolCalls.get(index) ??
-    ({
-      index,
-      arguments: '',
-    } satisfies ToolCallAccumulator);
-
-  if (delta.id) current.id = delta.id;
-  if (delta.type) current.type = delta.type;
-  if (delta.function?.name) current.name = delta.function.name;
-  if (delta.function?.arguments) current.arguments += delta.function.arguments;
-
-  toolCalls.set(index, current);
-}
-
-function finalizeToolCalls(toolCalls: Map<number, ToolCallAccumulator>): OpenAIChatToolCall[] {
-  return [...toolCalls.values()]
-    .sort((a, b) => a.index - b.index)
-    .map((toolCall) => {
-      if (!toolCall.id || !toolCall.name) {
-        throw new Error('Chat Completions tool call is missing id or function name.');
-      }
-
-      return {
-        id: toolCall.id,
-        type: 'function',
-        function: {
-          name: toolCall.name,
-          arguments: toolCall.arguments,
-        },
-      };
-    });
-}
-
-function mergeReasoningDetails(current: unknown, next: unknown): unknown {
-  if (next === undefined || next === null) return current;
-  if (current === undefined || current === null) return next;
-  if (typeof current === 'string' && typeof next === 'string') return current + next;
-  if (Array.isArray(current) && Array.isArray(next)) return [...current, ...next];
-  return next;
-}
-
-async function* streamChatResponseEvents(
+async function* streamGeminiResponseEvents(
   params: LLMStreamParams,
   source: string,
-  body: OpenAIChatStreamRequestBody,
-): AsyncIterable<ChatStreamEvent> {
-  const stream = await createChatCompletionStream(params, source, body);
-  const toolCalls = new Map<number, ToolCallAccumulator>();
+  request: GeminiGenerateRequest,
+): AsyncIterable<GeminiStreamEvent> {
+  const stream = await createGeminiStream(params, source, request);
+  const responseParts: GeminiPart[] = [];
   let responseId: string | undefined;
-  let finishReason: string | undefined;
-  let content = '';
-  let reasoning = '';
-  let reasoningDetails: unknown;
 
   for await (const chunk of stream) {
-    throwIfChatStreamError(chunk, source, params.model.modelId);
+    if (chunk.error) {
+      throw wrapLLMError(chunk.error, source, params.model.modelId);
+    }
+    if (chunk.responseId) responseId = chunk.responseId;
 
-    if (chunk.id) responseId = chunk.id;
-
-    for (const choice of chunk.choices ?? []) {
-      if (choice.finish_reason) finishReason = choice.finish_reason;
-
-      const delta = choice.delta;
-      if (!delta) continue;
-
-      if (delta.content) {
-        content += delta.content;
-        yield { textDelta: delta.content };
-      }
-
-      if (delta.reasoning) {
-        reasoning += delta.reasoning;
-      }
-
-      reasoningDetails = mergeReasoningDetails(reasoningDetails, delta.reasoning_details);
-
-      for (const toolCallDelta of delta.tool_calls ?? []) {
-        mergeToolCallDelta(toolCalls, toolCallDelta);
+    const candidate = chunk.candidates?.[0];
+    for (const part of candidate?.content?.parts ?? []) {
+      responseParts.push(part);
+      if (typeof part.text === 'string' && part.text && !part.thought) {
+        yield { textDelta: part.text };
       }
     }
   }
 
-  const finalizedToolCalls = finalizeToolCalls(toolCalls);
-  const assistantMessage: OpenAIChatMessage = {
-    role: 'assistant',
-    content,
-    ...(finalizedToolCalls.length > 0 ? { tool_calls: finalizedToolCalls } : {}),
-    ...(reasoning ? { reasoning } : {}),
-    ...(reasoningDetails !== undefined ? { reasoning_details: reasoningDetails } : {}),
-  };
-
   yield {
     final: {
       responseId,
-      finishReason,
-      assistantMessage,
-      toolCalls: finalizedToolCalls,
+      assistantContent: { role: 'model', parts: responseParts },
+      functionCalls: getFunctionCalls(responseParts),
     },
   };
+}
+
+async function* streamTextGenerationEvents(
+  params: LLMStreamParams,
+  source: string,
+): AsyncIterable<LLMStreamEvent> {
+  const request = await buildGeminiRequest(params);
+  for await (const event of streamGeminiResponseEvents(params, source, request)) {
+    if ('textDelta' in event) {
+      yield { type: 'text_delta', text: event.textDelta };
+    } else if (event.final.responseId) {
+      yield { type: 'model_response', responseId: event.final.responseId };
+    }
+  }
 }
 
 async function* streamTextGeneration(
@@ -533,42 +545,27 @@ async function* streamTextGeneration(
   }
 }
 
-async function* streamTextGenerationEvents(
-  params: LLMStreamParams,
-  source: string,
-): AsyncIterable<LLMStreamEvent> {
-  for await (const event of streamChatResponseEvents(
-    params,
-    source,
-    buildChatStreamRequestBody(params),
-  )) {
-    if ('textDelta' in event) {
-      yield { type: 'text_delta', text: event.textDelta };
-      continue;
+function buildFunctionResponses(
+  functionCalls: GeminiFunctionCall[],
+  results: LLMToolResult[],
+): GeminiPart[] {
+  return functionCalls.map((functionCall, index) => {
+    const result = results[index];
+    if (!functionCall.id) {
+      throw new Error(`Gemini function call "${functionCall.name}" is missing its required id.`);
+    }
+    if (!result) {
+      throw new Error(`Missing result for Gemini function call "${functionCall.name}".`);
     }
 
-    if (event.final.responseId) {
-      yield { type: 'model_response', responseId: event.final.responseId };
-    }
-  }
-}
-
-function parseToolArguments(raw: string, toolName: string): unknown {
-  try {
-    return JSON.parse(raw.trim() || '{}');
-  } catch (error) {
-    throw new Error(
-      `Invalid JSON arguments for tool "${toolName}": ${describeError(error)}`,
-    );
-  }
-}
-
-function buildToolResultMessages(results: LLMToolResult[]): OpenAIChatToolMessage[] {
-  return results.map((result) => ({
-    role: 'tool',
-    tool_call_id: result.toolUseId,
-    content: result.isError ? `Error: ${result.content}` : result.content,
-  }));
+    return {
+      functionResponse: {
+        id: functionCall.id,
+        name: functionCall.name,
+        response: result.isError ? { error: result.content } : { result: result.content },
+      },
+    };
+  });
 }
 
 export async function* streamLLMWithTools(
@@ -576,60 +573,54 @@ export async function* streamLLMWithTools(
   source: string,
 ): AsyncIterable<LLMToolStreamEvent> {
   const maxIterations = params.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
-  let messages = buildChatMessages(params);
-  let completed = false;
+  const request = await buildGeminiRequest(params, params.tools);
+  let contents = request.contents;
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
-    let finalEvent: ChatStreamFinalEvent | undefined;
-
-    for await (const event of streamChatResponseEvents(
-      params,
-      source,
-      buildChatStreamRequestBody(params, {
-        tools: params.tools,
-        messages,
-      }),
-    )) {
+    let finalEvent: GeminiStreamFinalEvent | undefined;
+    for await (const event of streamGeminiResponseEvents(params, source, {
+      ...request,
+      contents,
+    })) {
       if ('textDelta' in event) {
         yield { type: 'text_delta', text: event.textDelta };
-        continue;
+      } else {
+        finalEvent = event.final;
       }
-
-      finalEvent = event.final;
     }
 
     if (!finalEvent) {
-      throw new Error('Chat Completions stream ended without a final event.');
+      throw new Error('Gemini stream ended without a final event.');
     }
-
-    if (finalEvent.toolCalls.length === 0) {
+    if (finalEvent.functionCalls.length === 0) {
       if (finalEvent.responseId) {
         yield { type: 'model_response', responseId: finalEvent.responseId };
       }
-      completed = true;
-      break;
+      return;
     }
 
-    const toolResults: LLMToolResult[] = [];
-    for (const toolCall of finalEvent.toolCalls) {
-      const toolUse: LLMToolUse = {
-        id: toolCall.id,
-        name: toolCall.function.name,
-        input: parseToolArguments(toolCall.function.arguments, toolCall.function.name),
-      };
-      toolResults.push(await params.onToolUse(toolUse));
+    const results: LLMToolResult[] = [];
+    for (const functionCall of finalEvent.functionCalls) {
+      if (!functionCall.id) {
+        throw new Error(`Gemini function call "${functionCall.name}" is missing its required id.`);
+      }
+      results.push(
+        await params.onToolUse({
+          id: functionCall.id,
+          name: functionCall.name,
+          input: functionCall.args ?? {},
+        }),
+      );
     }
 
-    messages = [
-      ...messages,
-      finalEvent.assistantMessage,
-      ...buildToolResultMessages(toolResults),
+    contents = [
+      ...contents,
+      finalEvent.assistantContent,
+      { role: 'user', parts: buildFunctionResponses(finalEvent.functionCalls, results) },
     ];
   }
 
-  if (!completed) {
-    throw new Error(`Chat Completions tool loop exceeded ${maxIterations} iterations.`);
-  }
+  throw new Error(`Gemini tool loop exceeded ${maxIterations} iterations.`);
 }
 
 export async function callLLM<T extends LLMGenerateParams>(
@@ -650,12 +641,12 @@ export async function callLLM<T extends LLMGenerateParams>(
       for await (const event of streamTextGenerationEvents(params, source)) {
         if (event.type === 'text_delta') {
           text += event.text;
-        } else if (event.type === 'model_response') {
+        } else {
           responseId = event.responseId;
         }
       }
-      const result: LLMTextResult = { text, responseId };
 
+      const result: LLMTextResult = { text, responseId };
       if (validate && !validate(result.text)) {
         log.warn(
           `[${source}] Validation failed (attempt ${attempt}/${maxAttempts}), ${attempt < maxAttempts ? 'retrying...' : 'giving up'}`,
@@ -669,7 +660,6 @@ export async function callLLM<T extends LLMGenerateParams>(
       lastError = error;
       if (attempt < maxAttempts) {
         log.warn(`[${source}] Call failed (attempt ${attempt}/${maxAttempts}), retrying...`, error);
-        continue;
       }
     }
   }

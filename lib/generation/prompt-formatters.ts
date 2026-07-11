@@ -2,7 +2,6 @@
  * Prompt and context building utilities for the generation pipeline.
  */
 
-import type { PdfImage } from '@/lib/types/generation';
 import type { AgentInfo, SceneGenerationContext } from './pipeline-types';
 
 /** Build a course context string for injection into action prompts */
@@ -69,35 +68,6 @@ export function formatTeacherPersonaForPrompt(agents?: AgentInfo[]): string {
   if (!teacher?.persona) return '';
 
   return `Teacher Persona:\nName: ${teacher.name}\n${teacher.persona}\n\nAdapt the content style and tone to match this teacher's personality. IMPORTANT: The teacher's name and identity must NOT appear on the slides — no "Teacher ${teacher.name}'s tips", no "Teacher's message", etc. Slides should read as neutral, professional visual aids.`;
-}
-
-/**
- * Format a single PdfImage description for prompt inclusion.
- * Includes dimension/aspect-ratio info when available.
- */
-export function formatImageDescription(img: PdfImage): string {
-  let dimInfo = '';
-  if (img.width && img.height) {
-    const ratio = (img.width / img.height).toFixed(2);
-    dimInfo = ` | size: ${img.width}×${img.height} (aspect ratio ${ratio})`;
-  }
-  const desc = img.description ? ` | ${img.description}` : '';
-  const origin = img.pageNumber > 0 ? `from PDF page ${img.pageNumber}` : 'uploaded reference image';
-  return `- **${img.id}**: ${origin}${dimInfo}${desc}`;
-}
-
-/**
- * Format a short image placeholder for vision mode.
- * Only ID + page + dimensions + aspect ratio (no description), since the model can see the actual image.
- */
-export function formatImagePlaceholder(img: PdfImage): string {
-  let dimInfo = '';
-  if (img.width && img.height) {
-    const ratio = (img.width / img.height).toFixed(2);
-    dimInfo = ` | size: ${img.width}×${img.height} (aspect ratio ${ratio})`;
-  }
-  const origin = img.pageNumber > 0 ? `image from PDF page ${img.pageNumber}` : 'uploaded reference image';
-  return `- **${img.id}**: ${origin}${dimInfo} [see attached]`;
 }
 
 /**

@@ -28,7 +28,7 @@ interface QueueItem {
   voiceId: string;
 }
 
-const DEFAULT_TTS_PROVIDER_ID = 'volcengine-doubao-tts' as const;
+const DEFAULT_TTS_PROVIDER_ID = 'aliyun-cosyvoice-tts' as const;
 
 export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: DiscussionTTSOptions) {
   const ttsProvidersConfig = useSettingsStore((s) => s.ttsProvidersConfig);

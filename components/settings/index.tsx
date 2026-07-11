@@ -7,7 +7,6 @@ import {
   X,
   Box,
   Settings,
-  FileText,
   Search,
   Volume2,
 } from 'lucide-react';
@@ -20,9 +19,6 @@ import { cn } from '@/lib/utils';
 import { getProviderTypeLabel } from './utils';
 import { ProviderList } from './provider-list';
 import { ProviderConfigPanel } from './provider-config-panel';
-import { PDFSettings } from './pdf-settings';
-import { PDF_PROVIDERS } from '@/lib/pdf/constants';
-import type { PDFProviderId } from '@/lib/pdf/types';
 import { TTSSettings } from './tts-settings';
 import { TTS_PROVIDERS } from '@/lib/audio/constants';
 import { WebSearchSettings } from './web-search-settings';
@@ -97,8 +93,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   // Get settings from store
   const providerId = useSettingsStore((state) => state.providerId);
   const providersConfig = useSettingsStore((state) => state.providersConfig);
-  const pdfProviderId = useSettingsStore((state) => state.pdfProviderId);
-  const pdfProvidersConfig = useSettingsStore((state) => state.pdfProvidersConfig);
   const webSearchProviderId = useSettingsStore((state) => state.webSearchProviderId);
   const webSearchProvidersConfig = useSettingsStore((state) => state.webSearchProvidersConfig);
   const ttsProviderId = useSettingsStore((state) => state.ttsProviderId);
@@ -110,7 +104,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   // Navigation
   const [activeSection, setActiveSection] = useState<SettingsSection>('providers');
   const [selectedProviderId, setSelectedProviderId] = useState<ProviderId>(providerId);
-  const [selectedPdfProviderId, setSelectedPdfProviderId] = useState<PDFProviderId>(pdfProviderId);
   const [selectedWebSearchProviderId, setSelectedWebSearchProviderId] =
     useState<WebSearchProviderId>(webSearchProviderId);
   // Navigate to initialSection when dialog opens
@@ -242,27 +235,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
           );
         }
         return null;
-      case 'pdf': {
-        const pdfProvider = PDF_PROVIDERS[selectedPdfProviderId];
-        if (!pdfProvider) return null;
-        return (
-          <>
-            {pdfProvider.icon ? (
-              <img
-                src={pdfProvider.icon}
-                alt={pdfProvider.name}
-                className="w-8 h-8 rounded"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            ) : (
-              <Box className="h-8 w-8 text-muted-foreground" />
-            )}
-            <h2 className="text-lg font-semibold">{pdfProvider.name}</h2>
-          </>
-        );
-      }
       case 'web-search': {
         const wsProvider = WEB_SEARCH_PROVIDERS[selectedWebSearchProviderId];
         if (!wsProvider) return null;
@@ -345,19 +317,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             </button>
 
             <button
-              onClick={() => setActiveSection('pdf')}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
-                activeSection === 'pdf'
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'hover:bg-muted',
-              )}
-            >
-              <FileText className="h-4 w-4 shrink-0" />
-              <span className="truncate">PDF 解析</span>
-            </button>
-
-            <button
               onClick={() => setActiveSection('web-search')}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
@@ -399,24 +358,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 providers={allProviders}
                 selectedProviderId={selectedProviderId}
                 onSelect={handleProviderSelect}
-                width={providerListWidth}
-              />
-              <div
-                onMouseDown={(e) => handleResizeStart(e, 'providerList')}
-                className="flex-shrink-0 w-[5px] cursor-col-resize group flex justify-center"
-              >
-                <div className="w-px h-full bg-border group-hover:bg-primary/50 transition-colors" />
-              </div>
-            </>
-          )}
-
-          {activeSection === 'pdf' && (
-            <>
-              <ProviderListColumn
-                providers={Object.values(PDF_PROVIDERS)}
-                configs={pdfProvidersConfig}
-                selectedId={selectedPdfProviderId}
-                onSelect={setSelectedPdfProviderId}
                 width={providerListWidth}
               />
               <div
@@ -491,9 +432,6 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 />
               )}
 
-              {activeSection === 'pdf' && (
-                <PDFSettings selectedProviderId={selectedPdfProviderId} />
-              )}
               {activeSection === 'web-search' && (
                 <WebSearchSettings selectedProviderId={selectedWebSearchProviderId} />
               )}

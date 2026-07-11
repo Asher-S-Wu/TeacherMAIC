@@ -1,7 +1,6 @@
 import {
   getServerProviders,
   getServerTTSProviders,
-  getServerPDFProviders,
   getServerWebSearchProviders,
 } from '@/lib/server/provider-config';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
@@ -14,7 +13,6 @@ export async function GET() {
     return apiSuccess({
       providers: getServerProviders(),
       tts: getServerTTSProviders(),
-      pdf: getServerPDFProviders(),
       webSearch: getServerWebSearchProviders(),
     });
   } catch (error) {

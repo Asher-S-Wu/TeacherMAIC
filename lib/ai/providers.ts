@@ -1,7 +1,7 @@
 /**
  * Unified AI Provider Configuration
  *
- * Text generation is fixed to the server-configured Volcengine Ark OpenAI-compatible provider.
+ * Text generation is fixed to the server-configured Google Gemini provider.
  */
 
 import type {
@@ -13,13 +13,13 @@ import type {
   ModelConfig,
 } from '@/lib/types/provider';
 import {
-  ARK_BASE_URL,
-  DOUBAO_SEED_2_1_PRO_MODEL_ID,
-  DOUBAO_SEED_2_1_PRO_MODEL_NAME,
-} from './ark-models';
+  GEMINI_API_BASE_URL,
+  GEMINI_3_5_FLASH_MODEL_ID,
+  GEMINI_3_5_FLASH_MODEL_NAME,
+} from './gemini-models';
 
-export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'volcengine-ark';
-export const DEFAULT_MODEL_ID = DOUBAO_SEED_2_1_PRO_MODEL_ID;
+export const DEFAULT_PROVIDER_ID: BuiltInProviderId = 'google-gemini';
+export const DEFAULT_MODEL_ID = GEMINI_3_5_FLASH_MODEL_ID;
 export const DEFAULT_MODEL_STRING = `${DEFAULT_PROVIDER_ID}:${DEFAULT_MODEL_ID}`;
 
 export type { ProviderId, ProviderConfig, ModelConfig };
@@ -28,16 +28,18 @@ export type { ProviderId, ProviderConfig, ModelConfig };
 export const MONO_LOGO_PROVIDERS: ReadonlySet<string> = new Set();
 
 export const PROVIDERS: Record<BuiltInProviderId, ProviderConfig> = {
-  'volcengine-ark': {
-    id: 'volcengine-ark',
-    name: '火山方舟',
-    type: 'openai-chat-completions',
-    defaultBaseUrl: ARK_BASE_URL,
+  'google-gemini': {
+    id: 'google-gemini',
+    name: 'Google Gemini',
+    type: 'google-gemini',
+    defaultBaseUrl: GEMINI_API_BASE_URL,
     requiresApiKey: true,
     models: [
       {
-        id: DOUBAO_SEED_2_1_PRO_MODEL_ID,
-        name: DOUBAO_SEED_2_1_PRO_MODEL_NAME,
+        id: GEMINI_3_5_FLASH_MODEL_ID,
+        name: GEMINI_3_5_FLASH_MODEL_NAME,
+        contextWindow: 1_048_576,
+        outputWindow: 65_536,
         capabilities: {
           streaming: true,
           tools: true,
@@ -66,7 +68,7 @@ export interface ResponsesModel {
   apiKey: string;
   baseUrl: string;
   modelInfo: ModelInfo | null;
-  metadataUserId?: string;
+  requestUserId?: string;
 }
 
 export function isProviderKeyRequired(providerId: string): boolean {

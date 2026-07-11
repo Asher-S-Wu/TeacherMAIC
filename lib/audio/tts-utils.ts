@@ -10,7 +10,7 @@ const log = createLogger('TTS');
 
 /** Provider-specific max text length limits. */
 export const TTS_MAX_TEXT_LENGTH: Partial<Record<TTSProviderId, number>> = {
-  'volcengine-doubao-tts': 500,
+  'aliyun-cosyvoice-tts': 20_000,
 };
 
 /**

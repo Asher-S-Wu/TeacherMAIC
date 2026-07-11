@@ -11,49 +11,36 @@ import {
 } from '@/lib/server/classroom-job-store';
 
 const log = createLogger('ClassroomJob');
-const runningJobs = new Map<string, Promise<void>>();
 
-export function runClassroomGenerationJob(
+export async function runClassroomGenerationJob(
   jobId: string,
   input: GenerateClassroomInput,
   baseUrl: string,
   userId: ObjectId,
 ): Promise<void> {
-  const existing = runningJobs.get(jobId);
-  if (existing) {
-    return existing;
-  }
+  try {
+    await markClassroomGenerationJobRunning(jobId);
 
-  const jobPromise = (async () => {
+    const result = await generateClassroom(input, {
+      baseUrl,
+      userId,
+      jobId,
+      onProgress: async (progress) => {
+        await updateClassroomGenerationJobProgress(jobId, progress);
+      },
+      onClassroomCreated: async (classroomId) => {
+        await updateClassroomGenerationJobClassroomId(jobId, classroomId);
+      },
+    });
+
+    await markClassroomGenerationJobSucceeded(jobId, result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log.error(`Classroom generation job ${jobId} failed:`, error);
     try {
-      await markClassroomGenerationJobRunning(jobId);
-
-      const result = await generateClassroom(input, {
-        baseUrl,
-        userId,
-        jobId,
-        onProgress: async (progress) => {
-          await updateClassroomGenerationJobProgress(jobId, progress);
-        },
-        onClassroomCreated: async (classroomId) => {
-          await updateClassroomGenerationJobClassroomId(jobId, classroomId);
-        },
-      });
-
-      await markClassroomGenerationJobSucceeded(jobId, result);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      log.error(`Classroom generation job ${jobId} failed:`, error);
-      try {
-        await markClassroomGenerationJobFailed(jobId, message);
-      } catch (markFailedError) {
-        log.error(`Failed to persist failed status for job ${jobId}:`, markFailedError);
-      }
-    } finally {
-      runningJobs.delete(jobId);
+      await markClassroomGenerationJobFailed(jobId, message);
+    } catch (markFailedError) {
+      log.error(`Failed to persist failed status for job ${jobId}:`, markFailedError);
     }
-  })();
-
-  runningJobs.set(jobId, jobPromise);
-  return jobPromise;
+  }
 }

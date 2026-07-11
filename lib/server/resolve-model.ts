@@ -16,7 +16,7 @@ import { resolveApiKey, resolveBaseUrl } from '@/lib/server/provider-config';
 import { getCurrentUser } from '@/lib/server/auth';
 
 export interface ResolvedModel extends ModelWithInfo {
-  /** Server-configured model string (e.g. "volcengine-ark:doubao-seed-2-1-pro-260628") */
+  /** Server-configured model string (e.g. "google-gemini:gemini-3.5-flash") */
   modelString: string;
   /** Resolved provider ID. */
   providerId: string;
@@ -51,7 +51,7 @@ export async function resolveModel(): Promise<ResolvedModel> {
   };
 }
 
-async function withCurrentUserMetadata(resolved: ResolvedModel): Promise<ResolvedModel> {
+async function withCurrentUser(resolved: ResolvedModel): Promise<ResolvedModel> {
   const user = await getCurrentUser();
   if (!user) return resolved;
 
@@ -59,7 +59,7 @@ async function withCurrentUserMetadata(resolved: ResolvedModel): Promise<Resolve
     ...resolved,
     model: {
       ...resolved.model,
-      metadataUserId: user._id.toString(),
+      requestUserId: user._id.toString(),
     },
   };
 }
@@ -73,5 +73,5 @@ export async function resolveModelFromRequest(
 ): Promise<ResolvedModel> {
   void req;
   void body;
-  return withCurrentUserMetadata(await resolveModel());
+  return withCurrentUser(await resolveModel());
 }

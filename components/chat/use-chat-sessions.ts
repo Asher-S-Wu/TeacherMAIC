@@ -7,10 +7,10 @@ import type {
   SessionStatus,
   ChatMessageMetadata,
   DirectorState,
+  UIMessage,
 } from '@/lib/types/chat';
 import type { DiscussionRequest } from '@/components/roundtable';
 import type { Action, SpotlightAction, DiscussionAction } from '@/lib/types/action';
-import type { UIMessage } from 'ai';
 import { useStageStore } from '@/lib/store';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';

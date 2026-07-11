@@ -1,29 +1,9 @@
 /**
  * Generation Types - Two-Stage Content Generation System
  *
- * Stage 1: User requirements + documents → Scene Outlines (per-page)
+ * Stage 1: User requirements → Scene Outlines (per-page)
  * Stage 2: Scene Outlines → Full Scenes (slide/quiz/interactive/pbl with actions)
  */
-
-// ==================== PDF Image Types ====================
-
-/**
- * Image extracted from PDF with metadata
- */
-export interface PdfImage {
-  id: string; // e.g., "img_1", "img_2"
-  src: string; // Empty when the file is saved separately
-  pageNumber: number; // Page number in PDF, or 0 for user-uploaded reference images
-  description?: string; // Optional description for AI context
-  storageId?: string; // Reference to account file storage
-  width?: number; // Image width (px or normalized)
-  height?: number; // Image height (px or normalized)
-}
-
-/**
- * Image mapping for post-processing: image_id → base64 URL
- */
-export type ImageMapping = Record<string, string>;
 
 // ==================== Stage 1 Input ====================
 
@@ -77,8 +57,6 @@ export interface SceneOutline {
   estimatedDuration?: number; // seconds
   order: number;
   languageNote?: string; // LLM-inferred language note for this scene
-  // Suggested image IDs (from PDF-extracted images)
-  suggestedImageIds?: string[]; // e.g., ["img_1", "img_3"]
   // Quiz-specific config
   quizConfig?: {
     questionCount: number;

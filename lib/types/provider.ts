@@ -5,7 +5,7 @@
 /**
  * Built-in provider IDs
  */
-export type BuiltInProviderId = 'volcengine-ark';
+export type BuiltInProviderId = 'google-gemini';
 
 /**
  * Provider ID
@@ -15,7 +15,7 @@ export type ProviderId = BuiltInProviderId;
 /**
  * Provider API types
  */
-export type ProviderType = 'openai-chat-completions';
+export type ProviderType = 'google-gemini';
 
 /**
  * Model information

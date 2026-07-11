@@ -22,7 +22,7 @@ import { SystemMessage, HumanMessage, AIMessage } from '@langchain/core/messages
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import type { ResponsesModel } from '@/lib/ai/providers';
 
-import { ChatCompletionsLangGraphAdapter } from './chat-completions-adapter';
+import { GeminiLangGraphAdapter } from './chat-completions-adapter';
 import type { StatelessEvent } from '@/lib/types/chat';
 import type { StatelessChatRequest } from '@/lib/types/chat';
 import type { AgentConfig } from '@/lib/orchestration/registry/types';
@@ -181,7 +181,7 @@ async function directorNode(
     state.storeState.whiteboardOpen,
   );
 
-  const adapter = new ChatCompletionsLangGraphAdapter(state.languageModel);
+  const adapter = new GeminiLangGraphAdapter(state.languageModel);
 
   try {
     const result = await adapter._generate(
@@ -294,7 +294,7 @@ async function runAgentGeneration(
     state.agentResponses,
   );
   const { messages: llmMessages } = convertMessagesToLLMHistory(state.messages, agentId);
-  const adapter = new ChatCompletionsLangGraphAdapter(state.languageModel);
+  const adapter = new GeminiLangGraphAdapter(state.languageModel);
 
   const lcMessages = [
     new SystemMessage(systemPrompt),

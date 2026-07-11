@@ -2,7 +2,7 @@
  * Web Search API
  *
  * POST /api/web-search
- * Simple JSON request/response using Tavily research.
+ * Simple JSON request/response using Firecrawl research.
  */
 
 import { NextRequest } from 'next/server';
@@ -10,7 +10,6 @@ import { collectStreamLLMText } from '@/lib/ai/llm';
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
-import { SEARCH_QUERY_REWRITE_EXCERPT_LENGTH } from '@/lib/server/search-query-builder';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import type { AICallFn } from '@/lib/generation/pipeline-types';
 import { runAgentDrivenWebResearch } from '@/lib/server/web-research';
@@ -23,10 +22,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       query: requestQuery,
-      pdfText,
     } = body as {
       query?: string;
-      pdfText?: string;
     };
     query = requestQuery;
 
@@ -43,9 +40,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Clamp rewrite input at the route boundary; framework body limits still apply to total request size.
-    const boundedPdfText = pdfText?.slice(0, SEARCH_QUERY_REWRITE_EXCERPT_LENGTH);
-
     const { model: languageModel } = await resolveModelFromRequest(req, body);
     const createAiCall = (operation: string): AICallFn => async (systemPrompt, userPrompt) => {
       // 联网搜索仍返回完整 JSON 给前端；内部模型步骤走流式，避免请求头等待超时。
@@ -60,14 +54,12 @@ export async function POST(req: NextRequest) {
         operation,
       );
     };
-    log.info('Running Tavily web research API request', {
-      hasPdfContext: Boolean(boundedPdfText),
+    log.info('Running Firecrawl web research API request', {
       rawRequirementLength: query.trim().length,
     });
 
     const result = await runAgentDrivenWebResearch({
       requirement: query,
-      pdfText: boundedPdfText,
       apiKey,
       createAiCall,
     });

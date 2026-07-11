@@ -39,7 +39,6 @@ export type SnippetId =
   | 'json-output-rules'
   | 'element-types'
   | 'action-types'
-  | 'slide-image-instructions'
   | 'speech-guidelines'
   | 'whiteboard-reference';
 

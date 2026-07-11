@@ -91,7 +91,6 @@ export default function GenerationJobPage() {
   }, [jobId, router]);
 
   const displayContext: JobDisplayContext = job?.displayContext ?? {
-    hasPdf: false,
     webSearch: true,
     agentMode: 'auto',
   };

@@ -15,8 +15,6 @@ export type {
 // Prompt formatters
 export {
   formatTeacherPersonaForPrompt,
-  formatImageDescription,
-  formatImagePlaceholder,
   buildVisionUserContent,
 } from './prompt-formatters';
 

@@ -7,25 +7,20 @@
  */
 
 import { NextRequest } from 'next/server';
-import { callLLM, type LLMGenerateParams } from '@/lib/ai/llm';
-import {
-  generateSceneContent,
-  buildVisionUserContent,
-} from '@/lib/generation/generation-pipeline';
+import { callLLM } from '@/lib/ai/llm';
+import { generateSceneContent } from '@/lib/generation/generation-pipeline';
 import type { AgentInfo } from '@/lib/generation/generation-pipeline';
-import type { SceneOutline, PdfImage } from '@/lib/types/generation';
+import type { SceneOutline } from '@/lib/types/generation';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { requireCurrentUser } from '@/lib/server/auth';
-import { loadImageMappingForUser } from '@/lib/server/file-storage';
 
 const log = createLogger('Scene Content API');
 
 type SceneContentRequestBody = {
   outline: SceneOutline;
   allOutlines: SceneOutline[];
-  pdfImages?: PdfImage[];
   stageInfo: {
     name: string;
     description?: string;
@@ -44,11 +39,9 @@ type SceneContentValue = Exclude<Awaited<ReturnType<typeof generateSceneContent>
 async function runSceneContentGeneration(
   req: NextRequest,
   body: SceneContentRequestBody,
-  user: Awaited<ReturnType<typeof requireCurrentUser>>,
 ): Promise<{ content: SceneContentValue; effectiveOutline: SceneOutline; modelString: string }> {
   const {
     outline: rawOutline,
-    pdfImages,
     agents,
     languageDirective,
   } = body;
@@ -56,53 +49,18 @@ async function runSceneContentGeneration(
   const outline: SceneOutline = { ...rawOutline };
 
   // ── 从请求体里解析当前使用的模型配置 ──
-  const { model: languageModel, modelInfo, modelString } = await resolveModelFromRequest(req, body);
-
-  // 判断当前模型是否支持图片输入。
-  const hasVision = !!modelInfo?.capabilities?.vision;
+  const { model: languageModel, modelString } = await resolveModelFromRequest(req, body);
 
   // 统一封装模型调用，页面内容生成使用普通非流式请求。
-  const aiCall = async (
-    systemPrompt: string,
-    userPrompt: string,
-    images?: Array<{ id: string; src: string }>,
-  ): Promise<string> => {
-    const params: LLMGenerateParams =
-      images?.length && hasVision
-        ? {
-            model: languageModel,
-            system: systemPrompt,
-            messages: [
-              {
-                role: 'user' as const,
-                content: buildVisionUserContent(userPrompt, images),
-              },
-            ],
-          }
-        : {
-            model: languageModel,
-            system: systemPrompt,
-            prompt: userPrompt,
-          };
-
-    const result = await callLLM(params, 'scene-content');
+  const aiCall = async (systemPrompt: string, userPrompt: string): Promise<string> => {
+    const result = await callLLM(
+      { model: languageModel, system: systemPrompt, prompt: userPrompt },
+      'scene-content',
+    );
     return result.text;
   };
 
   const effectiveOutline = outline;
-
-  // ── 只取分配给当前页面的图片，避免把无关图片塞进提示词 ──
-  let assignedImages: PdfImage[] | undefined;
-  if (
-    pdfImages &&
-    pdfImages.length > 0 &&
-    effectiveOutline.suggestedImageIds &&
-    effectiveOutline.suggestedImageIds.length > 0
-  ) {
-    const suggestedIds = new Set(effectiveOutline.suggestedImageIds);
-    assignedImages = pdfImages.filter((img) => suggestedIds.has(img.id));
-  }
-  const imageMapping = hasVision ? await loadImageMappingForUser(assignedImages, user) : {};
 
   // ── 生成当前页面内容 ──
   log.info(
@@ -110,10 +68,7 @@ async function runSceneContentGeneration(
   );
 
   const content = await generateSceneContent(effectiveOutline, aiCall, {
-    assignedImages,
-    imageMapping,
     languageModel: effectiveOutline.type === 'pbl' ? languageModel : undefined,
-    visionEnabled: hasVision,
     agents,
     languageDirective,
   });
@@ -150,13 +105,9 @@ export async function POST(req: NextRequest) {
     }
 
     outlineTitle = rawOutline?.title;
-    const user = await requireCurrentUser();
+    await requireCurrentUser();
 
-    const { content, effectiveOutline, modelString } = await runSceneContentGeneration(
-      req,
-      body,
-      user,
-    );
+    const { content, effectiveOutline, modelString } = await runSceneContentGeneration(req, body);
     resolvedModelString = modelString;
 
     return apiSuccess({ content, effectiveOutline });

@@ -17,8 +17,6 @@ const log = createLogger('GenerateClassroom API');
 function parseGenerateClassroomInput(rawBody: Partial<GenerateClassroomInput>): GenerateClassroomInput {
   return {
     requirement: rawBody.requirement || '',
-    ...(rawBody.pdfContent ? { pdfContent: rawBody.pdfContent } : {}),
-    ...(rawBody.pdfImages?.length ? { pdfImages: rawBody.pdfImages } : {}),
     ...(rawBody.userNickname ? { userNickname: rawBody.userNickname } : {}),
     ...(rawBody.userBio ? { userBio: rawBody.userBio } : {}),
     enableWebSearch: rawBody.enableWebSearch ?? true,

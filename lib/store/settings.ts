@@ -14,7 +14,6 @@ import {
   DEFAULT_TTS_VOICES,
   TTS_PROVIDERS,
 } from '@/lib/audio/constants';
-import type { PDFProviderId } from '@/lib/pdf/types';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
 import { createLogger } from '@/lib/logger';
 
@@ -55,8 +54,8 @@ const accountSettingsStorage: StateStorage = {
   },
 };
 
-const DEFAULT_TTS_PROVIDER_ID: TTSProviderId = 'volcengine-doubao-tts';
-const DEFAULT_WEB_SEARCH_PROVIDER_ID: WebSearchProviderId = 'tavily';
+const DEFAULT_TTS_PROVIDER_ID: TTSProviderId = 'aliyun-cosyvoice-tts';
+const DEFAULT_WEB_SEARCH_PROVIDER_ID: WebSearchProviderId = 'firecrawl';
 
 function isValidTTSVoice(providerId: TTSProviderId, voice: string | undefined): voice is string {
   if (!voice) return false;
@@ -91,17 +90,6 @@ export interface SettingsState {
       serverBaseUrl?: string;
       isBuiltIn?: boolean;
       requiresApiKey?: boolean;
-    }
-  >;
-
-  // PDF settings
-  pdfProviderId: PDFProviderId;
-  pdfProvidersConfig: Record<
-    PDFProviderId,
-    {
-      apiKey: string;
-      enabled: boolean;
-      isServerConfigured?: boolean;
     }
   >;
 
@@ -169,13 +157,6 @@ export interface SettingsState {
   ) => void;
   setTTSEnabled: (enabled: boolean) => void;
 
-  // PDF actions
-  setPDFProvider: (providerId: PDFProviderId) => void;
-  setPDFProviderConfig: (
-    providerId: PDFProviderId,
-    config: Partial<{ apiKey: string; enabled: boolean }>,
-  ) => void;
-
   // Web Search actions
   setWebSearchProvider: (providerId: WebSearchProviderId) => void;
   setWebSearchProviderConfig: (
@@ -223,14 +204,6 @@ const getDefaultAudioConfig = () => ({
   >,
 });
 
-// Initialize default PDF config
-const getDefaultPDFConfig = () => ({
-  pdfProviderId: 'mineru-cloud' as PDFProviderId,
-  pdfProvidersConfig: {
-    'mineru-cloud': { apiKey: '', enabled: false },
-  } as Record<PDFProviderId, { apiKey: string; enabled: boolean }>,
-});
-
 // Initialize default Web Search config
 const getDefaultWebSearchConfig = () => ({
   webSearchProviderId: DEFAULT_WEB_SEARCH_PROVIDER_ID,
@@ -241,9 +214,8 @@ const getDefaultWebSearchConfig = () => ({
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set, get) => {
+    (set) => {
       const defaultAudioConfig = getDefaultAudioConfig();
-      const defaultPDFConfig = getDefaultPDFConfig();
       const defaultWebSearchConfig = getDefaultWebSearchConfig();
       const initialProvidersConfig = getDefaultProvidersConfig();
 
@@ -269,9 +241,6 @@ export const useSettingsStore = create<SettingsState>()(
 
         // Audio settings (use defaults)
         ...defaultAudioConfig,
-
-        // PDF settings (use defaults)
-        ...defaultPDFConfig,
 
         // Audio feature toggle (on by default)
         ttsEnabled: true,
@@ -350,27 +319,6 @@ export const useSettingsStore = create<SettingsState>()(
             };
           }),
 
-        // PDF actions
-        setPDFProvider: () => set({ pdfProviderId: get().pdfProviderId }),
-
-        setPDFProviderConfig: (providerId, config) =>
-          set((state) => ({
-            pdfProvidersConfig: {
-              ...state.pdfProvidersConfig,
-              [providerId]: (() => {
-                const { apiKey: _apiKey, ...safeConfig } = config;
-                const nextConfig = {
-                  ...state.pdfProvidersConfig[providerId],
-                  ...safeConfig,
-                  apiKey: '',
-                };
-                delete (nextConfig as Record<string, unknown>).baseUrl;
-                delete (nextConfig as Record<string, unknown>).serverBaseUrl;
-                return nextConfig;
-              })(),
-            },
-          })),
-
         setTTSEnabled: (enabled) => set({ ttsEnabled: enabled }),
 
         // Web Search actions
@@ -399,7 +347,6 @@ export const useSettingsStore = create<SettingsState>()(
             const data = (await res.json()) as {
               providers: Record<string, object>;
               tts: Record<string, { baseUrl?: string }>;
-              pdf: Record<string, object>;
               webSearch: Record<string, { baseUrl?: string }>;
             };
 
@@ -424,16 +371,6 @@ export const useSettingsStore = create<SettingsState>()(
                 },
               } as SettingsState['ttsProvidersConfig'];
 
-              const defaultPDF = getDefaultPDFConfig();
-              const newPDFConfig = {
-                'mineru-cloud': {
-                  ...defaultPDF.pdfProvidersConfig['mineru-cloud'],
-                  apiKey: '',
-                  enabled: state.pdfProvidersConfig['mineru-cloud']?.enabled ?? false,
-                  isServerConfigured: !!data.pdf['mineru-cloud'],
-                },
-              } as SettingsState['pdfProvidersConfig'];
-
               const defaultWebSearch = getDefaultWebSearchConfig();
               const webSearchServerConfig = data.webSearch[DEFAULT_WEB_SEARCH_PROVIDER_ID];
               const newWebSearchConfig = {
@@ -456,14 +393,12 @@ export const useSettingsStore = create<SettingsState>()(
               return {
                 providersConfig: newProvidersConfig,
                 ttsProvidersConfig: newTTSConfig,
-                pdfProvidersConfig: newPDFConfig,
                 webSearchProvidersConfig: newWebSearchConfig,
                 providerId: DEFAULT_PROVIDER_ID,
                 modelId: DEFAULT_MODEL_ID,
                 ttsProviderId: DEFAULT_TTS_PROVIDER_ID,
                 ttsVoice,
                 ttsEnabled,
-                pdfProviderId: 'mineru-cloud' as PDFProviderId,
                 webSearchProviderId: DEFAULT_WEB_SEARCH_PROVIDER_ID,
               };
             });
@@ -492,13 +427,11 @@ export const useSettingsStore = create<SettingsState>()(
           ...merged,
           providersConfig: currentState.providersConfig,
           ttsProvidersConfig: currentState.ttsProvidersConfig,
-          pdfProvidersConfig: currentState.pdfProvidersConfig,
           webSearchProvidersConfig: currentState.webSearchProvidersConfig,
           providerId: DEFAULT_PROVIDER_ID,
           modelId: DEFAULT_MODEL_ID,
           ttsProviderId: DEFAULT_TTS_PROVIDER_ID,
           ttsVoice,
-          pdfProviderId: currentState.pdfProviderId,
           webSearchProviderId: DEFAULT_WEB_SEARCH_PROVIDER_ID,
         } as SettingsState;
       },

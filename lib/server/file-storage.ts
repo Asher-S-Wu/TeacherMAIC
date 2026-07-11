@@ -1,7 +1,6 @@
+import { del, put, type PutBlobResult } from '@vercel/blob';
 import { ObjectId } from 'mongodb';
-import { del, get, put, type PutBlobResult } from '@vercel/blob';
-import { getCollections, getMongo, type AccountFileDoc, type UserDoc } from '@/lib/server/mongodb';
-import type { ImageMapping, PdfImage } from '@/lib/types/generation';
+import { getCollections, getMongo, type AccountFileDoc } from '@/lib/server/mongodb';
 
 export interface StoredFileResult {
   id: string;
@@ -21,37 +20,32 @@ export interface RegisteredBlobInput {
 }
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
-const PDF_TYPES = ['application/pdf'];
 const AUDIO_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/webm', 'audio/ogg', 'audio/mp4'];
 const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
 
 export const FILE_LIMITS = {
-  pdf: 50 * 1024 * 1024,
   image: 20 * 1024 * 1024,
   audio: 50 * 1024 * 1024,
   media: 200 * 1024 * 1024,
 } as const;
 
 export function getAllowedContentTypes(kind: string): string[] {
-  if (kind === 'pdf') return PDF_TYPES;
-  if (kind === 'image' || kind === 'pdf-image' || kind === 'poster') return IMAGE_TYPES;
+  if (kind === 'image' || kind === 'poster') return IMAGE_TYPES;
   if (kind === 'audio') return AUDIO_TYPES;
   if (kind === 'video') return VIDEO_TYPES;
   if (kind === 'media') return [...IMAGE_TYPES, ...VIDEO_TYPES, ...AUDIO_TYPES];
-  return [...PDF_TYPES, ...IMAGE_TYPES, ...VIDEO_TYPES, ...AUDIO_TYPES];
+  return [...IMAGE_TYPES, ...VIDEO_TYPES, ...AUDIO_TYPES];
 }
 
 export function getMaximumSizeInBytes(kind: string): number {
-  if (kind === 'pdf') return FILE_LIMITS.pdf;
-  if (kind === 'image' || kind === 'pdf-image' || kind === 'poster') return FILE_LIMITS.image;
+  if (kind === 'image' || kind === 'poster') return FILE_LIMITS.image;
   if (kind === 'audio') return FILE_LIMITS.audio;
   return FILE_LIMITS.media;
 }
 
 export function assertFileAllowed(kind: string, contentType: string, size: number): void {
   const normalizedType = normalizeContentType(contentType);
-  const allowed = getAllowedContentTypes(kind);
-  if (!allowed.includes(normalizedType)) {
+  if (!getAllowedContentTypes(kind).includes(normalizedType)) {
     throw new Error('文件类型不支持');
   }
   if (size > getMaximumSizeInBytes(kind)) {
@@ -68,8 +62,12 @@ function safeName(name: string): string {
   return raw.replace(/[^\w.\-\u4e00-\u9fa5]+/g, '-').slice(0, 120) || 'file';
 }
 
+function safeKind(kind: string): string {
+  return kind.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 40) || 'file';
+}
+
 function makePathname(userId: ObjectId, kind: string, filename: string): string {
-  return `account-files/${userId.toString()}/${kind}/${Date.now()}-${safeName(filename)}`;
+  return `account-files/${userId.toString()}/${safeKind(kind)}/${Date.now()}-${safeName(filename)}`;
 }
 
 function toStoredFile(doc: AccountFileDoc): StoredFileResult {
@@ -81,11 +79,6 @@ function toStoredFile(doc: AccountFileDoc): StoredFileResult {
     size: doc.size,
     kind: doc.kind,
   };
-}
-
-function isSuperAdmin(email: string): boolean {
-  const adminEmail = process.env.SUPER_ADMIN_EMAIL?.trim().toLowerCase();
-  return !!adminEmail && email.trim().toLowerCase() === adminEmail;
 }
 
 function dataUrlToBuffer(dataUrl: string): { buffer: Buffer; contentType: string } {
@@ -120,15 +113,21 @@ export async function saveBufferForUser(
 ): Promise<StoredFileResult> {
   assertFileAllowed(kind, contentType, buffer.length);
   const normalizedType = normalizeContentType(contentType);
-
-  const pathname = makePathname(userId, kind, filename);
-  const blob = await put(pathname, buffer, {
+  const blob = await put(makePathname(userId, kind, filename), buffer, {
     access: 'public',
     contentType: normalizedType,
     addRandomSuffix: true,
   });
 
-  return createFileRecord(userId, blob, filename, normalizedType, buffer.length, kind, metadata);
+  return createFileRecord(
+    userId,
+    blob,
+    filename,
+    normalizedType,
+    buffer.length,
+    kind,
+    metadata,
+  );
 }
 
 export async function saveRemoteFileForUser(
@@ -148,8 +147,10 @@ export async function saveRemoteFileForUser(
   }
 
   const resolvedType = normalizeContentType(response.headers.get('content-type') || contentType);
-  const size = Number(response.headers.get('content-length') || 0);
-  if (size > 0) assertFileAllowed(kind, resolvedType, size);
+  const contentLength = response.headers.get('content-length');
+  const parsedSize = contentLength ? Number.parseInt(contentLength, 10) : 0;
+  const size = Number.isFinite(parsedSize) && parsedSize > 0 ? parsedSize : 0;
+  assertFileAllowed(kind, resolvedType, size);
 
   const blob = await put(makePathname(userId, kind, filename), response.body, {
     access: 'public',
@@ -179,7 +180,7 @@ export async function registerUploadedBlobForUser(
     _id: new ObjectId(),
     userId,
     kind,
-    filename,
+    filename: safeName(filename),
     contentType: normalizeContentType(blob.contentType || normalizedType),
     size,
     pathname: blob.pathname,
@@ -224,66 +225,6 @@ async function createFileRecord(
     kind,
     metadata,
   );
-}
-
-export async function getReadableFileForUser(fileId: string, user: UserDoc) {
-  if (!ObjectId.isValid(fileId)) return null;
-
-  const { db } = await getMongo();
-  const c = getCollections(db);
-  const file = await c.accountFiles.findOne({ _id: new ObjectId(fileId) });
-  if (!file) return null;
-
-  const ownsFile = file.userId.toString() === user._id.toString();
-  if (!ownsFile && !isSuperAdmin(user.email)) {
-    return null;
-  }
-
-  const result = await get(file.pathname, { access: 'public' });
-  if (result?.statusCode !== 200 || !result.stream) {
-    return null;
-  }
-
-  return {
-    file,
-    blob: result.blob,
-    stream: result.stream,
-  };
-}
-
-export async function getFileBufferForUser(
-  fileId: string,
-  user: UserDoc,
-): Promise<{ buffer: Buffer; file: AccountFileDoc } | null> {
-  const result = await getReadableFileForUser(fileId, user);
-  if (!result) return null;
-
-  const response = new Response(result.stream);
-  const arrayBuffer = await response.arrayBuffer();
-  return {
-    buffer: Buffer.from(arrayBuffer),
-    file: result.file,
-  };
-}
-
-export async function loadImageMappingForUser(
-  images: PdfImage[] | undefined,
-  user: UserDoc,
-): Promise<ImageMapping> {
-  const mapping: ImageMapping = {};
-  if (!images?.length) return mapping;
-
-  for (const image of images) {
-    if (!image.storageId) continue;
-    const stored = await getFileBufferForUser(image.storageId, user);
-    if (!stored) {
-      throw new Error('参考图片读取失败');
-    }
-    mapping[image.id] =
-      `data:${stored.file.contentType};base64,${stored.buffer.toString('base64')}`;
-  }
-
-  return mapping;
 }
 
 export async function deleteAccountFilesForUser(userId: ObjectId): Promise<void> {

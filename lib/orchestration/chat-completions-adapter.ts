@@ -1,8 +1,7 @@
 /**
- * LLM Adapter for LangGraph
+ * Gemini Adapter for LangGraph
  *
- * Provides the LangChain interface for LLM calls.
- * Uses the unified callLLM / streamLLM layer.
+ * Provides the LangChain interface for official Gemini calls.
  */
 
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
@@ -21,7 +20,7 @@ import type {
 import type { ResponsesModel } from '@/lib/ai/providers';
 import { createLogger } from '@/lib/logger';
 
-const log = createLogger('ChatCompletionsAdapter');
+const log = createLogger('GeminiAdapter');
 
 /**
  * Stream chunk types for streaming generation
@@ -32,9 +31,9 @@ export type StreamChunk =
   | { type: 'done'; content: string };
 
 /**
- * Adapter to use the configured Chat Completions model with LangGraph.
+ * Adapter to use the configured Gemini model with LangGraph.
  */
-export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
+export class GeminiLangGraphAdapter extends BaseChatModel {
   private languageModel: ResponsesModel;
 
   constructor(languageModel: ResponsesModel) {
@@ -43,7 +42,7 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
   }
 
   _llmType(): string {
-    return 'chat-completions';
+    return 'gemini';
   }
 
   _combineLLMOutput() {
@@ -86,12 +85,12 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
           messages: aiMessages,
           abortSignal,
         },
-        'chat-completions-adapter',
+        'gemini-adapter',
       );
 
       const content = result.text || '';
 
-      log.info('[Chat Completions Adapter] Response:', {
+      log.info('[Gemini Adapter] Response:', {
         textLength: content.length,
       });
 
@@ -108,7 +107,7 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
         llmOutput: {},
       };
     } catch (error) {
-      log.error('[Chat Completions Adapter Error]', error);
+      log.error('[Gemini Adapter Error]', error);
       throw error;
     }
   }
@@ -130,7 +129,7 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
         messages: aiMessages,
         abortSignal: options?.signal,
       },
-      'chat-completions-adapter-stream',
+      'gemini-adapter-stream',
     );
 
     let fullContent = '';
@@ -152,7 +151,7 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
   }
 
   /**
-   * Stream generate with OpenAI-compatible native tool use.
+   * Stream generate with Gemini native function calling.
    */
   async *streamGenerateWithTools(
     messages: BaseMessage[],
@@ -169,7 +168,7 @@ export class ChatCompletionsLangGraphAdapter extends BaseChatModel {
         onToolUse,
         abortSignal: options?.signal,
       },
-      'chat-completions-adapter-tool-stream',
+      'gemini-adapter-tool-stream',
     );
 
     let fullContent = '';

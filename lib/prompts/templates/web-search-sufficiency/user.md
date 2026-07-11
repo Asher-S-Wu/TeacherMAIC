@@ -2,10 +2,6 @@
 
 {{requirement}}
 
-## PDF Excerpt
-
-{{pdfExcerpt}}
-
 ## Round Context
 
 - Current round number: {{currentRound}}

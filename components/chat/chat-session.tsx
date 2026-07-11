@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import type { ChatSession, ChatMessageMetadata } from '@/lib/types/chat';
-import type { UIMessage } from 'ai';
+import type { ChatSession, ChatMessageMetadata, UIMessage } from '@/lib/types/chat';
 import { cn } from '@/lib/utils';
 import { AvatarDisplay } from '@/components/ui/avatar-display';
 import { CircleStop } from 'lucide-react';

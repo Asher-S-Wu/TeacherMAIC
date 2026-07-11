@@ -3,7 +3,7 @@
 import { useCallback, useRef } from 'react';
 import { useStageStore } from '@/lib/store/stage';
 import { useSettingsStore } from '@/lib/store/settings';
-import type { SceneOutline, PdfImage } from '@/lib/types/generation';
+import type { SceneOutline } from '@/lib/types/generation';
 import type { AgentInfo } from '@/lib/generation/generation-pipeline';
 import type { Scene } from '@/lib/types/stage';
 import type { SpeechAction } from '@/lib/types/action';
@@ -40,7 +40,6 @@ async function fetchSceneContent(
     outline: SceneOutline;
     allOutlines: SceneOutline[];
     stageId: string;
-    pdfImages?: PdfImage[];
     stageInfo: {
       name: string;
       description?: string;
@@ -184,7 +183,6 @@ export interface UseSceneGeneratorOptions {
 }
 
 export interface GenerationParams {
-  pdfImages?: PdfImage[];
   stageInfo: {
     name: string;
     description?: string;
@@ -279,7 +277,6 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
                   outline,
                   allOutlines: outlines,
                   stageId: stage.id,
-                  pdfImages: params.pdfImages,
                   stageInfo: params.stageInfo,
                   agents: params.agents,
                   languageDirective: params.languageDirective,
@@ -431,7 +428,6 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
             outline,
             allOutlines: state.outlines,
             stageId: state.stage.id,
-            pdfImages: params.pdfImages,
             stageInfo: params.stageInfo,
             agents: params.agents,
             languageDirective: params.languageDirective,

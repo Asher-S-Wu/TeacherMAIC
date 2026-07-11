@@ -3,10 +3,9 @@
 import { useEffect, useState, Suspense, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, Sparkles, AlertCircle, AlertTriangle, ArrowLeft, Bot } from 'lucide-react';
+import { CheckCircle2, Sparkles, AlertCircle, ArrowLeft, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useStageStore } from '@/lib/store/stage';
 import { useSettingsStore } from '@/lib/store/settings';
@@ -14,14 +13,13 @@ import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { getAvailableProvidersWithVoices } from '@/lib/audio/voice-resolver';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
-import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
 import {
   CLASSROOM_GENERATION_CONCURRENCY,
   formatSceneGenerationProgressMessage,
 } from '@/lib/constants/classroom-generation';
 import { nanoid } from 'nanoid';
 import type { Stage, Scene } from '@/lib/types/stage';
-import type { SceneOutline, PdfImage } from '@/lib/types/generation';
+import type { SceneOutline } from '@/lib/types/generation';
 import type { SpeechAction } from '@/lib/types/action';
 import { AgentRevealModal } from '@/components/agent/agent-reveal-modal';
 import { createLogger } from '@/lib/logger';
@@ -42,7 +40,6 @@ function GenerationPreviewContent() {
   const [isComplete, setIsComplete] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [streamingOutlines, setStreamingOutlines] = useState<SceneOutline[] | null>(null);
-  const [truncationWarnings, setTruncationWarnings] = useState<string[]>([]);
   const [webSearchSources, setWebSearchSources] = useState<Array<{ title: string; url: string }>>(
     [],
   );
@@ -187,7 +184,7 @@ function GenerationPreviewContent() {
     abortControllerRef.current = controller;
     const signal = controller.signal;
 
-    // Use a local mutable copy so we can update it after PDF parsing
+    // Use a local mutable copy for generation state updates.
     let currentSession = session;
     let generatedStageId: string | null = null;
     const interactiveMode = false;
@@ -206,102 +203,7 @@ function GenerationPreviewContent() {
     sessionStorage.removeItem('generationParams');
 
     try {
-      // Compute active steps for this session (recomputed after session mutations)
-      let activeSteps = getActiveSteps(currentSession);
-
-      // Determine if we need the PDF analysis step
-      const hasPdfToAnalyze = !!currentSession.pdfStorageKey && !currentSession.pdfText;
-      // If no PDF to analyze, skip to the next available step
-      if (!hasPdfToAnalyze) {
-        const firstNonPdfIdx = activeSteps.findIndex((s) => s.id !== 'pdf-analysis');
-        setCurrentStepIndex(Math.max(0, firstNonPdfIdx));
-      }
-
-      // Step 0: Parse PDF if needed
-      if (hasPdfToAnalyze) {
-        log.debug('=== Generation Preview: Parsing PDF ===');
-        const parseResponse = await fetch('/api/parse-pdf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileId: currentSession.pdfStorageKey }),
-          signal,
-        });
-
-        if (!parseResponse.ok) {
-          const errorData = await parseResponse.json();
-          throw new Error(errorData.error || 'PDF 解析失败');
-        }
-
-        const parseResult = await parseResponse.json();
-        if (!parseResult.success || !parseResult.data) {
-          throw new Error('PDF 解析失败');
-        }
-
-        let pdfText = parseResult.data.text as string;
-
-        // Truncate if needed
-        if (pdfText.length > MAX_PDF_CONTENT_CHARS) {
-          pdfText = pdfText.substring(0, MAX_PDF_CONTENT_CHARS);
-        }
-
-        const rawPdfImages = parseResult.data.metadata?.pdfImages;
-        const parsedPdfImages: PdfImage[] = rawPdfImages
-          ? rawPdfImages.map(
-              (img: {
-                id: string;
-                pageNumber?: number;
-                description?: string;
-                width?: number;
-                height?: number;
-                storageId?: string;
-              }) => ({
-                id: img.id,
-                src: '',
-                pageNumber: img.pageNumber || 1,
-                description: img.description,
-                width: img.width,
-                height: img.height,
-                storageId: img.storageId,
-              }),
-            )
-          : [];
-        const pdfImages: PdfImage[] = [
-          ...(currentSession.pdfImages || []),
-          ...parsedPdfImages,
-        ];
-
-        // Update session with parsed PDF data
-        const updatedSession = {
-          ...currentSession,
-          pdfText,
-          pdfImages,
-          imageStorageIds: pdfImages.map((img) => img.storageId).filter(Boolean) as string[],
-          pdfStorageKey: undefined, // Clear so we don't re-parse
-        };
-        setSession(updatedSession);
-        sessionStorage.setItem('generationSession', JSON.stringify(updatedSession));
-
-        // Truncation warnings
-        const warnings: string[] = [];
-        const originalTextLength =
-          Number(parseResult.data.metadata?.originalTextLength) ||
-          (parseResult.data.text as string).length;
-        if (originalTextLength > MAX_PDF_CONTENT_CHARS) {
-          warnings.push(`文档文本较长，已截取前 ${MAX_PDF_CONTENT_CHARS} 字符用于生成`);
-        }
-        if (pdfImages.length > MAX_VISION_IMAGES) {
-          warnings.push(
-            `文档含 ${pdfImages.length} 张图片，超出上限 ${MAX_VISION_IMAGES} 张，多余图片将仅以文字描述传递`,
-          );
-        }
-        if (warnings.length > 0) {
-          setTruncationWarnings(warnings);
-        }
-
-        // Reassign local reference for subsequent steps
-        currentSession = updatedSession;
-        activeSteps = getActiveSteps(currentSession);
-      }
+      const activeSteps = getActiveSteps(currentSession);
 
       // Step: Web Search (if enabled)
       const webSearchStepIdx = activeSteps.findIndex((s) => s.id === 'web-search');
@@ -314,7 +216,6 @@ function GenerationPreviewContent() {
           headers: getApiHeaders(),
           body: JSON.stringify({
             query: currentSession.requirements.requirement,
-            pdfText: currentSession.pdfText || undefined,
           }),
           signal,
         });
@@ -339,7 +240,6 @@ function GenerationPreviewContent() {
         setSession(updatedSessionWithSearch);
         sessionStorage.setItem('generationSession', JSON.stringify(updatedSessionWithSearch));
         currentSession = updatedSessionWithSearch;
-        activeSteps = getActiveSteps(currentSession);
       }
 
       // Create stage client-side
@@ -377,8 +277,6 @@ function GenerationPreviewContent() {
             headers: getApiHeaders(),
             body: JSON.stringify({
               requirements: currentSession.requirements,
-              pdfText: currentSession.pdfText,
-              pdfImages: currentSession.pdfImages,
               researchContext: currentSession.researchContext,
             }),
             signal,
@@ -646,7 +544,6 @@ function GenerationPreviewContent() {
       sessionStorage.setItem(
         'generationParams',
         JSON.stringify({
-          pdfImages: currentSession.pdfImages,
           agents,
           userProfile,
           languageDirective,
@@ -687,7 +584,6 @@ function GenerationPreviewContent() {
             {
               outline,
               allOutlines: outlines,
-              pdfImages: currentSession.pdfImages,
               stageInfo,
               stageId: stage.id,
               agents,
@@ -951,62 +847,6 @@ function GenerationPreviewContent() {
                   </motion.div>
                 </AnimatePresence>
 
-                {/* Truncation warning indicator */}
-                <AnimatePresence>
-                  {truncationWarnings.length > 0 && !error && !isComplete && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0 }}
-                      transition={{
-                        type: 'spring',
-                        stiffness: 500,
-                        damping: 30,
-                      }}
-                      className="flex justify-center"
-                    >
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <motion.button
-                            type="button"
-                            animate={{
-                              boxShadow: [
-                                '0 0 0 0 rgba(251, 191, 36, 0), 0 0 0 0 rgba(251, 191, 36, 0)',
-                                '0 0 16px 4px rgba(251, 191, 36, 0.12), 0 0 4px 1px rgba(251, 191, 36, 0.08)',
-                                '0 0 0 0 rgba(251, 191, 36, 0), 0 0 0 0 rgba(251, 191, 36, 0)',
-                              ],
-                            }}
-                            transition={{
-                              duration: 3,
-                              repeat: Infinity,
-                              ease: 'easeInOut',
-                            }}
-                            className="relative size-7 rounded-full flex items-center justify-center cursor-default
-                                       bg-gradient-to-br from-amber-400/15 to-orange-400/10
-                                       border border-amber-400/25 hover:border-amber-400/40
-                                       hover:from-amber-400/20 hover:to-orange-400/15
-                                       transition-colors duration-300
-                                       focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30"
-                          >
-                            <AlertTriangle
-                              className="size-3.5 text-amber-500 dark:text-amber-400"
-                              strokeWidth={2.5}
-                            />
-                          </motion.button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" sideOffset={6}>
-                          <div className="space-y-1 py-0.5">
-                            {truncationWarnings.map((w, i) => (
-                              <p key={i} className="text-xs leading-relaxed">
-                                {w}
-                              </p>
-                            ))}
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </div>
             </div>
           </Card>

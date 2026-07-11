@@ -1,7 +1,3 @@
-/**
- * Account file storage helpers backed by Vercel Public Blob.
- */
-
 import type { PutBlobResult } from '@vercel/blob';
 import { upload } from '@vercel/blob/client';
 
@@ -68,14 +64,9 @@ export async function uploadAccountBlob(
   });
 
   const data = await response.json().catch(() => null);
-  if (!response.ok || !data?.success) {
+  if (!response.ok || !data?.success || !data.file) {
     throw new Error(data?.error || '文件保存失败');
   }
 
   return data.file as StoredAccountFile;
-}
-
-export async function storePdfBlob(file: File): Promise<string> {
-  const saved = await uploadAccountBlob(file, file.name, 'pdf');
-  return saved.id;
 }

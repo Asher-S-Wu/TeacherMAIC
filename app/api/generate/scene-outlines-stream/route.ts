@@ -16,21 +16,12 @@ import { NextRequest } from 'next/server';
 import { streamLLM } from '@/lib/ai/llm';
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompts';
 import {
-  formatImageDescription,
-  formatImagePlaceholder,
-  buildVisionUserContent,
   formatTeacherPersonaForPrompt,
 } from '@/lib/generation/generation-pipeline';
 import type { AgentInfo } from '@/lib/generation/generation-pipeline';
-import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
-import type {
-  UserRequirements,
-  PdfImage,
-  SceneOutline,
-} from '@/lib/types/generation';
+import type { UserRequirements, SceneOutline } from '@/lib/types/generation';
 import { apiError } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
-import { loadImageMappingForUser } from '@/lib/server/file-storage';
 import { createLogger } from '@/lib/logger';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { validateSceneOutline } from '@/lib/generation/outline-validation';
@@ -125,7 +116,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // Get API configuration from request headers/body
-    const { model: languageModel, modelInfo, modelString } = await resolveModelFromRequest(
+    const { model: languageModel, modelString } = await resolveModelFromRequest(
       req,
       body,
     );
@@ -135,10 +126,8 @@ export async function POST(req: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Requirements are required');
     }
 
-    const { requirements, pdfText, pdfImages, researchContext, agents } = body as {
+    const { requirements, researchContext, agents } = body as {
       requirements: UserRequirements;
-      pdfText?: string;
-      pdfImages?: PdfImage[];
       researchContext?: string;
       agents?: AgentInfo[];
     };
@@ -150,44 +139,7 @@ export async function POST(req: NextRequest) {
         ? `## Student Profile\n\nStudent: ${requirements.userNickname || 'Unknown'}${requirements.userBio ? ` — ${requirements.userBio}` : ''}\n\nConsider this student's background when designing the course. Adapt difficulty, examples, and teaching approach accordingly.\n\n---`
         : '';
 
-    // Detect vision capability
-    const hasVision = !!modelInfo?.capabilities?.vision;
-    const user = await requireCurrentUser();
-    const imageMapping = hasVision
-      ? await loadImageMappingForUser(pdfImages?.slice(0, MAX_VISION_IMAGES), user)
-      : {};
-
-    // Build prompt (same logic as generateSceneOutlinesFromRequirements)
-    let availableImagesText = 'No images available';
-    let visionImages: Array<{ id: string; src: string }> | undefined;
-
-    if (pdfImages && pdfImages.length > 0) {
-      if (hasVision && imageMapping) {
-        // Vision mode: split into vision images (first N) and text-only (rest)
-        const allWithSrc = pdfImages.filter((img) => imageMapping[img.id]);
-        const visionSlice = allWithSrc.slice(0, MAX_VISION_IMAGES);
-        const textOnlySlice = allWithSrc.slice(MAX_VISION_IMAGES);
-        const noSrcImages = pdfImages.filter((img) => !imageMapping[img.id]);
-
-        const visionDescriptions = visionSlice.map((img) => formatImagePlaceholder(img));
-        const textDescriptions = [...textOnlySlice, ...noSrcImages].map((img) =>
-          formatImageDescription(img),
-        );
-        availableImagesText = [...visionDescriptions, ...textDescriptions].join('\n');
-
-        visionImages = visionSlice.map((img) => ({
-          id: img.id,
-          src: imageMapping[img.id],
-          width: img.width,
-          height: img.height,
-        }));
-      } else {
-        // Text-only mode: full descriptions
-        availableImagesText = pdfImages.map((img) => formatImageDescription(img)).join('\n');
-      }
-    }
-
-    const hasSourceImages = (pdfImages?.length ?? 0) > 0;
+    await requireCurrentUser();
 
     // Build teacher context from agents (if available)
     const teacherContext = formatTeacherPersonaForPrompt(agents);
@@ -195,10 +147,7 @@ export async function POST(req: NextRequest) {
 
     const prompts = buildPrompt(promptId, {
       requirement: requirements.requirement,
-      pdfContent: pdfText ? pdfText.substring(0, MAX_PDF_CONTENT_CHARS) : 'None',
-      availableImages: availableImagesText,
       researchContext: researchContext || 'None',
-      hasSourceImages,
       teacherContext,
       userProfile: userProfileText,
     });
@@ -254,22 +203,11 @@ export async function POST(req: NextRequest) {
                       lastFullText,
                       lastError ?? 'The previous response had an invalid outline structure.',
                     );
-              const streamParams = visionImages?.length
-                ? {
-                    model: languageModel,
-                    system: prompts.system,
-                    messages: [
-                      {
-                        role: 'user' as const,
-                        content: buildVisionUserContent(userPrompt, visionImages),
-                      },
-                    ],
-                  }
-                : {
-                    model: languageModel,
-                    system: prompts.system,
-                    prompt: userPrompt,
-                  };
+              const streamParams = {
+                model: languageModel,
+                system: prompts.system,
+                prompt: userPrompt,
+              };
               const result = streamLLM(streamParams, 'scene-outlines-stream');
 
               parsedOutlines = [];

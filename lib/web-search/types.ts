@@ -12,7 +12,7 @@ export interface WebSearchResult {
   responseTime: number;
 }
 
-export type WebSearchProviderId = 'tavily';
+export type WebSearchProviderId = 'firecrawl';
 
 export interface WebSearchProviderConfig {
   id: WebSearchProviderId;

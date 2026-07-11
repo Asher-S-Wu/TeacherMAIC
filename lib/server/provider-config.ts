@@ -1,13 +1,13 @@
 /**
  * Server-side Provider Configuration
  *
- * Loads provider configs from Vercel environment variables.
+ * Loads provider configs from server environment variables.
  * Keys never leave the server — only provider IDs and metadata are exposed via API.
  */
 
 import { createLogger } from '@/lib/logger';
-import { DOUBAO_AUDIO_TTS_ENDPOINT } from '@/lib/ai/doubao-audio-models';
-import { ARK_BASE_URL } from '@/lib/ai/ark-models';
+import { COSYVOICE_TTS_ENDPOINT } from '@/lib/ai/cosyvoice-models';
+import { GEMINI_API_BASE_URL } from '@/lib/ai/gemini-models';
 
 const log = createLogger('ServerProviderConfig');
 
@@ -24,7 +24,6 @@ interface ServerProviderEntry {
 interface ServerConfig {
   providers: Record<string, ServerProviderEntry>;
   tts: Record<string, ServerProviderEntry>;
-  pdf: Record<string, ServerProviderEntry>;
   webSearch: Record<string, ServerProviderEntry>;
 }
 
@@ -32,65 +31,37 @@ interface ServerConfig {
 // Env-var prefix mappings
 // ---------------------------------------------------------------------------
 
-const ARK_API_KEY_ENV = 'ARK_API_KEY';
-const VOLCENGINE_SPEECH_API_KEY_ENV = 'VOLCENGINE_SPEECH_API_KEY';
-const TAVILY_API_KEY_ENV = 'TAVILY_API_KEY';
-
-const PDF_ENV_MAP: Record<string, string> = {
-  PDF_MINERU_CLOUD: 'mineru-cloud',
-};
-
-// ---------------------------------------------------------------------------
-// Env-var helpers
-// ---------------------------------------------------------------------------
-
-function loadEnvSection(envMap: Record<string, string>): Record<string, ServerProviderEntry> {
-  const result: Record<string, ServerProviderEntry> = {};
-
-  for (const [prefix, providerId] of Object.entries(envMap)) {
-    const envApiKey = process.env[`${prefix}_API_KEY`] || undefined;
-
-    if (!envApiKey) continue;
-    result[providerId] = {
-      apiKey: envApiKey || '',
-    };
-  }
-
-  return result;
-}
+const GEMINI_API_KEY_ENV = 'GEMINI_API_KEY';
+const DASHSCOPE_API_KEY_ENV = 'DASHSCOPE_API_KEY';
+const FIRECRAWL_API_KEY_ENV = 'FIRECRAWL_API_KEY';
 
 function loadLLMEnvSection(): Record<string, ServerProviderEntry> {
-  return loadArkSection('volcengine-ark', ARK_BASE_URL);
-}
-
-function loadArkSection(
-  providerId: string,
-  baseUrl: string,
-): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[ARK_API_KEY_ENV] || undefined;
+  const apiKey = process.env[GEMINI_API_KEY_ENV] || undefined;
   if (!apiKey) return {};
   return {
-    [providerId]: {
+    'google-gemini': {
       apiKey,
-      baseUrl,
+      baseUrl: GEMINI_API_BASE_URL,
     },
   };
 }
 
-function loadVolcengineSpeechSection(): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[VOLCENGINE_SPEECH_API_KEY_ENV] || undefined;
+function loadCosyVoiceSection(): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[DASHSCOPE_API_KEY_ENV] || undefined;
   if (!apiKey) return {};
   return {
-    'volcengine-doubao-tts': {
+    'aliyun-cosyvoice-tts': {
       apiKey,
-      baseUrl: DOUBAO_AUDIO_TTS_ENDPOINT,
+      baseUrl: COSYVOICE_TTS_ENDPOINT,
     },
   };
 }
 
-function loadTavilySection(): Record<string, ServerProviderEntry> {
-  const apiKey = process.env[TAVILY_API_KEY_ENV] || undefined;
-  return apiKey ? { tavily: { apiKey, baseUrl: 'https://api.tavily.com/search' } } : {};
+function loadFirecrawlSection(): Record<string, ServerProviderEntry> {
+  const apiKey = process.env[FIRECRAWL_API_KEY_ENV] || undefined;
+  return apiKey
+    ? { firecrawl: { apiKey, baseUrl: 'https://api.firecrawl.dev/v2/search' } }
+    : {};
 }
 
 // ---------------------------------------------------------------------------
@@ -102,9 +73,8 @@ let _config: ServerConfig | null = null;
 function buildConfig(): ServerConfig {
   return {
     providers: loadLLMEnvSection(),
-    tts: loadVolcengineSpeechSection(),
-    pdf: loadEnvSection(PDF_ENV_MAP),
-    webSearch: loadTavilySection(),
+    tts: loadCosyVoiceSection(),
+    webSearch: loadFirecrawlSection(),
   };
 }
 
@@ -112,12 +82,11 @@ function logConfig(config: ServerConfig, label: string): void {
   const counts = [
     Object.keys(config.providers).length,
     Object.keys(config.tts).length,
-    Object.keys(config.pdf).length,
     Object.keys(config.webSearch).length,
   ];
   if (counts.some((c) => c > 0)) {
     log.info(
-      `[ServerProviderConfig] Loaded (${label}): ${counts[0]} LLM, ${counts[1]} TTS, ${counts[2]} PDF, ${counts[3]} WebSearch providers`,
+      `[ServerProviderConfig] Loaded (${label}): ${counts[0]} LLM, ${counts[1]} TTS, ${counts[2]} WebSearch providers`,
     );
   }
 }
@@ -126,7 +95,7 @@ function getConfig(): ServerConfig {
   if (_config) return _config;
 
   _config = buildConfig();
-  logConfig(_config, 'Vercel env');
+  logConfig(_config, 'server env');
   return _config;
 }
 
@@ -177,23 +146,6 @@ export function resolveTTSBaseUrl(providerId: string, _clientBaseUrl?: string): 
 }
 
 // ---------------------------------------------------------------------------
-// Public API — PDF
-// ---------------------------------------------------------------------------
-
-export function getServerPDFProviders(): Record<string, object> {
-  const cfg = getConfig();
-  const result: Record<string, object> = {};
-  for (const id of Object.keys(cfg.pdf)) {
-    result[id] = {};
-  }
-  return result;
-}
-
-export function resolvePDFApiKey(providerId: string): string {
-  return getConfig().pdf[providerId]?.apiKey || '';
-}
-
-// ---------------------------------------------------------------------------
 // Public API — Web Search
 // ---------------------------------------------------------------------------
 
@@ -209,5 +161,5 @@ export function getServerWebSearchProviders(): Record<string, { baseUrl?: string
 }
 
 export function resolveWebSearchApiKey(): string {
-  return getConfig().webSearch.tavily?.apiKey || '';
+  return getConfig().webSearch.firecrawl?.apiKey || '';
 }

@@ -15,19 +15,10 @@ Generate an Ultra Mode course outline based on the following requirements.
 Infer the course language directive by applying the decision rules from the system prompt. Key reminders:
 - Requirement language = teaching language (unless overridden by explicit request or learner context)
 - Foreign language learning → teach in user's native language, not the target language
-- PDF language does NOT override teaching language — translate/explain document content instead
 
 ---
 
 ## Reference Materials
-
-### PDF Content Summary
-
-{{pdfContent}}
-
-### Available Images
-
-{{availableImages}}
 
 ### Web Search Results
 

@@ -145,7 +145,6 @@ function buildOutlineFromPayload(
     teachingObjective: payload.teachingObjective,
     estimatedDuration: payload.estimatedDuration ?? currentOutline.estimatedDuration,
     languageNote: payload.languageNote ?? currentOutline.languageNote,
-    suggestedImageIds: currentOutline.suggestedImageIds,
     ...(payload.type === 'quiz' ? { quizConfig: payload.quizConfig } : {}),
     ...(payload.type === 'interactive'
       ? {

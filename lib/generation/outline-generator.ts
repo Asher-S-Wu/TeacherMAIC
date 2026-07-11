@@ -2,15 +2,8 @@
  * Stage 1: Generate scene outlines from user requirements.
  */
 
-import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
-import type {
-  UserRequirements,
-  SceneOutline,
-  PdfImage,
-  ImageMapping,
-} from '@/lib/types/generation';
+import type { UserRequirements, SceneOutline } from '@/lib/types/generation';
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompts';
-import { formatImageDescription, formatImagePlaceholder } from './prompt-formatters';
 import { parseJsonResponse } from './json-repair';
 import { validateSceneOutline } from './outline-validation';
 import type { AICallFn, GenerationResult, GenerationCallbacks } from './pipeline-types';
@@ -22,54 +15,18 @@ import { generateWithStructuredRetries } from './retry';
  */
 export async function generateSceneOutlinesFromRequirements(
   requirements: UserRequirements,
-  pdfText: string | undefined,
-  pdfImages: PdfImage[] | undefined,
   aiCall: AICallFn,
   callbacks?: GenerationCallbacks,
   options?: {
-    visionEnabled?: boolean;
-    imageMapping?: ImageMapping;
     researchContext?: string;
     teacherContext?: string;
   },
 ): Promise<GenerationResult<{ languageDirective: string; outlines: SceneOutline[] }>> {
-  // Build available images description for the prompt
-  let availableImagesText = 'No images available';
-  let visionImages: Array<{ id: string; src: string }> | undefined;
-
-  if (pdfImages && pdfImages.length > 0) {
-    if (options?.visionEnabled && options?.imageMapping) {
-      // Vision mode: split into vision images (first N) and text-only (rest)
-      const allWithSrc = pdfImages.filter((img) => options.imageMapping![img.id]);
-      const visionSlice = allWithSrc.slice(0, MAX_VISION_IMAGES);
-      const textOnlySlice = allWithSrc.slice(MAX_VISION_IMAGES);
-      const noSrcImages = pdfImages.filter((img) => !options.imageMapping![img.id]);
-
-      const visionDescriptions = visionSlice.map((img) => formatImagePlaceholder(img));
-      const textDescriptions = [...textOnlySlice, ...noSrcImages].map((img) =>
-        formatImageDescription(img),
-      );
-      availableImagesText = [...visionDescriptions, ...textDescriptions].join('\n');
-
-      visionImages = visionSlice.map((img) => ({
-        id: img.id,
-        src: options.imageMapping![img.id],
-        width: img.width,
-        height: img.height,
-      }));
-    } else {
-      // Text-only mode: full descriptions
-      availableImagesText = pdfImages.map((img) => formatImageDescription(img)).join('\n');
-    }
-  }
-
   // Build user profile string for prompt injection
   const userProfileText =
     requirements.userNickname || requirements.userBio
       ? `## Student Profile\n\nStudent: ${requirements.userNickname || 'Unknown'}${requirements.userBio ? ` — ${requirements.userBio}` : ''}\n\nConsider this student's background when designing the course. Adapt difficulty, examples, and teaching approach accordingly.\n\n---`
       : '';
-
-  const hasSourceImages = (pdfImages?.length ?? 0) > 0;
 
   const promptId = requirements.interactiveMode
     ? PROMPT_IDS.INTERACTIVE_OUTLINES
@@ -79,10 +36,7 @@ export async function generateSceneOutlinesFromRequirements(
   const prompts = buildPrompt(promptId, {
     // New simplified variables
     requirement: requirements.requirement,
-    pdfContent: pdfText ? pdfText.substring(0, MAX_PDF_CONTENT_CHARS) : 'None',
-    availableImages: availableImagesText,
     userProfile: userProfileText,
-    hasSourceImages,
     researchContext: options?.researchContext || 'None',
     // Server-side generation populates this via options; client-side populates via formatTeacherPersonaForPrompt
     teacherContext: options?.teacherContext || '',
@@ -107,7 +61,6 @@ export async function generateSceneOutlinesFromRequirements(
       systemPrompt: prompts.system,
       userPrompt: prompts.user,
       aiCall,
-      images: visionImages,
       parse: (response) => {
         const parsed = parseJsonResponse<{ languageDirective: string; outlines: SceneOutline[] }>(
           response,

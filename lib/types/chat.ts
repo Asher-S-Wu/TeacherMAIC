@@ -5,7 +5,18 @@
  * support for QA, Discussion, and Lecture session types.
  */
 
-import type { UIMessage } from 'ai';
+export interface ChatMessagePart {
+  type: string;
+  text?: string;
+  [key: string]: unknown;
+}
+
+export interface UIMessage<Metadata = unknown> {
+  id: string;
+  role: 'system' | 'user' | 'assistant';
+  parts: ChatMessagePart[];
+  metadata?: Metadata;
+}
 
 // Session Types
 export type SessionType = 'qa' | 'discussion' | 'lecture';

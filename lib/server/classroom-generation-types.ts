@@ -1,10 +1,7 @@
 import type { AgentInfo } from '@/lib/generation/pipeline-types';
-import type { PdfImage } from '@/lib/types/generation';
 
 export interface GenerateClassroomInput {
   requirement: string;
-  pdfContent?: { text: string; images?: string[] };
-  pdfImages?: PdfImage[];
   userNickname?: string;
   userBio?: string;
   enableWebSearch?: boolean;

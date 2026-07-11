@@ -21,7 +21,7 @@ export function formatContextWindow(size?: number): string {
 }
 
 const PROVIDER_TYPE_LABELS: Record<string, string> = {
-  'openai-chat-completions': 'OpenAI兼容 Chat Completions',
+  'google-gemini': 'Google Gemini 官方接口',
 };
 
 export function getProviderTypeLabel(type: string): string {

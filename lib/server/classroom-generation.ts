@@ -21,7 +21,6 @@ import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { resolveModel } from '@/lib/server/resolve-model';
 import { runAgentDrivenWebResearch } from '@/lib/server/web-research';
 import { persistClassroom } from '@/lib/server/classroom-storage';
-import { loadImageMappingForUser } from '@/lib/server/file-storage';
 import { getCollections, getMongo } from '@/lib/server/mongodb';
 import { runConcurrentQueue } from '@/lib/utils/concurrent-queue';
 import {
@@ -29,7 +28,7 @@ import {
   formatSceneGenerationProgressMessage,
 } from '@/lib/constants/classroom-generation';
 import { generateTTSForClassroom } from '@/lib/server/classroom-tts-generation';
-import type { PdfImage, UserRequirements } from '@/lib/types/generation';
+import type { UserRequirements } from '@/lib/types/generation';
 import type { Scene, Stage } from '@/lib/types/stage';
 import type { ObjectId } from 'mongodb';
 import type {
@@ -82,7 +81,7 @@ function toAgentInfoList(agents: GeneratedAgentProfile[]): AgentInfo[] {
   }));
 }
 
-const DEFAULT_TTS_PROVIDER_ID = 'volcengine-doubao-tts' as const;
+const DEFAULT_TTS_PROVIDER_ID = 'aliyun-cosyvoice-tts' as const;
 
 function buildServerAvailableVoices() {
   return TTS_PROVIDERS[DEFAULT_TTS_PROVIDER_ID].voices.map((voice) => ({
@@ -102,7 +101,7 @@ export async function generateClassroom(
     onClassroomCreated?: (classroomId: string) => Promise<void> | void;
   },
 ): Promise<GenerateClassroomResult> {
-  const { requirement, pdfContent, pdfImages: inputPdfImages } = input;
+  const { requirement } = input;
 
   await options.onProgress?.({
     step: 'initializing',
@@ -124,9 +123,9 @@ export async function generateClassroom(
     apiKey,
     modelInfo,
   } = await resolveModel();
-  const languageModelWithMetadata = {
+  const userLanguageModel = {
     ...languageModel,
-    metadataUserId: options.userId.toString(),
+    requestUserId: options.userId.toString(),
   };
   const interactiveMode = false;
   const hasVision = !!modelInfo?.capabilities?.vision;
@@ -139,18 +138,11 @@ export async function generateClassroom(
     );
   }
 
-  const pdfImages: PdfImage[] | undefined = inputPdfImages?.length
-    ? inputPdfImages
-    : undefined;
-  const pdfText = pdfContent?.text || undefined;
-  const outlineImageMapping =
-    hasVision && pdfImages?.length ? await loadImageMappingForUser(pdfImages, user) : {};
-
   const aiCall: AICallFn = async (systemPrompt, userPrompt, images) => {
     const params: LLMGenerateParams =
       images?.length && hasVision
         ? {
-            model: languageModelWithMetadata,
+            model: userLanguageModel,
             system: systemPrompt,
             messages: [
               {
@@ -160,7 +152,7 @@ export async function generateClassroom(
             ],
           }
         : {
-            model: languageModelWithMetadata,
+            model: userLanguageModel,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt },
@@ -177,7 +169,7 @@ export async function generateClassroom(
   ) => {
     return collectStreamLLMText(
       {
-        model: languageModelWithMetadata,
+        model: userLanguageModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -203,14 +195,15 @@ export async function generateClassroom(
 
   let researchContext: string | undefined;
   if (input.enableWebSearch ?? true) {
-    const tavilyApiKey = resolveWebSearchApiKey();
-    if (!tavilyApiKey) {
-      throw new Error('已开启联网搜索，但 Tavily API Key 未配置，请在 Vercel 配置 TAVILY_API_KEY');
+    const firecrawlApiKey = resolveWebSearchApiKey();
+    if (!firecrawlApiKey) {
+      throw new Error(
+        '已开启联网搜索，但 Firecrawl API Key 未配置，请在 Vercel 配置 FIRECRAWL_API_KEY',
+      );
     }
     const searchResult = await runAgentDrivenWebResearch({
       requirement,
-      pdfText,
-      apiKey: tavilyApiKey,
+      apiKey: firecrawlApiKey,
       createAiCall: createSearchAiCall,
       onProgress: (event) => {
         if (event.phase === 'round_start') {
@@ -230,7 +223,7 @@ export async function generateClassroom(
     } else {
       researchContext = searchResult.context;
       if (researchContext) {
-        log.info(`Tavily research returned ${searchResult.sources.length} sources`);
+        log.info(`Firecrawl research returned ${searchResult.sources.length} sources`);
       }
     }
   }
@@ -244,13 +237,9 @@ export async function generateClassroom(
 
   const outlinesResult = await generateSceneOutlinesFromRequirements(
     requirements,
-    pdfText,
-    pdfImages,
     aiCall,
     undefined,
     {
-      visionEnabled: hasVision,
-      imageMapping: outlineImageMapping,
       researchContext,
     },
   );
@@ -305,7 +294,7 @@ export async function generateClassroom(
         availableAvatars: undefined,
         availableVoices: buildServerAvailableVoices(),
       },
-      languageModelWithMetadata,
+      userLanguageModel,
       'generate-classroom-agents',
     );
     agents = toAgentInfoList(generatedAgentConfigs);
@@ -376,26 +365,8 @@ export async function generateClassroom(
   });
 
   await runConcurrentQueue(outlines, generationConcurrency, async (outline) => {
-    let assignedImages: PdfImage[] | undefined;
-    if (
-      pdfImages &&
-      pdfImages.length > 0 &&
-      outline.suggestedImageIds &&
-      outline.suggestedImageIds.length > 0
-    ) {
-      const suggestedIds = new Set(outline.suggestedImageIds);
-      assignedImages = pdfImages.filter((img) => suggestedIds.has(img.id));
-    }
-    const imageMapping =
-      hasVision && assignedImages?.length
-        ? await loadImageMappingForUser(assignedImages, user)
-        : {};
-
     const content = await generateSceneContent(outline, aiCall, {
-      assignedImages,
-      imageMapping,
-      languageModel: outline.type === 'pbl' ? languageModel : undefined,
-      visionEnabled: hasVision,
+      languageModel: outline.type === 'pbl' ? userLanguageModel : undefined,
       agents,
       languageDirective,
     });

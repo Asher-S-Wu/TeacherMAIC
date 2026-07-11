@@ -2,10 +2,6 @@
 
 {{requirement}}
 
-## PDF Excerpt
-
-{{pdfExcerpt}}
-
 ## Task
 
 Write the single best web search keyword query as a JSON object with a `query` field only.

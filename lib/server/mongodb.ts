@@ -106,9 +106,6 @@ export interface ClassroomJobDoc {
   completedAt?: Date;
   inputSummary: {
     requirementPreview: string;
-    hasPdf: boolean;
-    pdfTextLength: number;
-    pdfImageCount: number;
   };
   input: GenerateClassroomInput;
   classroomId?: string;

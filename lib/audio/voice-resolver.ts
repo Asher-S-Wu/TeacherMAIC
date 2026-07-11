@@ -2,7 +2,7 @@ import type { TTSProviderId } from '@/lib/audio/types';
 import type { AgentConfig } from '@/lib/orchestration/registry/types';
 import { DEFAULT_TTS_VOICES, TTS_PROVIDERS } from '@/lib/audio/constants';
 
-const DEFAULT_TTS_PROVIDER_ID: TTSProviderId = 'volcengine-doubao-tts';
+const DEFAULT_TTS_PROVIDER_ID: TTSProviderId = 'aliyun-cosyvoice-tts';
 
 export interface ResolvedVoice {
   providerId: TTSProviderId;

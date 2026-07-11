@@ -32,9 +32,6 @@ import { SettingsDialog } from '@/components/settings';
 import { GenerationToolbar } from '@/components/generation/generation-toolbar';
 import { AgentBar } from '@/components/agent/agent-bar';
 import { useTheme } from '@/lib/hooks/use-theme';
-import { storePdfBlob } from '@/lib/utils/image-storage';
-import type { PdfImage } from '@/lib/types/generation';
-import { MAX_PDF_CONTENT_CHARS } from '@/lib/constants/generation';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useUserProfileStore, AVATAR_OPTIONS } from '@/lib/store/user-profile';
@@ -87,13 +84,11 @@ function jobToOverlay(job: PendingGenerationJob): ClassroomGenerationOverlay | u
 }
 
 interface FormState {
-  pdfFile: File | null;
   requirement: string;
   webSearch: boolean;
 }
 
 const initialFormState: FormState = {
-  pdfFile: null,
   requirement: '',
   webSearch: true,
 };
@@ -365,56 +360,6 @@ function HomePage() {
       const userProfile = useUserProfileStore.getState();
       const settings = useSettingsStore.getState();
 
-      let pdfContent: { text: string } | undefined;
-      let pdfImages: PdfImage[] | undefined;
-
-      if (form.pdfFile) {
-        const pdfStorageKey = await storePdfBlob(form.pdfFile);
-        const parseResponse = await fetch('/api/parse-pdf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileId: pdfStorageKey }),
-        });
-
-        if (!parseResponse.ok) {
-          const errorData = await parseResponse.json();
-          throw new Error(errorData.error || 'PDF 解析失败');
-        }
-
-        const parseResult = await parseResponse.json();
-        if (!parseResult.success || !parseResult.data) {
-          throw new Error('PDF 解析失败');
-        }
-
-        let pdfText = parseResult.data.text as string;
-        if (pdfText.length > MAX_PDF_CONTENT_CHARS) {
-          pdfText = pdfText.substring(0, MAX_PDF_CONTENT_CHARS);
-        }
-        pdfContent = { text: pdfText };
-
-        const rawPdfImages = parseResult.data.metadata?.pdfImages;
-        if (rawPdfImages) {
-          pdfImages = rawPdfImages.map(
-            (img: {
-              id: string;
-              pageNumber?: number;
-              description?: string;
-              width?: number;
-              height?: number;
-              storageId?: string;
-            }) => ({
-              id: img.id,
-              src: '',
-              pageNumber: img.pageNumber || 1,
-              description: img.description,
-              width: img.width,
-              height: img.height,
-              storageId: img.storageId,
-            }),
-          );
-        }
-      }
-
       let presetAgents:
         | Array<{ id: string; name: string; role: string; persona: string }>
         | undefined = undefined;
@@ -440,8 +385,6 @@ function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           requirement: form.requirement,
-          ...(pdfContent ? { pdfContent } : {}),
-          ...(pdfImages?.length ? { pdfImages } : {}),
           userNickname: userProfile.nickname || undefined,
           userBio: userProfile.bio || undefined,
           enableWebSearch: form.webSearch,
@@ -679,9 +622,6 @@ function HomePage() {
                     setSettingsSection(section);
                     setSettingsOpen(true);
                   }}
-                  pdfFile={form.pdfFile}
-                  onPdfFileChange={(f) => updateForm('pdfFile', f)}
-                  onPdfError={setError}
                 />
               </div>
 
