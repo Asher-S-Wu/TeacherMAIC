@@ -134,7 +134,7 @@ export async function generateClassroom(
   if (isProviderKeyRequired(providerId) && !apiKey) {
     throw new Error(
       `No API key configured for provider "${providerId}". ` +
-        'Please configure the matching API key in Vercel Environment Variables.',
+        'Please configure the matching API key in Zeabur Environment Variables.',
     );
   }
 
@@ -198,7 +198,7 @@ export async function generateClassroom(
     const firecrawlApiKey = resolveWebSearchApiKey();
     if (!firecrawlApiKey) {
       throw new Error(
-        '已开启联网搜索，但 Firecrawl API Key 未配置，请在 Vercel 配置 FIRECRAWL_API_KEY',
+        '已开启联网搜索，但 Firecrawl API Key 未配置，请在 Zeabur 配置 FIRECRAWL_API_KEY',
       );
     }
     const searchResult = await runAgentDrivenWebResearch({

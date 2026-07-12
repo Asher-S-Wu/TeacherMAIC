@@ -47,7 +47,7 @@ export async function generateTTS(
 ): Promise<TTSGenerationResult> {
   if (!config.apiKey) {
     throw new CosyVoiceTTSError(
-      '阿里云语音合成未配置 API Key，请在 Vercel 配置 DASHSCOPE_API_KEY。',
+      '阿里云语音合成未配置 API Key，请在 Zeabur 配置 DASHSCOPE_API_KEY。',
       'MISSING_API_KEY',
     );
   }
