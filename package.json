@@ -81,6 +81,9 @@
     "typescript": "^5"
   },
   "packageManager": "npm@11.7.0",
+  "allowScripts": {
+    "sharp@0.34.5": true
+  },
   "overrides": {
     "next": {
       "postcss": "8.5.10"
