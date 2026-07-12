@@ -126,10 +126,7 @@ export interface AccountFileDoc {
   filename: string;
   contentType: string;
   size: number;
-  pathname: string;
-  url: string;
-  downloadUrl?: string;
-  etag?: string;
+  storageKey: string;
   metadata?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
@@ -208,6 +205,16 @@ export function getCollections(db: Db): MongoCollections {
 
 async function ensureMongoIndexes(db: Db): Promise<void> {
   const c = getCollections(db);
+
+  await c.accountFiles.createIndex({ userId: 1, createdAt: -1 });
+  const accountFileIndexes = await c.accountFiles.listIndexes().toArray();
+  for (const obsoleteIndex of ['pathname_1', 'url_1']) {
+    if (accountFileIndexes.some((index) => index.name === obsoleteIndex)) {
+      await c.accountFiles.dropIndex(obsoleteIndex);
+    }
+  }
+  await c.accountFiles.deleteMany({ storageKey: { $exists: false } });
+
   await Promise.all([
     c.users.createIndex({ email: 1 }, { unique: true }),
     c.users.createIndex({ status: 1 }),
@@ -223,8 +230,6 @@ async function ensureMongoIndexes(db: Db): Promise<void> {
     c.userSettings.createIndex({ userId: 1, key: 1 }, { unique: true }),
     c.classroomJobs.createIndex({ userId: 1, id: 1 }, { unique: true }),
     c.classroomJobs.createIndex({ id: 1 }, { unique: true }),
-    c.accountFiles.createIndex({ userId: 1, createdAt: -1 }),
-    c.accountFiles.createIndex({ pathname: 1 }, { unique: true }),
-    c.accountFiles.createIndex({ url: 1 }, { unique: true }),
+    c.accountFiles.createIndex({ storageKey: 1 }, { unique: true }),
   ]);
 }

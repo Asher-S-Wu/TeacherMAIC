@@ -10,6 +10,7 @@ import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentUser } from '@/lib/server/auth';
 import { saveRemoteFileForUser } from '@/lib/server/file-storage';
+import { fileStorageApiError } from '@/lib/server/file-storage-api';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ProxyMedia');
@@ -47,6 +48,6 @@ export async function POST(request: NextRequest) {
     return apiSuccess({ file }, 201);
   } catch (error) {
     log.error(`Remote media import failed [url="${url?.substring(0, 100) ?? 'unknown'}"]:`, error);
-    return apiError('INTERNAL_ERROR', 500, error instanceof Error ? error.message : String(error));
+    return fileStorageApiError(error, '远程媒体保存失败');
   }
 }

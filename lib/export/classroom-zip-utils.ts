@@ -85,7 +85,7 @@ export async function collectMediaFiles(scenes: Scene[]): Promise<CollectedMedia
 
 function isAccountFileUrl(src: string): boolean {
   const url = new URL(src, window.location.origin);
-  return url.hostname.endsWith('.blob.vercel-storage.com');
+  return url.origin === window.location.origin && /^\/api\/files\/[a-f0-9]{24}$/.test(url.pathname);
 }
 
 // ─── Export: Action Serialization ──────────────────────────────

@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
     '/*': ['./lib/prompts/**/*.md'],
   },
   experimental: {
-    proxyClientMaxBodySize: '200mb',
+    proxyClientMaxBodySize: '5mb',
   },
   async headers() {
     const extraAncestors = process.env.ALLOWED_FRAME_ANCESTORS?.trim();

@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid';
 import { toast } from 'sonner';
 import type { ClassroomManifest, ManifestScene } from '@/lib/export/classroom-zip-types';
 import { createLogger } from '@/lib/logger';
-import { uploadAccountBlob } from '@/lib/utils/image-storage';
+import { uploadAccountFile } from '@/lib/utils/account-file-storage';
 import { saveStageData } from '@/lib/utils/stage-storage';
 import type { Action } from '@/lib/types/action';
 import type { Scene, Stage } from '@/lib/types/stage';
@@ -13,7 +13,7 @@ import type { Scene, Stage } from '@/lib/types/stage';
 const log = createLogger('ImportClassroom');
 
 async function uploadZipBlob(blob: Blob, filename: string, kind: string): Promise<string> {
-  const saved = await uploadAccountBlob(
+  const saved = await uploadAccountFile(
     new Blob([blob], { type: blob.type || mimeFromFilename(filename) }),
     filename,
     kind,
