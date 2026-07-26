@@ -3,7 +3,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useSceneSelector } from '@/lib/contexts/scene-context';
-import { useKeyboardStore } from '@/lib/store/keyboard';
 import { useViewportSize } from './hooks/useViewportSize';
 import { useSelectElement } from './hooks/useSelectElement';
 import { useDragElement } from './hooks/useDragElement';
@@ -21,7 +20,6 @@ import { EditableElement } from './EditableElement';
 import { Operate } from './Operate';
 import { MultiSelectOperate } from './Operate/MultiSelectOperate';
 import { ElementCreateSelection } from './ElementCreateSelection';
-import { ShapeCreateCanvas } from './ShapeCreateCanvas';
 import { Ruler } from './Ruler';
 import { GridLines } from './GridLines';
 import type { PPTElement } from '@/lib/types/slides';
@@ -63,17 +61,12 @@ function Canvas(_props: CanvasProps) {
   const activeElementIdList = useCanvasStore.use.activeElementIdList();
   const activeGroupElementId = useCanvasStore.use.activeGroupElementId();
   const handleElementId = useCanvasStore.use.handleElementId();
-  const hiddenElementIdList = useCanvasStore.use.hiddenElementIdList();
   const creatingElement = useCanvasStore.use.creatingElement();
-  const creatingCustomShape = useCanvasStore.use.creatingCustomShape();
   const showRuler = useCanvasStore.use.showRuler();
   const gridLineSize = useCanvasStore.use.gridLineSize();
   const setActiveElementIdList = useCanvasStore.use.setActiveElementIdList();
   const setGridLineSize = useCanvasStore.use.setGridLineSize();
   const setRulerState = useCanvasStore.use.setRulerState();
-
-  // Keyboard state
-  const spaceKeyState = useKeyboardStore((state) => state.spaceKeyState);
 
   const [alignmentLines, setAlignmentLines] = useState<AlignmentLineProps[]>([]);
 
@@ -90,7 +83,7 @@ function Canvas(_props: CanvasProps) {
   }, [elements]);
 
   // Viewport size and positioning
-  const { viewportStyles, dragViewport } = useViewportSize(canvasRef);
+  const { viewportStyles } = useViewportSize(canvasRef);
 
   // Initialize drop handler
   useDrop(canvasRef);
@@ -140,27 +133,13 @@ function Canvas(_props: CanvasProps) {
       setActiveElementIdList([]);
     }
 
-    if (!spaceKeyState) {
-      updateMouseSelection(e);
-    } else {
-      dragViewport(e);
-    }
+    updateMouseSelection(e);
   };
 
-  const handleDblClick = () => {
-    if (activeElementIdList.length || creatingElement || creatingCustomShape) return;
-    if (!viewportRef.current) return;
-  };
-
-  const { pasteElement, selectAllElements, deleteAllElements } = useCanvasOperations();
+  const { selectAllElements, deleteAllElements } = useCanvasOperations();
 
   const contextmenus = (): ContextmenuItem[] => {
     return [
-      {
-        text: '粘贴',
-        subText: 'Ctrl + V',
-        handler: pasteElement,
-      },
       {
         text: '全选',
         subText: 'Ctrl + A',
@@ -211,16 +190,10 @@ function Canvas(_props: CanvasProps) {
           className="canvas relative h-full w-full overflow-hidden bg-gray-100 select-none"
           ref={canvasRef}
           onMouseDown={handleClickBlankArea}
-          onDoubleClick={handleDblClick}
         >
           {/* Element creation selection */}
           {creatingElement && (
             <ElementCreateSelection onCreated={insertElementFromCreateSelection} />
-          )}
-
-          {/* Custom shape creation canvas */}
-          {creatingCustomShape && (
-            <ShapeCreateCanvas onCreated={() => undefined} />
           )}
 
           {/* Viewport wrapper */}
@@ -257,20 +230,18 @@ function Canvas(_props: CanvasProps) {
               {/* Single element operations */}
               {elementList.map(
                 (element: PPTElement) =>
-                  !hiddenElementIdList.includes(element.id) && (
-                    <Operate
-                      key={element.id}
-                      elementInfo={element}
-                      isSelected={activeElementIdList.includes(element.id)}
-                      isActive={handleElementId === element.id}
-                      isActiveGroupElement={activeGroupElementId === element.id}
-                      isMultiSelect={activeElementIdList.length > 1}
-                      rotateElement={rotateElement}
-                      scaleElement={scaleElement}
-                      dragLineElement={dragLineElement}
-                      moveShapeKeypoint={moveShapeKeypoint}
-                    />
-                  ),
+                  <Operate
+                    key={element.id}
+                    elementInfo={element}
+                    isSelected={activeElementIdList.includes(element.id)}
+                    isActive={handleElementId === element.id}
+                    isActiveGroupElement={activeGroupElementId === element.id}
+                    isMultiSelect={activeElementIdList.length > 1}
+                    rotateElement={rotateElement}
+                    scaleElement={scaleElement}
+                    dragLineElement={dragLineElement}
+                    moveShapeKeypoint={moveShapeKeypoint}
+                  />,
               )}
 
               <ViewportBackground />
@@ -302,25 +273,20 @@ function Canvas(_props: CanvasProps) {
               )}
 
               {/* Render all elements */}
-              {elementList.map((element: PPTElement, index: number) =>
-                !hiddenElementIdList.includes(element.id) ? (
-                  <EditableElement
-                    key={element.id}
-                    elementInfo={element}
-                    elementIndex={index + 1}
-                    isMultiSelect={activeElementIdList.length > 1}
-                    selectElement={selectElement}
-                  />
-                ) : null,
-              )}
+              {elementList.map((element: PPTElement, index: number) => (
+                <EditableElement
+                  key={element.id}
+                  elementInfo={element}
+                  elementIndex={index + 1}
+                  isMultiSelect={activeElementIdList.length > 1}
+                  selectElement={selectElement}
+                />
+              ))}
             </div>
           </div>
 
           {/* Ruler */}
           {showRuler && <Ruler viewportStyles={viewportStyles} elementList={elementList} />}
-
-          {/* Drag mask when space key is pressed */}
-          {spaceKeyState && <div className="drag-mask absolute inset-0 cursor-grab" />}
 
         </div>
       </ContextMenuTrigger>

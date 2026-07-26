@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useCanvasStore } from '@/lib/store';
-import { useKeyboardStore } from '@/lib/store/keyboard';
 import type { CreateElementSelectionData } from '@/lib/types/edit';
 
 interface ElementCreateSelectionProps {
@@ -10,7 +9,6 @@ interface ElementCreateSelectionProps {
 export function ElementCreateSelection({ onCreated }: ElementCreateSelectionProps) {
   const creatingElement = useCanvasStore.use.creatingElement();
   const setCreatingElement = useCanvasStore.use.setCreatingElement();
-  const ctrlOrShiftKeyActive = useKeyboardStore((state) => state.ctrlOrShiftKeyActive());
 
   const [start, setStart] = useState<[number, number]>();
   const [end, setEnd] = useState<[number, number]>();
@@ -40,7 +38,7 @@ export function ElementCreateSelection({ onCreated }: ElementCreateSelectionProp
 
       // When Ctrl or Shift is held:
       // For non-line elements, lock aspect ratio; for line elements, lock to horizontal or vertical direction
-      if (ctrlOrShiftKeyActive) {
+      if (e.ctrlKey || e.shiftKey) {
         const moveX = currentPageX - startPageX;
         const moveY = currentPageY - startPageY;
 

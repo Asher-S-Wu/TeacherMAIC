@@ -235,7 +235,6 @@ function GenerationPreviewContent() {
         const updatedSessionWithSearch = {
           ...currentSession,
           researchContext: searchData.context || '',
-          researchSources: sources,
         };
         setSession(updatedSessionWithSearch);
         sessionStorage.setItem('generationSession', JSON.stringify(updatedSessionWithSearch));

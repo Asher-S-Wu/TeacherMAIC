@@ -24,7 +24,6 @@ import {
   Loader2,
 } from 'lucide-react';
 import { createLogger } from '@/lib/logger';
-import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupInput, InputGroupButton } from '@/components/ui/input-group';
 import { Textarea as UITextarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -845,7 +844,6 @@ function HomePage() {
                           formatDate={formatDate}
                           generation={jobToOverlay(job)}
                           onDelete={(_id, e) => handleDeleteJob(job.id, e)}
-                          onRename={() => {}}
                           confirmingDelete={pendingDeleteId === generationJobDeleteKey(job.id)}
                           onConfirmDelete={() => confirmDeleteJob(job.id)}
                           onCancelDelete={() => setPendingDeleteId(null)}

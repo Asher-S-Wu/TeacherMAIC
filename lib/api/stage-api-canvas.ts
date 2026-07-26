@@ -120,7 +120,7 @@ export function createCanvasAPI(store: StageStore) {
      * @returns Whether successful
      */
     highlight(
-      sceneId: string,
+      _sceneId: string,
       elementId: string,
       options: HighlightOptions = {},
     ): APIResult<boolean> {
@@ -162,7 +162,7 @@ export function createCanvasAPI(store: StageStore) {
      * @returns Whether successful
      */
     spotlight(
-      sceneId: string,
+      _sceneId: string,
       elementId: string,
       options: SpotlightOptions = {},
     ): APIResult<boolean> {
@@ -228,7 +228,7 @@ export function createCanvasAPI(store: StageStore) {
      * @returns Whether successful
      */
     setSpotlightPercentage(
-      sceneId: string,
+      _sceneId: string,
       elementId: string,
       geometry: import('@/lib/types/action').PercentageGeometry,
       options: SpotlightOptions = {},
@@ -259,9 +259,9 @@ export function createCanvasAPI(store: StageStore) {
      * @returns Whether successful
      */
     setLaser(
-      sceneId: string,
+      _sceneId: string,
       elementId: string,
-      geometry: import('@/lib/types/action').PercentageGeometry,
+      _geometry: import('@/lib/types/action').PercentageGeometry,
       options: import('@/lib/store/canvas').LaserOptions = {},
     ): APIResult<boolean> {
       try {
@@ -306,9 +306,9 @@ export function createCanvasAPI(store: StageStore) {
      * @returns Whether successful
      */
     setZoom(
-      sceneId: string,
+      _sceneId: string,
       elementId: string,
-      geometry: import('@/lib/types/action').PercentageGeometry,
+      _geometry: import('@/lib/types/action').PercentageGeometry,
       scale: number,
     ): APIResult<boolean> {
       try {
@@ -361,7 +361,7 @@ export function createCanvasAPI(store: StageStore) {
      * @returns Whether successful
      */
     highlightMultiple(
-      sceneId: string,
+      _sceneId: string,
       elementIds: string[],
       options: HighlightOptions = {},
     ): APIResult<boolean> {

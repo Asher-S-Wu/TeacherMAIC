@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useCanvasStore, useSceneSelector } from '@/lib/store';
+import { useCanvasStore } from '@/lib/store';
 import {
   type PPTElement,
   type PPTLineElement,
@@ -7,11 +7,8 @@ import {
   type PPTAudioElement,
   type PPTShapeElement,
   type PPTChartElement,
-  type Slide,
-  type PPTAnimation,
 } from '@/lib/types/slides';
 import type { OperateLineHandlers, OperateResizeHandlers } from '@/lib/types/edit';
-import type { SlideContent } from '@/lib/types/stage';
 import { OPERATE_ELEMENT_COMPONENTS } from '../../../element-registry';
 
 interface OperateProps {
@@ -56,53 +53,8 @@ export function Operate({
   moveShapeKeypoint,
 }: OperateProps) {
   const canvasScale = useCanvasStore.use.canvasScale();
-  const toolbarState = useCanvasStore.use.toolbarState();
-
-  // Get the formatted animations using a proper selector to avoid infinite loops
-  const currentSlide = useSceneSelector<SlideContent, Slide>((content) => content.canvas);
-
-  const formatedAnimations = useMemo(() => {
-    if (!currentSlide?.animations) return [];
-
-    const els = currentSlide.elements;
-    const elIds = els.map((el) => el.id);
-    const animations = currentSlide.animations.filter((animation) =>
-      elIds.includes(animation.elId),
-    );
-
-    const formatedAnimations: {
-      animations: PPTAnimation[];
-      autoNext: boolean;
-    }[] = [];
-    for (const animation of animations) {
-      if (animation.trigger === 'click' || !formatedAnimations.length) {
-        formatedAnimations.push({ animations: [animation], autoNext: false });
-      } else if (animation.trigger === 'meantime') {
-        const last = formatedAnimations[formatedAnimations.length - 1];
-        last.animations = last.animations.filter((item) => item.elId !== animation.elId);
-        last.animations.push(animation);
-        formatedAnimations[formatedAnimations.length - 1] = last;
-      } else if (animation.trigger === 'auto') {
-        const last = formatedAnimations[formatedAnimations.length - 1];
-        last.autoNext = true;
-        formatedAnimations[formatedAnimations.length - 1] = last;
-        formatedAnimations.push({ animations: [animation], autoNext: false });
-      }
-    }
-    return formatedAnimations;
-  }, [currentSlide]);
 
   const CurrentOperateComponent = OPERATE_ELEMENT_COMPONENTS[elementInfo.type];
-
-  const elementIndexListInAnimation = useMemo(() => {
-    if (!formatedAnimations) return [];
-    const indexList = [];
-    for (let i = 0; i < formatedAnimations.length; i++) {
-      const elIds = formatedAnimations[i].animations.map((item) => item.elId);
-      if (elIds.includes(elementInfo.id)) indexList.push(i);
-    }
-    return indexList;
-  }, [formatedAnimations, elementInfo.id]);
 
   const rotate = useMemo(() => ('rotate' in elementInfo ? elementInfo.rotate : 0), [elementInfo]);
   const height = useMemo(() => ('height' in elementInfo ? elementInfo.height : 0), [elementInfo]);
@@ -132,20 +84,6 @@ export function Operate({
         />
       )}
       {/* eslint-enable @typescript-eslint/no-explicit-any */}
-
-      {/* Animation index display */}
-      {toolbarState === 'elAnimation' && elementIndexListInAnimation.length > 0 && (
-        <div className="animation-index absolute top-0 -left-6 text-xs">
-          {elementIndexListInAnimation.map((index) => (
-            <div
-              key={index}
-              className="index-item w-[18px] h-[18px] bg-white text-primary border border-primary flex justify-center items-center mt-[5px] first:mt-0"
-            >
-              {index + 1}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

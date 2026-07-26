@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { uniq } from 'lodash';
 import { useCanvasStore } from '@/lib/store';
-import { useKeyboardStore } from '@/lib/store/keyboard';
 import type { PPTElement } from '@/lib/types/slides';
 
 /**
@@ -21,13 +20,12 @@ export function useSelectElement(
   const setActiveGroupElementId = useCanvasStore.use.setActiveGroupElementId();
   const setEditorAreaFocus = useCanvasStore.use.setEditorAreaFocus();
 
-  const ctrlOrShiftKeyActive = useKeyboardStore((state) => state.ctrlOrShiftKeyActive());
-
   // Select element
   // startMove indicates whether to enter move state after selection
   const selectElement = useCallback(
     (e: React.MouseEvent | React.TouchEvent, element: PPTElement, startMove = true) => {
       if (!editorAreaFocus) setEditorAreaFocus(true);
+      const modifierKeyActive = e.ctrlKey || e.shiftKey;
 
       // If the target element is not currently selected, set it as selected
       // If Ctrl or Shift is held, enter multi-select mode: add target to current selection; otherwise select only the target
@@ -35,7 +33,7 @@ export function useSelectElement(
       if (!activeElementIdList.includes(element.id)) {
         let newActiveIdList: string[] = [];
 
-        if (ctrlOrShiftKeyActive) {
+        if (modifierKeyActive) {
           newActiveIdList = [...activeElementIdList, element.id];
         } else {
           newActiveIdList = [element.id];
@@ -56,7 +54,7 @@ export function useSelectElement(
       // If the target element is already selected with Ctrl/Shift held, deselect it
       // Unless it's the last selected element, or the group it belongs to is the last selected group
       // If the target is a group member, also deselect other members of that group
-      else if (ctrlOrShiftKeyActive) {
+      else if (modifierKeyActive) {
         let newActiveIdList: string[] = [];
 
         if (element.groupId) {
@@ -114,7 +112,6 @@ export function useSelectElement(
     [
       editorAreaFocus,
       activeElementIdList,
-      ctrlOrShiftKeyActive,
       handleElementId,
       activeGroupElementId,
       setEditorAreaFocus,

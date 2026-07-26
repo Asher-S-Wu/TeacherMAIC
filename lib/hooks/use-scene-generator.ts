@@ -99,7 +99,6 @@ async function fetchSceneActions(
 export async function generateAndStoreTTS(
   audioId: string,
   text: string,
-  language?: string,
   signal?: AbortSignal,
 ): Promise<string | undefined> {
   const settings = useSettingsStore.getState();
@@ -131,7 +130,6 @@ export async function generateAndStoreTTS(
 /** Generate TTS for all speech actions in a scene. Returns result. */
 async function generateTTSForScene(
   scene: Scene,
-  language?: string,
   signal?: AbortSignal,
 ): Promise<{ success: boolean; failedCount: number; error?: string }> {
   const providerId = useSettingsStore.getState().ttsProviderId;
@@ -153,7 +151,7 @@ async function generateTTSForScene(
     const audioId = `tts_s${sceneOrder}_${action.id}`;
     action.audioId = audioId;
     try {
-      action.audioUrl = await generateAndStoreTTS(audioId, action.text, language, signal);
+      action.audioUrl = await generateAndStoreTTS(audioId, action.text, signal);
     } catch (error) {
       failedCount++;
       lastError = error instanceof Error ? error.message : `TTS failed for action ${action.id}`;
@@ -320,7 +318,6 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
               if (settings.ttsEnabled) {
                 const ttsResult = await generateTTSForScene(
                   scene,
-                  params.languageDirective || params.stageInfo.language,
                   signal,
                 );
                 if (!ttsResult.success) {
@@ -464,7 +461,6 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
         if (settings.ttsEnabled) {
           const ttsResult = await generateTTSForScene(
             actionsResult.scene,
-            params.languageDirective || params.stageInfo.language,
             signal,
           );
           if (!ttsResult.success) {

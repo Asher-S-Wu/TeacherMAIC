@@ -173,24 +173,6 @@ function toStoredFile(doc: AccountFileDoc): StoredFileResult {
   };
 }
 
-function dataUrlToBuffer(
-  dataUrl: string,
-  maximumBytes: number,
-): { buffer: Buffer; contentType: string } {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) {
-    throw new FileStorageError('图片内容格式不正确');
-  }
-  const estimatedBytes = Math.floor((match[2].length * 3) / 4);
-  if (estimatedBytes > maximumBytes) {
-    throw new FileStorageError('文件过大', 413);
-  }
-  return {
-    contentType: match[1],
-    buffer: Buffer.from(match[2], 'base64'),
-  };
-}
-
 function assertMetadata(metadata: Record<string, unknown>): void {
   if (JSON.stringify(metadata).length > 64 * 1024) {
     throw new FileStorageError('文件附加信息过大');
@@ -394,17 +376,6 @@ export async function getStorageHealth(): Promise<{
     freeBytes: filesystem.bavail * filesystem.bsize,
     totalBytes: filesystem.blocks * filesystem.bsize,
   };
-}
-
-export async function saveDataUrlForUser(
-  userId: ObjectId,
-  dataUrl: string,
-  filename: string,
-  kind: string,
-  metadata: Record<string, unknown> = {},
-): Promise<StoredFileResult> {
-  const { buffer, contentType } = dataUrlToBuffer(dataUrl, getMaximumSizeInBytes(kind));
-  return saveBufferForUser(userId, buffer, filename, contentType, kind, metadata);
 }
 
 export async function saveBufferForUser(

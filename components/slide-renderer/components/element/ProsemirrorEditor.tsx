@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { debounce } from 'lodash';
-import { useKeyboardStore, useCanvasStore } from '@/lib/store';
+import { useCanvasStore } from '@/lib/store';
 import type { EditorView } from 'prosemirror-view';
 import { toggleMark, wrapIn, lift } from 'prosemirror-commands';
 import { initProsemirrorEditor, createDocument } from '@/lib/prosemirror';
@@ -15,11 +15,6 @@ import {
   markActive,
   getFontsize,
 } from '@/lib/prosemirror/utils';
-import emitter, {
-  EmitterEvents,
-  type RichTextAction,
-  type RichTextCommand,
-} from '@/lib/utils/emitter';
 import { alignmentCommand } from '@/lib/prosemirror/commands/setTextAlign';
 import { indentCommand, textIndentCommand } from '@/lib/prosemirror/commands/setTextIndent';
 import { toggleList } from '@/lib/prosemirror/commands/toggleList';
@@ -28,6 +23,16 @@ import { replaceText } from '@/lib/prosemirror/commands/replaceText';
 import type { TextFormatPainterKeys } from '@/lib/types/edit';
 import { KEYS } from '@/configs/hotkey';
 import { toast } from 'sonner';
+
+interface RichTextAction {
+  command: string;
+  value?: string;
+}
+
+interface RichTextCommand {
+  target?: string;
+  action: RichTextAction | RichTextAction[];
+}
 
 export interface ProsemirrorEditorProps {
   elementId: string;
@@ -72,11 +77,9 @@ export const ProsemirrorEditor = forwardRef<ProsemirrorEditorRef, ProsemirrorEdi
     const handleElementId = useCanvasStore.use.handleElementId();
     const textFormatPainter = useCanvasStore.use.textFormatPainter();
     const richTextAttrs = useCanvasStore.use.richTextAttrs();
-    const activeElementIdList = useCanvasStore.use.activeElementIdList();
     const setDisableHotkeysState = useCanvasStore.use.setDisableHotkeysState();
     const setRichtextAttrs = useCanvasStore.use.setRichtextAttrs();
     const setTextFormatPainter = useCanvasStore.use.setTextFormatPainter();
-    const ctrlOrShiftKeyActive = useKeyboardStore((state) => state.ctrlOrShiftKeyActive());
 
     // Handle input with debounce
 
@@ -103,12 +106,9 @@ export const ProsemirrorEditor = forwardRef<ProsemirrorEditorRef, ProsemirrorEdi
 
     // Handle focus
     const handleFocus = useCallback(() => {
-      // Don't disable hotkeys if ctrl/shift is pressed and multiple elements are selected
-      if (!ctrlOrShiftKeyActive || activeElementIdList.length <= 1) {
-        setDisableHotkeysState(true);
-      }
+      setDisableHotkeysState(true);
       onFocus?.();
-    }, [ctrlOrShiftKeyActive, activeElementIdList.length, setDisableHotkeysState, onFocus]);
+    }, [setDisableHotkeysState, onFocus]);
 
     // Handle blur
     const handleBlur = useCallback(() => {
@@ -136,7 +136,7 @@ export const ProsemirrorEditor = forwardRef<ProsemirrorEditorRef, ProsemirrorEdi
 
     // Handle keydown
     const handleKeydown = useCallback(
-      (view: EditorView, e: KeyboardEvent) => {
+      (_view: EditorView, e: KeyboardEvent) => {
         const { ctrlKey, shiftKey, metaKey } = e;
         const ctrlActive = ctrlKey || shiftKey || metaKey;
         const key = e.key.toUpperCase();
@@ -376,12 +376,6 @@ export const ProsemirrorEditor = forwardRef<ProsemirrorEditorRef, ProsemirrorEdi
       if (!keep) setTextFormatPainter(null);
     }, [textFormatPainter, execCommand, setTextFormatPainter]);
 
-    // Sync attrs to store
-    const syncAttrsToStore = useCallback(() => {
-      if (handleElementId !== elementId) return;
-      handleClick();
-    }, [handleElementId, elementId, handleClick]);
-
     // Initialize ProseMirror Editor
     useEffect(() => {
       if (!editorViewRef.current) return;
@@ -423,17 +417,6 @@ export const ProsemirrorEditor = forwardRef<ProsemirrorEditorRef, ProsemirrorEdi
       if (!editorView.current) return;
       editorView.current.setProps({ editable: () => editable });
     }, [editable]);
-
-    // Setup emitter listeners
-    useEffect(() => {
-      emitter.on(EmitterEvents.RICH_TEXT_COMMAND, execCommand);
-      emitter.on(EmitterEvents.SYNC_RICH_TEXT_ATTRS_TO_STORE, syncAttrsToStore);
-
-      return () => {
-        emitter.off(EmitterEvents.RICH_TEXT_COMMAND, execCommand);
-        emitter.off(EmitterEvents.SYNC_RICH_TEXT_ATTRS_TO_STORE, syncAttrsToStore);
-      };
-    }, [execCommand, syncAttrsToStore]);
 
     // Expose focus method
     useImperativeHandle(ref, () => ({

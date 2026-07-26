@@ -43,8 +43,6 @@ function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
   return debounced;
 }
 
-type ToolbarState = 'design' | 'ai';
-
 interface StageState {
   // Stage info
   stage: Stage | null;
@@ -58,9 +56,6 @@ interface StageState {
 
   // Mode
   mode: StageMode;
-
-  // UI state
-  toolbarState: ToolbarState;
 
   // Transient generation state (not persisted)
   generatingOutlines: SceneOutline[];
@@ -82,11 +77,9 @@ interface StageState {
   setScenes: (scenes: Scene[]) => void;
   addScene: (scene: Scene) => void;
   updateScene: (sceneId: string, updates: Partial<Scene>) => void;
-  deleteScene: (sceneId: string) => void;
   setCurrentSceneId: (sceneId: string | null) => void;
   setChats: (chats: ChatSession[]) => void;
   setMode: (mode: StageMode) => void;
-  setToolbarState: (state: ToolbarState) => void;
   setGeneratingOutlines: (outlines: SceneOutline[]) => void;
   setOutlines: (outlines: SceneOutline[]) => void;
   setGenerationStatus: (status: 'idle' | 'generating' | 'paused' | 'completed' | 'error') => void;
@@ -94,7 +87,6 @@ interface StageState {
   setAutoSaveSuspended: (suspended: boolean) => void;
   bumpGenerationEpoch: () => void;
   addFailedOutline: (outline: SceneOutline) => void;
-  clearFailedOutlines: () => void;
   retryFailedOutline: (outlineId: string) => void;
 
   // Getters
@@ -115,7 +107,6 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
   currentSceneId: null,
   chats: [],
   mode: 'playback',
-  toolbarState: 'ai',
   generatingOutlines: [],
   outlines: [],
   generationEpoch: 0,
@@ -175,24 +166,6 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
     scheduleSave();
   },
 
-  deleteScene: (sceneId) => {
-    const scenes = get().scenes.filter((scene) => scene.id !== sceneId);
-    const currentSceneId = get().currentSceneId;
-
-    // If deleted scene was current, select next or previous
-    if (currentSceneId === sceneId) {
-      const index = get().getSceneIndex(sceneId);
-      const newIndex = index < scenes.length ? index : scenes.length - 1;
-      set({
-        scenes,
-        currentSceneId: scenes[newIndex]?.id || null,
-      });
-    } else {
-      set({ scenes });
-    }
-    scheduleSave();
-  },
-
   setCurrentSceneId: (sceneId) => {
     set({ currentSceneId: sceneId });
     scheduleSave();
@@ -204,8 +177,6 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
   },
 
   setMode: (mode) => set({ mode }),
-
-  setToolbarState: (toolbarState) => set({ toolbarState }),
 
   setGeneratingOutlines: (generatingOutlines) => set({ generatingOutlines }),
 
@@ -232,8 +203,6 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
     if (existed) return;
     set({ failedOutlines: [...get().failedOutlines, outline] });
   },
-
-  clearFailedOutlines: () => set({ failedOutlines: [] }),
 
   retryFailedOutline: (outlineId) => {
     set({

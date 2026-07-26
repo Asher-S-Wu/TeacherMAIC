@@ -24,9 +24,6 @@ export function EditableElement({
 }: EditableElementProps) {
   const CurrentElementComponent = EDITABLE_ELEMENT_COMPONENTS[elementInfo.type];
   const {
-    copyElement,
-    pasteElement,
-    cutElement,
     deleteElement,
     lockElement,
     unlockElement,
@@ -48,22 +45,6 @@ export function EditableElement({
     }
 
     return [
-      {
-        text: '剪切',
-        subText: 'Ctrl + X',
-        handler: cutElement,
-      },
-      {
-        text: '复制',
-        subText: 'Ctrl + C',
-        handler: copyElement,
-      },
-      {
-        text: '粘贴',
-        subText: 'Ctrl + V',
-        handler: pasteElement,
-      },
-      { divider: true },
       {
         text: '水平居中',
         handler: () => alignElementToCanvas(ElementAlignCommands.HORIZONTAL),
@@ -140,10 +121,6 @@ export function EditableElement({
         ],
       },
       { divider: true },
-      {
-        text: '设置链接',
-        disable: true,
-      },
       {
         text: elementInfo.groupId ? '取消组合' : '组合',
         subText: 'Ctrl + G',

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useCanvasStore, useKeyboardStore } from '@/lib/store';
+import { useCanvasStore } from '@/lib/store';
 import { useHistorySnapshot } from '@/lib/hooks/use-history-snapshot';
 import type { PPTElement } from '@/lib/types/slides';
 import type { AlignmentLineProps } from '@/lib/types/edit';
@@ -21,7 +21,6 @@ export function useDragElement(
   const activeElementIdList = useCanvasStore.use.activeElementIdList();
   const activeGroupElementId = useCanvasStore.use.activeGroupElementId();
   const canvasScale = useCanvasStore.use.canvasScale();
-  const shiftKeyState = useKeyboardStore((state) => state.shiftKeyState);
 
   const viewportRatio = useCanvasStore.use.viewportRatio();
   const viewportSize = useCanvasStore.use.viewportSize();
@@ -159,7 +158,7 @@ export function useDragElement(
         let moveY = (currentPageY - startPageY) / canvasScale;
 
         // Lock to horizontal or vertical direction when Shift is held
-        if (shiftKeyState) {
+        if (e.shiftKey) {
           if (Math.abs(moveX) > Math.abs(moveY)) moveY = 0;
           if (Math.abs(moveX) < Math.abs(moveY)) moveX = 0;
         }
@@ -386,7 +385,6 @@ export function useDragElement(
     [
       activeElementIdList,
       activeGroupElementId,
-      shiftKeyState,
       canvasScale,
       elementListRef,
       setElementList,

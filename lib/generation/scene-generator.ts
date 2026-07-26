@@ -13,12 +13,10 @@ import type {
   GeneratedQuizContent,
   GeneratedInteractiveContent,
   GeneratedPBLContent,
-  ScientificModel,
 } from '@/lib/types/generation';
 import type { WidgetType, WidgetConfig, TeacherAction } from '@/lib/types/widgets';
 import type { PromptId } from '@/lib/prompts/types';
 import type { ResponsesModel } from '@/lib/ai/providers';
-import type { StageStore } from '@/lib/api/stage-api';
 import { createStageAPI } from '@/lib/api/stage-api';
 import { generatePBLContent } from '@/lib/pbl/generate-pbl';
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompts';
@@ -29,7 +27,6 @@ import { parseJsonResponse } from './json-repair';
 import { generateWithStructuredRetries } from './retry';
 import {
   buildCourseContext,
-  buildLanguageText,
   formatAgentsForPrompt,
   formatTeacherPersonaForPrompt,
 } from './prompt-formatters';

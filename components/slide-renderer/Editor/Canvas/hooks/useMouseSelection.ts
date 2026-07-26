@@ -1,5 +1,4 @@
 import { useState, useCallback, type RefObject } from 'react';
-import { useKeyboardStore } from '@/lib/store/keyboard';
 import { useCanvasStore } from '@/lib/store';
 import type { PPTElement } from '@/lib/types/slides';
 import { getElementRange } from '@/lib/utils/element';
@@ -18,9 +17,7 @@ export function useMouseSelection(
   });
 
   const canvasScale = useCanvasStore.use.canvasScale();
-  const hiddenElementIdList = useCanvasStore.use.hiddenElementIdList();
   const setActiveElementIdList = useCanvasStore.use.setActiveElementIdList();
-  const ctrlOrShiftKeyActive = useKeyboardStore((state) => state.ctrlOrShiftKeyActive());
 
   // Update mouse selection range
   const updateMouseSelection = useCallback(
@@ -97,7 +94,7 @@ export function useMouseSelection(
 
           // Inclusion check differs for each quadrant direction
           let isInclude = false;
-          if (ctrlOrShiftKeyActive) {
+          if (e.ctrlKey || e.shiftKey) {
             if (mouseSelectionQuadrant === 4) {
               isInclude =
                 maxX > mouseSelectionLeft &&
@@ -151,9 +148,8 @@ export function useMouseSelection(
             }
           }
 
-          // Locked or hidden elements should not be selected even if within range
-          if (isInclude && !element.lock && !hiddenElementIdList.includes(element.id))
-            inRangeElementList.push(element);
+          // Locked elements should not be selected even if within range
+          if (isInclude && !element.lock) inRangeElementList.push(element);
         }
 
         // If grouped elements are in range, all members of the group must be in range to be selected
@@ -184,8 +180,6 @@ export function useMouseSelection(
     [
       viewportRef,
       canvasScale,
-      ctrlOrShiftKeyActive,
-      hiddenElementIdList,
       elementListRef,
       setActiveElementIdList,
     ],

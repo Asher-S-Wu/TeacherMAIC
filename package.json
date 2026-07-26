@@ -32,7 +32,6 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.562.0",
     "mathml2omml": "file:packages/mathml2omml",
-    "mitt": "^3.0.1",
     "mongodb": "^6.21.0",
     "motion": "^12.27.5",
     "nanoid": "^5.1.6",

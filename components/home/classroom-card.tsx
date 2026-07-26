@@ -27,7 +27,7 @@ interface ClassroomCardProps {
   readonly formatDate: (ts: number) => string;
   readonly generation?: ClassroomGenerationOverlay;
   readonly onDelete: (id: string, e: MouseEvent) => void;
-  readonly onRename: (id: string, newName: string) => void;
+  readonly onRename?: (id: string, newName: string) => void;
   readonly confirmingDelete: boolean;
   readonly onConfirmDelete: () => void;
   readonly onCancelDelete: () => void;
@@ -83,7 +83,7 @@ export function ClassroomCard({
     if (!editing) return;
     const trimmed = nameDraft.trim();
     if (trimmed && trimmed !== classroom.name) {
-      onRename(classroom.id, trimmed);
+      onRename?.(classroom.id, trimmed);
     }
     setEditing(false);
   };

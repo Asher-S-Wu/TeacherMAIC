@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { useCanvasStore } from '@/lib/store';
-import { useKeyboardStore } from '@/lib/store/keyboard';
 import type {
   PPTElement,
   PPTLineElement,
@@ -136,8 +135,6 @@ export function useScaleElement(
 
   const updateSlide = useCanvasOperations().updateSlide;
 
-  const ctrlOrShiftKeyActive = useKeyboardStore((state) => state.ctrlOrShiftKeyActive());
-
   const { addHistorySnapshot } = useHistorySnapshot();
 
   // Scale element
@@ -164,7 +161,7 @@ export function useScaleElement(
       const elRotate = 'rotate' in element && element.rotate ? element.rotate : 0;
       const rotateRadian = (Math.PI * elRotate) / 180;
 
-      const fixedRatio = ctrlOrShiftKeyActive || ('fixedRatio' in element && element.fixedRatio);
+      const fixedRatio = e.ctrlKey || e.shiftKey || ('fixedRatio' in element && element.fixedRatio);
       const aspectRatio = elOriginWidth / elOriginHeight;
 
       const startPageX = isTouchEvent ? native.changedTouches[0].pageX : native.pageX;
@@ -562,7 +559,6 @@ export function useScaleElement(
       activeGroupElementId,
       viewportRatio,
       viewportSize,
-      ctrlOrShiftKeyActive,
       setScalingState,
       setAlignmentLines,
       updateSlide,
@@ -595,7 +591,7 @@ export function useScaleElement(
         let y = (currentPageY - startPageY) / canvasScale;
 
         // Lock aspect ratio, same logic as above
-        if (ctrlOrShiftKeyActive) {
+        if (e.ctrlKey || e.shiftKey) {
           if (
             command === OperateResizeHandlers.RIGHT_BOTTOM ||
             command === OperateResizeHandlers.LEFT_TOP
@@ -687,7 +683,6 @@ export function useScaleElement(
       setElementList,
       canvasScale,
       activeElementIdList,
-      ctrlOrShiftKeyActive,
       updateSlide,
       addHistorySnapshot,
     ],

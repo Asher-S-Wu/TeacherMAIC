@@ -119,7 +119,6 @@ export interface SettingsState {
   selectedAgentIds: string[];
   maxTurns: string;
   agentMode: 'preset' | 'auto';
-  autoAgentCount: number;
 
   // Layout preferences
   sidebarCollapsed: boolean;
@@ -127,8 +126,6 @@ export interface SettingsState {
   chatAreaWidth: number;
 
   // Actions
-  setModel: (providerId: ProviderId, modelId: string) => void;
-  setProviderConfig: (providerId: ProviderId, config: Partial<ProvidersConfig[ProviderId]>) => void;
   setTTSMuted: (muted: boolean) => void;
   setTTSVolume: (volume: number) => void;
   setAutoPlayLecture: (autoPlay: boolean) => void;
@@ -136,7 +133,6 @@ export interface SettingsState {
   setSelectedAgentIds: (ids: string[]) => void;
   setMaxTurns: (turns: string) => void;
   setAgentMode: (mode: 'preset' | 'auto') => void;
-  setAutoAgentCount: (count: number) => void;
 
   // Layout actions
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -146,23 +142,7 @@ export interface SettingsState {
   // Audio actions
   setTTSProvider: (providerId: TTSProviderId) => void;
   setTTSVoice: (voice: string) => void;
-  setTTSProviderConfig: (
-    providerId: TTSProviderId,
-    config: Partial<{
-      apiKey: string;
-      baseUrl: string;
-      enabled: boolean;
-      modelId: string;
-    }>,
-  ) => void;
   setTTSEnabled: (enabled: boolean) => void;
-
-  // Web Search actions
-  setWebSearchProvider: (providerId: WebSearchProviderId) => void;
-  setWebSearchProviderConfig: (
-    providerId: WebSearchProviderId,
-    config: Partial<{ apiKey: string; baseUrl: string; enabled: boolean }>,
-  ) => void;
 
   // Server provider actions
   fetchServerProviders: () => Promise<void>;
@@ -226,7 +206,6 @@ export const useSettingsStore = create<SettingsState>()(
         selectedAgentIds: ['default-1', 'default-2', 'default-3'],
         maxTurns: '10',
         agentMode: 'auto' as const,
-        autoAgentCount: 3,
 
         // Playback controls
         ttsMuted: false,
@@ -249,21 +228,6 @@ export const useSettingsStore = create<SettingsState>()(
         ...defaultWebSearchConfig,
 
         // Actions
-        setModel: () => set({ providerId: DEFAULT_PROVIDER_ID, modelId: DEFAULT_MODEL_ID }),
-
-        setProviderConfig: (providerId, config) =>
-          set((state) => {
-            const { apiKey: _apiKey, ...safeConfig } = config;
-            const providersConfig = {
-              ...state.providersConfig,
-              [providerId]: {
-                ...state.providersConfig[providerId],
-                ...safeConfig,
-                apiKey: '',
-              },
-            };
-            return { providersConfig };
-          }),
         setTTSMuted: (muted) => set({ ttsMuted: muted }),
 
         setTTSVolume: (volume) => set({ ttsVolume: Math.max(0, Math.min(1, volume)) }),
@@ -276,7 +240,6 @@ export const useSettingsStore = create<SettingsState>()(
 
         setMaxTurns: (turns) => set({ maxTurns: turns }),
         setAgentMode: (mode) => set({ agentMode: mode }),
-        setAutoAgentCount: (count) => set({ autoAgentCount: count }),
 
         // Layout actions
         setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
@@ -303,41 +266,7 @@ export const useSettingsStore = create<SettingsState>()(
               : DEFAULT_TTS_VOICES[state.ttsProviderId as BuiltInTTSProviderId],
           })),
 
-        setTTSProviderConfig: (providerId, config) =>
-          set((state) => {
-            const { apiKey: _apiKey, baseUrl: _baseUrl, ...safeConfig } = config;
-            return {
-              ttsProvidersConfig: {
-                ...state.ttsProvidersConfig,
-                [providerId]: {
-                  ...state.ttsProvidersConfig[providerId],
-                  ...safeConfig,
-                  apiKey: '',
-                  baseUrl: '',
-                },
-              },
-            };
-          }),
-
         setTTSEnabled: (enabled) => set({ ttsEnabled: enabled }),
-
-        // Web Search actions
-        setWebSearchProvider: (providerId) => set({ webSearchProviderId: providerId }),
-        setWebSearchProviderConfig: (providerId, config) =>
-          set((state) => {
-            const { apiKey: _apiKey, baseUrl: _baseUrl, ...safeConfig } = config;
-            return {
-              webSearchProvidersConfig: {
-                ...state.webSearchProvidersConfig,
-                [providerId]: {
-                  ...state.webSearchProvidersConfig[providerId],
-                  ...safeConfig,
-                  apiKey: '',
-                  baseUrl: '',
-                },
-              },
-            };
-          }),
 
         // Fetch server-configured providers and merge into local state
         fetchServerProviders: async () => {

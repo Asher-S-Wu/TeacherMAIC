@@ -119,7 +119,7 @@ export const SHAPE_PATH_FORMULAS: Record<string, ShapePathFormula> = {
     ],
     defaultValue: [0.3, 0.2],
     relative: ['left_bottom', 'bottom'],
-    getBaseSize: [(width) => width, (width, height) => height],
+    getBaseSize: [(width) => width, (_width, height) => height],
     formula: (width, height, values) => {
       const point = width * values![0];
       const arrowWidth = width * 0.2;
@@ -251,7 +251,7 @@ export const SHAPE_PATH_FORMULAS: Record<string, ShapePathFormula> = {
     defaultValue: [0.2],
     range: [[0, 1]],
     relative: ['top'],
-    getBaseSize: [(width, height) => height],
+    getBaseSize: [(_width, height) => height],
     formula: (width, height, values) => {
       const point = height * values![0];
       return `M ${width / 2} 0 L 0 ${point} L 0 ${height} L ${width} ${height} L ${width} ${point} Z`;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useKeyboardStore, useCanvasStore } from '@/lib/store';
+import { useCanvasStore } from '@/lib/store';
 import { KEYS } from '@/configs/hotkey';
 import { OperateResizeHandlers } from '@/lib/types/edit';
 import type { ImageClipedEmitData } from '@/lib/types/edit';
@@ -29,7 +29,6 @@ export function ImageClipHandler({
   onClip,
 }: ImageClipHandlerProps) {
   const canvasScale = useCanvasStore.use.canvasScale();
-  const ctrlOrShiftKeyActive = useKeyboardStore((state) => state.ctrlOrShiftKeyActive());
 
   const [clipWrapperPositionStyle, setClipWrapperPositionStyle] = useState({
     top: '0',
@@ -261,8 +260,6 @@ export function ImageClipHandler({
       const bottomPosition = imgPosition;
       const originPosition = { ...topImgWrapperPosition };
 
-      const aspectRatio = topImgWrapperPosition.width / topImgWrapperPosition.height;
-
       const handleMouseMove = (e: MouseEvent) => {
         if (!isMouseDown) return;
 
@@ -280,7 +277,8 @@ export function ImageClipHandler({
         let moveX = ((_moveL * Math.cos(rotateRad)) / width) * 100;
         let moveY = ((_moveL * Math.sin(rotateRad)) / height) * 100;
 
-        if (ctrlOrShiftKeyActive) {
+        if (e.ctrlKey || e.shiftKey) {
+          const aspectRatio = topImgWrapperPosition.width / topImgWrapperPosition.height;
           if (
             type === OperateResizeHandlers.RIGHT_BOTTOM ||
             type === OperateResizeHandlers.LEFT_TOP
@@ -437,7 +435,6 @@ export function ImageClipHandler({
       height,
       imgPosition,
       topImgWrapperPosition,
-      ctrlOrShiftKeyActive,
       updateRange,
     ],
   );

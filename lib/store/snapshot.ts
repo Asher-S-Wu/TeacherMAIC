@@ -12,9 +12,6 @@ export interface SnapshotState {
   snapshotLength: number;
   canUndo: () => boolean;
   canRedo: () => boolean;
-  setSnapshotCursor: (cursor: number) => void;
-  setSnapshotLength: (length: number) => void;
-  initSnapshotDatabase: () => Promise<void>;
   addSnapshot: () => Promise<void>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
@@ -37,15 +34,6 @@ export const useSnapshotStore = create<SnapshotState>((set, get) => ({
 
   canUndo: () => get().snapshotCursor > 0,
   canRedo: () => get().snapshotCursor < get().snapshotLength - 1,
-
-  setSnapshotCursor: (cursor: number) => set({ snapshotCursor: cursor }),
-  setSnapshotLength: (length: number) => set({ snapshotLength: length }),
-
-  initSnapshotDatabase: async () => {
-    snapshots.length = 0;
-    snapshots.push(currentSnapshot());
-    set({ snapshotCursor: 0, snapshotLength: 1 });
-  },
 
   addSnapshot: async () => {
     const { snapshotCursor } = get();

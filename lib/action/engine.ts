@@ -77,7 +77,6 @@ const EFFECT_AUTO_CLEAR_MS = 5000;
 export type WidgetMessageCallback = (type: string, payload: Record<string, unknown>) => void;
 
 export class ActionEngine {
-  private stageStore: StageStore;
   private stageAPI: ReturnType<typeof createStageAPI>;
   private audioPlayer: AudioPlayer | null;
   private effectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -88,7 +87,6 @@ export class ActionEngine {
     audioPlayer?: AudioPlayer | null,
     widgetMessageCallback?: WidgetMessageCallback | null,
   ) {
-    this.stageStore = stageStore;
     this.stageAPI = createStageAPI(stageStore);
     this.audioPlayer = audioPlayer ?? null;
     this.widgetMessageCallback = widgetMessageCallback ?? null;

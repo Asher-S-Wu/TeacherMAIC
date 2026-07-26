@@ -2,32 +2,14 @@
  * Canvas Element Operations Hook
  *
  * Provides convenient element CRUD methods to avoid repetitive definitions in each component
- *
- * @example
- * function MyComponent() {
- *   const { addElement, updateElement, deleteElement } = useCanvasOperations();
- *
- *   const handleAdd = () => {
- *     addElement({
- *       id: 'new-1',
- *       type: 'text',
- *       // ...
- *     });
- *   };
- * }
  */
 
 import { useSceneData, useSceneSelector } from '@/lib/contexts/scene-context';
-import {
-  useCanvasStore,
-  type SpotlightOptions,
-  type HighlightOverlayOptions,
-} from '@/lib/store/canvas';
+import { useCanvasStore } from '@/lib/store/canvas';
 import type { SlideContent } from '@/lib/types/stage';
 import type { PPTElement, Slide } from '@/lib/types/slides';
 import { useCallback, useMemo } from 'react';
 import { useHistorySnapshot } from '@/lib/hooks/use-history-snapshot';
-import { toast } from 'sonner';
 import { ElementAlignCommands, ElementOrderCommands } from '@/lib/types/edit';
 import { getElementListRange } from '@/lib/utils/element';
 import { useOrderElement } from './use-order-element';
@@ -58,37 +40,12 @@ export function useCanvasOperations() {
   const activeGroupElementId = useCanvasStore.use.activeGroupElementId();
   const setActiveElementIdList = useCanvasStore.use.setActiveElementIdList();
   const handleElementId = useCanvasStore.use.handleElementId();
-  const hiddenElementIdList = useCanvasStore.use.hiddenElementIdList();
 
   const viewportSize = useCanvasStore.use.viewportSize();
   const viewportRatio = useCanvasStore.use.viewportRatio();
 
-  const _setEditorareaFocus = useCanvasStore.use.setEditorAreaFocus();
-
   const { addHistorySnapshot } = useHistorySnapshot();
   const { moveUpElement, moveDownElement, moveTopElement, moveBottomElement } = useOrderElement();
-
-  /**
-   * Add element(s)
-   * @param element Single element or element array
-   * @param autoSelect Whether to auto-select newly added elements (default true)
-   */
-  const addElement = useCallback(
-    (element: PPTElement | PPTElement[], autoSelect = true) => {
-      const elements = Array.isArray(element) ? element : [element];
-
-      updateSceneData((draft) => {
-        draft.canvas.elements.push(...elements);
-      });
-
-      // Auto-select newly added elements
-      if (autoSelect) {
-        const newIds = elements.map((el) => el.id);
-        setActiveElementIdList(newIds);
-      }
-    },
-    [updateSceneData, setActiveElementIdList],
-  );
 
   // Delete all selected elements
   // If a group member is selected for independent operation, delete that element first. Otherwise delete all selected elements.
@@ -178,42 +135,6 @@ export function useCanvasOperations() {
     [updateSceneData],
   );
 
-  // Copy selected element data to clipboard
-  const copyElement = () => {
-    // if (!activeElementIdList.length) return
-
-    // const text = JSON.stringify({
-    //   type: 'elements',
-    //   data: activeElementList,
-    // })
-
-    // copyText(text).then(() => {
-    //   setEditorareaFocus(true)
-    // })
-    toast.warning('Not implemented');
-  };
-
-  // Copy and delete selected elements (cut)
-  const cutElement = () => {
-    // copyElement()
-    // deleteElement()
-    toast.warning('Not implemented');
-  };
-
-  // Attempt to paste element data from clipboard
-  const pasteElement = () => {
-    // readClipboard().then(text => {
-    //   pasteTextClipboardData(text)
-    // }).catch(err => toast.warning(err))
-    toast.warning('Not implemented');
-  };
-
-  // Copy and immediately paste selected elements
-  const _quickCopyElement = () => {
-    copyElement();
-    pasteElement();
-  };
-
   // Lock selected elements and clear selection state
   const lockElement = () => {
     const newElementList: PPTElement[] = JSON.parse(JSON.stringify(currentSlide.elements));
@@ -258,22 +179,9 @@ export function useCanvasOperations() {
 
   // Select all elements on the current page
   const selectAllElements = () => {
-    const unlockedElements = currentSlide.elements.filter(
-      (el) => !el.lock && !hiddenElementIdList.includes(el.id),
-    );
+    const unlockedElements = currentSlide.elements.filter((el) => !el.lock);
     const newActiveElementIdList = unlockedElements.map((el) => el.id);
     setActiveElementIdList(newActiveElementIdList);
-  };
-
-  // Select a specific element
-  const selectElement = (id: string) => {
-    if (handleElementId === id) return;
-    if (hiddenElementIdList.includes(id)) return;
-
-    const lockedElements = currentSlide.elements.filter((el) => el.lock);
-    if (lockedElements.some((el) => el.id === id)) return;
-
-    setActiveElementIdList([id]);
   };
 
   /**
@@ -362,19 +270,6 @@ export function useCanvasOperations() {
   };
 
   /**
-   * Check if current selected elements can be grouped
-   */
-  const _canCombine = useMemo(() => {
-    if (activeElementList.length < 2) return false;
-
-    const firstGroupId = activeElementList[0].groupId;
-    if (!firstGroupId) return true;
-
-    const inSameGroup = activeElementList.every((el) => el.groupId && el.groupId === firstGroupId);
-    return !inSameGroup;
-  }, [activeElementList]);
-
-  /**
    * Group current selected elements: assign the same group ID to all selected elements
    */
   const combineElements = () => {
@@ -435,150 +330,21 @@ export function useCanvasOperations() {
     addHistorySnapshot();
   };
 
-  /**
-   * Update background
-   * @param background New background settings
-   */
-  const updateBackground = useCallback(
-    (background: SlideContent['canvas']['background']) => {
-      updateSceneData((draft) => {
-        draft.canvas.background = background;
-      });
-    },
-    [updateSceneData],
-  );
-
-  /**
-   * Update theme
-   * @param theme Theme settings (partial)
-   */
-  const updateTheme = useCallback(
-    (theme: Partial<SlideContent['canvas']['theme']>) => {
-      updateSceneData((draft) => {
-        draft.canvas.theme = {
-          ...draft.canvas.theme,
-          ...theme,
-        };
-      });
-    },
-    [updateSceneData],
-  );
-
-  /**
-   * Spotlight focus on an element
-   * @param elementId Element ID
-   * @param options Spotlight options
-   */
-  const spotlightElement = useCallback((elementId: string, options?: SpotlightOptions) => {
-    useCanvasStore.getState().setSpotlight(elementId, options);
-  }, []);
-
-  /**
-   * Clear spotlight
-   */
-  const clearSpotlight = useCallback(() => {
-    useCanvasStore.getState().clearSpotlight();
-  }, []);
-
-  /**
-   * Highlight elements
-   * @param elementIds Element ID list
-   * @param options Highlight options
-   */
-  const highlightElements = useCallback(
-    (elementIds: string[], options?: HighlightOverlayOptions) => {
-      useCanvasStore.getState().setHighlight(elementIds, options);
-    },
-    [],
-  );
-
-  /**
-   * Clear highlight
-   */
-  const clearHighlight = useCallback(() => {
-    useCanvasStore.getState().clearHighlight();
-  }, []);
-
-  /**
-   * Laser pointer effect
-   * @param elementId Element ID
-   * @param options Laser pointer options
-   */
-  const laserElement = useCallback(
-    (elementId: string, options?: { color?: string; duration?: number }) => {
-      useCanvasStore.getState().setLaser(elementId, options);
-    },
-    [],
-  );
-
-  /**
-   * Clear laser pointer
-   */
-  const clearLaser = useCallback(() => {
-    useCanvasStore.getState().clearLaser();
-  }, []);
-
-  /**
-   * Zoom an element
-   * @param elementId Element ID
-   * @param scale Zoom scale
-   */
-  const zoomElement = useCallback((elementId: string, scale: number) => {
-    useCanvasStore.getState().setZoom(elementId, scale);
-  }, []);
-
-  /**
-   * Clear zoom
-   */
-  const clearZoom = useCallback(() => {
-    useCanvasStore.getState().clearZoom();
-  }, []);
-
-  /**
-   * Clear all teaching effects (spotlight + highlight + laser + zoom)
-   */
-  const clearAllEffects = useCallback(() => {
-    useCanvasStore.getState().clearSpotlight();
-    useCanvasStore.getState().clearHighlight();
-    useCanvasStore.getState().clearLaser();
-    useCanvasStore.getState().clearZoom();
-  }, []);
-
   return {
     // Basic operations
-    addElement,
     deleteElement,
     deleteAllElements,
     updateElement,
     updateSlide,
     removeElementProps,
-    copyElement,
-    pasteElement,
-    cutElement,
 
     // Advanced operations
     lockElement,
     unlockElement,
     selectAllElements,
-    selectElement,
     alignElementToCanvas,
     orderElement,
     combineElements,
     uncombineElements,
-
-    // Canvas operations
-    updateBackground,
-    updateTheme,
-
-    // Teaching features
-    spotlightElement,
-    clearSpotlight,
-    highlightElements,
-    clearHighlight,
-    laserElement,
-    clearLaser,
-    zoomElement,
-    clearZoom,
-    clearAllEffects,
   };
 }

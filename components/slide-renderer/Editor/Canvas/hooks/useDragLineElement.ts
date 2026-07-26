@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { useKeyboardStore } from '@/lib/store/keyboard';
 import { useCanvasStore } from '@/lib/store';
 import type { PPTElement, PPTLineElement } from '@/lib/types/slides';
 import { OperateLineHandlers } from '@/lib/types/edit';
@@ -23,7 +22,6 @@ export function useDragLineElement(
 ) {
   const updateSlide = useCanvasOperations().updateSlide;
   const canvasScale = useCanvasStore.use.canvasScale();
-  const ctrlOrShiftKeyActive = useKeyboardStore((state) => state.ctrlOrShiftKeyActive());
   const { addHistorySnapshot } = useHistorySnapshot();
 
   // Drag line endpoint
@@ -196,7 +194,7 @@ export function useDragLineElement(
               end: end,
             };
             if (command === OperateLineHandlers.START || command === OperateLineHandlers.END) {
-              if (ctrlOrShiftKeyActive) {
+              if (e.ctrlKey || e.shiftKey) {
                 if (element.broken) newEl.broken = [midX - minX, midY - minY];
                 if (element.curve) newEl.curve = [midX - minX, midY - minY];
                 if (element.cubic)
@@ -261,7 +259,6 @@ export function useDragLineElement(
       elementListRef,
       setElementList,
       canvasScale,
-      ctrlOrShiftKeyActive,
       updateSlide,
       addHistorySnapshot,
     ],

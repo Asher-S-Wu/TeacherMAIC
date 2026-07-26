@@ -11,9 +11,7 @@ export interface GenerationSessionState {
   sessionId: string;
   requirements: UserRequirements;
   sceneOutlines?: SceneOutline[] | null;
-  currentStep: 'generating' | 'complete';
   researchContext?: string;
-  researchSources?: Array<{ title: string; url: string }>;
   languageDirective?: string;
 }
 

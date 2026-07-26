@@ -253,7 +253,7 @@ Return ONLY valid JSON. Do not use markdown fences or explanatory text.`,
   callbacks?.onProgress?.('PBL structure generated. Running post-processing...');
 
   // Post-processing: activate first issue and generate initial questions
-  await postProcessPBL(projectConfig, model, languageDirective, callbacks);
+  await postProcessPBL(projectConfig, model, callbacks);
 
   callbacks?.onProgress?.('PBL project generation complete!');
 
@@ -266,7 +266,6 @@ Return ONLY valid JSON. Do not use markdown fences or explanatory text.`,
 async function postProcessPBL(
   config: PBLProjectConfig,
   model: ResponsesModel,
-  languageDirective: string,
   callbacks?: GeneratePBLCallbacks,
 ): Promise<void> {
   const { issueboard, agents } = config;

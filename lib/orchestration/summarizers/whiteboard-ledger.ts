@@ -1,4 +1,3 @@
-import type { StatelessChatRequest } from '@/lib/types/chat';
 import type { WhiteboardActionRecord } from '../types';
 
 // ==================== Virtual Whiteboard Context ====================
@@ -22,7 +21,6 @@ interface VirtualWhiteboardElement {
  * Returns empty string when the ledger is empty (zero extra token overhead).
  */
 export function buildVirtualWhiteboardContext(
-  storeState: StatelessChatRequest['storeState'],
   ledger?: WhiteboardActionRecord[],
 ): string {
   if (!ledger || ledger.length === 0) return '';
