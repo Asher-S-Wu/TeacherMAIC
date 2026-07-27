@@ -343,11 +343,7 @@ export const useSettingsStore = create<SettingsState>()(
       storage: createJSONStorage(() => accountSettingsStorage),
       skipHydration: true,
       merge: (persistedState, currentState) => {
-        // 历史版本曾持久化 thinkingConfigs，丢弃这个遗留键，下次写入时即被清除
-        const persisted = {
-          ...((persistedState ?? {}) as Partial<SettingsState> & { thinkingConfigs?: unknown }),
-        };
-        delete persisted.thinkingConfigs;
+        const persisted = (persistedState ?? {}) as Partial<SettingsState>;
         const merged = { ...currentState, ...persisted };
         const ttsVoice = isValidTTSVoice(DEFAULT_TTS_PROVIDER_ID, persisted.ttsVoice)
           ? persisted.ttsVoice

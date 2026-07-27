@@ -249,8 +249,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
 
   loadFromStorage: async (stageId: string) => {
     try {
-      // Skip API load if the store already has this stage with scenes
-      // (e.g. navigated from generation-preview with fresh in-memory data)
+      // Skip API load if the store already has this stage with scenes.
       const currentState = get();
       if (currentState.stage?.id === stageId && currentState.scenes.length > 0) {
         log.info('Stage already loaded in memory, skipping API load:', stageId);

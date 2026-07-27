@@ -17,8 +17,7 @@ const movePositopn = (state: State, len: number) => {
 };
 
 const findTextEnd = (str: string, index: number) => {
-  const isEnd = false;
-  while (!isEnd) {
+  while (true) {
     const textEnd = str.indexOf('<', index);
     if (textEnd === -1) {
       return textEnd;

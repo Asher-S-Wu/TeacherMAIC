@@ -41,10 +41,6 @@ export interface Stage {
     color: string;
     priority: number;
   }>;
-  /**
-   * True when this classroom was generated with the interactive-first prompt branch.
-   */
-  interactiveMode?: boolean;
 }
 
 /**

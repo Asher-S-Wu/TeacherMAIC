@@ -24,19 +24,11 @@
 		"build": "rollup -c --bundleConfigAsCjs"
 	},
 	"browser": {
-		"express": false,
-		"fs": false,
-		"https": false,
-		"image-size": false,
 		"node:fs": false,
-		"node:https": false,
-		"os": false,
-		"path": false
+		"node:https": false
 	},
 	"dependencies": {
 		"@types/node": "^22.8.1",
-		"https": "^1.0.0",
-		"image-size": "^1.2.1",
 		"jszip": "^3.10.1"
 	},
 	"devDependencies": {

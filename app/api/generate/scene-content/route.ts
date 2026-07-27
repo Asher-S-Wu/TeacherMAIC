@@ -9,7 +9,6 @@
 import { NextRequest } from 'next/server';
 import { callLLM } from '@/lib/ai/llm';
 import { generateSceneContent } from '@/lib/generation/generation-pipeline';
-import type { AgentInfo } from '@/lib/generation/generation-pipeline';
 import type { SceneOutline } from '@/lib/types/generation';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
@@ -21,13 +20,7 @@ const log = createLogger('Scene Content API');
 type SceneContentRequestBody = {
   outline: SceneOutline;
   allOutlines: SceneOutline[];
-  stageInfo: {
-    name: string;
-    description?: string;
-    style?: string;
-  };
   stageId: string;
-  agents?: AgentInfo[];
   languageDirective?: string;
 };
 
@@ -40,11 +33,7 @@ async function runSceneContentGeneration(
   req: NextRequest,
   body: SceneContentRequestBody,
 ): Promise<{ content: SceneContentValue; effectiveOutline: SceneOutline; modelString: string }> {
-  const {
-    outline: rawOutline,
-    agents,
-    languageDirective,
-  } = body;
+  const { outline: rawOutline, languageDirective } = body;
 
   const outline: SceneOutline = { ...rawOutline };
 
@@ -69,7 +58,6 @@ async function runSceneContentGeneration(
 
   const content = await generateSceneContent(effectiveOutline, aiCall, {
     languageModel: effectiveOutline.type === 'pbl' ? languageModel : undefined,
-    agents,
     languageDirective,
   });
 

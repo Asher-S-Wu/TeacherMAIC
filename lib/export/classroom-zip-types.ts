@@ -23,7 +23,6 @@ export interface ManifestStage {
   style?: string;
   createdAt: number;
   updatedAt: number;
-  // Note: Stage.interactiveMode is intentionally NOT exported.
 }
 
 export interface ManifestAgent {
@@ -33,8 +32,6 @@ export interface ManifestAgent {
   avatar: string;
   color: string;
   priority: number;
-  /** Reserved for forward-compat. Not currently persisted in GeneratedAgentRecord DB schema. */
-  voiceConfig?: { providerId: string; voiceId: string };
 }
 
 export interface ManifestScene {

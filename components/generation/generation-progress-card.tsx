@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { GenerationStep } from '@/lib/generation/generation-steps';
 import type { SceneOutline } from '@/lib/types/generation';
-import { StepVisualizer } from '@/app/generation-preview/components/visualizers';
+import { StepVisualizer } from '@/components/generation/generation-step-visualizer';
 
 export interface GenerationProgressCardProps {
   activeSteps: GenerationStep[];

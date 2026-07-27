@@ -105,19 +105,8 @@ export default function ClassroomDetailPage() {
     if (hasPending && stage) {
       generationStartedRef.current = true;
 
-      // Load generation params from sessionStorage (stored by generation-preview before navigating)
-      const genParamsStr = sessionStorage.getItem('generationParams');
-      const params = genParamsStr ? JSON.parse(genParamsStr) : {};
-
       generateRemaining({
-        stageInfo: {
-          name: stage.name || '',
-          description: stage.description,
-          style: stage.style,
-        },
-        agents: params.agents,
-        userProfile: params.userProfile,
-        languageDirective: params.languageDirective || stage.languageDirective,
+        languageDirective: stage.languageDirective,
       });
     }
   }, [loading, error, generateRemaining]);

@@ -19,10 +19,6 @@ export function buildRequestOrigin(req: NextRequest): string {
     : req.nextUrl.origin;
 }
 
-export function isValidClassroomId(id: string): boolean {
-  return /^[a-zA-Z0-9_-]+$/.test(id);
-}
-
 export async function persistClassroom(
   userId: ObjectId,
   data: {

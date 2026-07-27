@@ -28,12 +28,8 @@ export async function generateSceneOutlinesFromRequirements(
       ? `## Student Profile\n\nStudent: ${requirements.userNickname || 'Unknown'}${requirements.userBio ? ` — ${requirements.userBio}` : ''}\n\nConsider this student's background when designing the course. Adapt difficulty, examples, and teaching approach accordingly.\n\n---`
       : '';
 
-  const promptId = requirements.interactiveMode
-    ? PROMPT_IDS.INTERACTIVE_OUTLINES
-    : PROMPT_IDS.REQUIREMENTS_TO_OUTLINES;
-
   // Use simplified prompt variables
-  const prompts = buildPrompt(promptId, {
+  const prompts = buildPrompt(PROMPT_IDS.REQUIREMENTS_TO_OUTLINES, {
     // New simplified variables
     requirement: requirements.requirement,
     userProfile: userProfileText,

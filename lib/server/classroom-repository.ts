@@ -150,7 +150,6 @@ export async function listClassroomsForUser(userId: ObjectId): Promise<StageList
     sceneCount: record.sceneCount,
     createdAt: record.stage.createdAt,
     updatedAt: record.stage.updatedAt,
-    interactiveMode: record.stage.interactiveMode,
   }));
 }
 

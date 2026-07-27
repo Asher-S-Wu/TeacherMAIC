@@ -106,9 +106,7 @@ export function loadPrompt(promptId: PromptId): LoadedPrompt | null {
  */
 export function interpolateVariables(template: string, variables: Record<string, unknown>): string {
   // `\w+` only matches [A-Za-z0-9_], so kebab-case placeholders like
-  // `{{next-agent}}` pass through unchanged. Convention (per README) is
-  // camelCase; tests in tests/prompts/templates.test.ts scan templates
-  // for non-conforming placeholders.
+  // `{{next-agent}}` pass through unchanged. Placeholders use camelCase.
   return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     const value = variables[key];
     if (value === undefined) return match;

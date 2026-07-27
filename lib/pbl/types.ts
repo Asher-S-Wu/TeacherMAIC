@@ -1,7 +1,5 @@
 /**
  * PBL (Project-Based Learning) Type Definitions
- *
- * Migrated from PBL-Nano with PBL prefix to avoid conflicts with existing platform types.
  */
 
 export interface PBLProjectInfo {

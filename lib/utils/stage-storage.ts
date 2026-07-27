@@ -27,7 +27,6 @@ export interface StageListItem {
   sceneCount: number;
   createdAt: number;
   updatedAt: number;
-  interactiveMode?: boolean;
 }
 
 async function readJson<T>(response: Response): Promise<T> {

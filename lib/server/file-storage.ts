@@ -406,47 +406,6 @@ export async function saveBufferForUser(
   }
 }
 
-export async function saveRemoteFileForUser(
-  userId: ObjectId,
-  sourceUrl: string,
-  filename: string,
-  contentType: string,
-  kind: string,
-  metadata: Record<string, unknown> = {},
-): Promise<StoredFileResult> {
-  const response = await fetch(sourceUrl, { redirect: 'manual' });
-  if (response.status >= 300 && response.status < 400) {
-    throw new FileStorageError('不允许跳转的媒体地址');
-  }
-  if (!response.ok || !response.body) {
-    throw new FileStorageError(`远程媒体读取失败：${response.status}`, 502);
-  }
-
-  const resolvedType = normalizeContentType(response.headers.get('content-type') || contentType);
-  const maximumBytes = getMaximumSizeInBytes(kind);
-  const contentLength = Number.parseInt(response.headers.get('content-length') || '0', 10);
-  assertFileAllowed(kind, resolvedType, Number.isFinite(contentLength) ? contentLength : 0);
-  assertMetadata(metadata);
-
-  const temporaryDirectory = await createServerTemporaryDirectory(userId);
-  const temporaryPath = resolve(temporaryDirectory, 'payload.part');
-  try {
-    const actualSize = await writeWebStreamToFile(response.body, temporaryPath, maximumBytes);
-    assertFileAllowed(kind, resolvedType, actualSize);
-    return await commitTemporaryFile(
-      userId,
-      temporaryPath,
-      filename,
-      resolvedType,
-      actualSize,
-      kind,
-      metadata,
-    );
-  } finally {
-    await rm(temporaryDirectory, { recursive: true, force: true });
-  }
-}
-
 export async function createUploadSessionForUser(
   userId: ObjectId,
   input: UploadSessionInput,

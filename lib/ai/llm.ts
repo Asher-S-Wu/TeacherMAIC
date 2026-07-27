@@ -62,10 +62,6 @@ export interface LLMTextResult {
   responseId?: string;
 }
 
-export interface LLMStreamResult {
-  textStream: AsyncIterable<string>;
-}
-
 export interface LLMRetryOptions {
   retries?: number;
   validate?: (text: string) => boolean;
@@ -666,13 +662,6 @@ export async function callLLM<T extends LLMGenerateParams>(
 
   if (lastResult) return lastResult;
   throw lastError;
-}
-
-export function streamLLM<T extends LLMStreamParams>(
-  params: T,
-  source: string,
-): LLMStreamResult {
-  return { textStream: streamTextGeneration(params, source) };
 }
 
 export function streamLLMEvents<T extends LLMStreamParams>(

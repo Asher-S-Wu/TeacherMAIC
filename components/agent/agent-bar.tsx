@@ -237,7 +237,6 @@ function AgentVoicePill({
                     resolved.providerId === provider.providerId && resolved.voiceId === voice.id;
                   const previewKey = `${provider.providerId}::${voice.id}`;
                   const isPreviewing = previewingId === previewKey;
-                  const canPreview = true;
                   return (
                     <div
                       key={previewKey}
@@ -264,27 +263,25 @@ function AgentVoicePill({
                       >
                         {voice.name}
                       </button>
-                      {canPreview && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePreview(provider.providerId, voice.id);
-                          }}
-                          className={cn(
-                            'flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors',
-                            isPreviewing
-                              ? 'text-primary'
-                              : 'text-muted-foreground/40 hover:text-muted-foreground',
-                          )}
-                        >
-                          {isPreviewing ? (
-                            <Loader2 className="size-3.5 animate-spin" />
-                          ) : (
-                            <Volume2 className="size-3.5" />
-                          )}
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePreview(provider.providerId, voice.id);
+                        }}
+                        className={cn(
+                          'flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors',
+                          isPreviewing
+                            ? 'text-primary'
+                            : 'text-muted-foreground/40 hover:text-muted-foreground',
+                        )}
+                      >
+                        {isPreviewing ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Volume2 className="size-3.5" />
+                        )}
+                      </button>
                     </div>
                   );
                 })}
@@ -465,7 +462,6 @@ function TeacherVoicePill({
                     ttsVoice === voice.id;
                   const previewKey = `${provider.providerId}::${voice.id}`;
                   const isPreviewing = previewingId === previewKey;
-                  const canPreview = true;
                   return (
                     <div
                       key={previewKey}
@@ -488,27 +484,25 @@ function TeacherVoicePill({
                       >
                         {voice.name}
                       </button>
-                      {canPreview && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePreview(provider.providerId, voice.id);
-                          }}
-                          className={cn(
-                            'flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors',
-                            isPreviewing
-                              ? 'text-primary'
-                              : 'text-muted-foreground/40 hover:text-muted-foreground',
-                          )}
-                        >
-                          {isPreviewing ? (
-                            <Loader2 className="size-3.5 animate-spin" />
-                          ) : (
-                            <Volume2 className="size-3.5" />
-                          )}
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePreview(provider.providerId, voice.id);
+                        }}
+                        className={cn(
+                          'flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors',
+                          isPreviewing
+                            ? 'text-primary'
+                            : 'text-muted-foreground/40 hover:text-muted-foreground',
+                        )}
+                      >
+                        {isPreviewing ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Volume2 className="size-3.5" />
+                        )}
+                      </button>
                     </div>
                   );
                 })}

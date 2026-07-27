@@ -1,7 +1,6 @@
 /**
  * PBL Generation System Prompt
  *
- * Migrated from PBL-Nano's anything2pbl_nano.ts systemPrompt.
  * Uses languageDirective for multi-language support.
  */
 

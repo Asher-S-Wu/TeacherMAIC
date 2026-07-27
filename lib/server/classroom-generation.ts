@@ -127,7 +127,6 @@ export async function generateClassroom(
     ...languageModel,
     requestUserId: options.userId.toString(),
   };
-  const interactiveMode = false;
   const hasVision = !!modelInfo?.capabilities?.vision;
   log.info(`Using server-configured model: ${modelString}`);
 
@@ -181,7 +180,6 @@ export async function generateClassroom(
 
   const requirements: UserRequirements = {
     requirement,
-    interactiveMode,
     ...(input.userNickname ? { userNickname: input.userNickname } : {}),
     ...(input.userBio ? { userBio: input.userBio } : {}),
   };
@@ -315,8 +313,7 @@ export async function generateClassroom(
     name: outlines[0]?.title || requirement.slice(0, 50),
     description: undefined,
     languageDirective,
-    style: interactiveMode ? 'interactive' : 'professional',
-    interactiveMode,
+    style: 'professional',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     ...(agentMode === 'auto' && generatedAgentConfigs

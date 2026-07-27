@@ -4,7 +4,6 @@ import { useCallback, useRef } from 'react';
 import { useStageStore } from '@/lib/store/stage';
 import { useSettingsStore } from '@/lib/store/settings';
 import type { SceneOutline } from '@/lib/types/generation';
-import type { AgentInfo } from '@/lib/generation/generation-pipeline';
 import type { Scene } from '@/lib/types/stage';
 import type { SpeechAction } from '@/lib/types/action';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
@@ -40,13 +39,6 @@ async function fetchSceneContent(
     outline: SceneOutline;
     allOutlines: SceneOutline[];
     stageId: string;
-    stageInfo: {
-      name: string;
-      description?: string;
-      language?: string;
-      style?: string;
-    };
-    agents?: AgentInfo[];
     languageDirective?: string;
   },
   signal?: AbortSignal,
@@ -73,9 +65,7 @@ async function fetchSceneActions(
     allOutlines: SceneOutline[];
     content: unknown;
     stageId: string;
-    agents?: AgentInfo[];
     previousSpeeches?: string[];
-    userProfile?: string;
     languageDirective?: string;
   },
   signal?: AbortSignal,
@@ -181,14 +171,6 @@ export interface UseSceneGeneratorOptions {
 }
 
 export interface GenerationParams {
-  stageInfo: {
-    name: string;
-    description?: string;
-    language?: string;
-    style?: string;
-  };
-  agents?: AgentInfo[];
-  userProfile?: string;
   languageDirective?: string;
 }
 
@@ -275,8 +257,6 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
                   outline,
                   allOutlines: outlines,
                   stageId: stage.id,
-                  stageInfo: params.stageInfo,
-                  agents: params.agents,
                   languageDirective: params.languageDirective,
                 },
                 signal,
@@ -299,9 +279,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
                   allOutlines: outlines,
                   content: contentResult.content,
                   stageId: stage.id,
-                  agents: params.agents,
                   previousSpeeches: [],
-                  userProfile: params.userProfile,
                   languageDirective: params.languageDirective,
                 },
                 signal,
@@ -425,8 +403,6 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
             outline,
             allOutlines: state.outlines,
             stageId: state.stage.id,
-            stageInfo: params.stageInfo,
-            agents: params.agents,
             languageDirective: params.languageDirective,
           },
           signal,
@@ -443,9 +419,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
             allOutlines: state.outlines,
             content: contentResult.content,
             stageId: state.stage.id,
-            agents: params.agents,
             previousSpeeches: [],
-            userProfile: params.userProfile,
             languageDirective: params.languageDirective,
           },
           signal,

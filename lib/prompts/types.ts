@@ -7,7 +7,6 @@
  */
 export type PromptId =
   | 'requirements-to-outlines'
-  | 'interactive-outlines'
   | 'web-search-decision'
   | 'web-search-query-rewrite'
   | 'web-search-query-replan'
@@ -37,8 +36,6 @@ export type PromptId =
  */
 export type SnippetId =
   | 'json-output-rules'
-  | 'element-types'
-  | 'action-types'
   | 'speech-guidelines'
   | 'whiteboard-reference';
 

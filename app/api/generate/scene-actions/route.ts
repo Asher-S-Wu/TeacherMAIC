@@ -13,7 +13,6 @@ import {
   buildCompleteScene,
   buildVisionUserContent,
   type SceneGenerationContext,
-  type AgentInfo,
 } from '@/lib/generation/generation-pipeline';
 import type { SceneOutline } from '@/lib/types/generation';
 import type {
@@ -38,9 +37,7 @@ type SceneActionsRequestBody = {
     | GeneratedInteractiveContent
     | GeneratedPBLContent;
   stageId: string;
-  agents?: AgentInfo[];
   previousSpeeches?: string[];
-  userProfile?: string;
   languageDirective?: string;
 };
 
@@ -56,9 +53,7 @@ async function runSceneActionsGeneration(
     allOutlines,
     content,
     stageId,
-    agents,
     previousSpeeches: incomingPreviousSpeeches,
-    userProfile,
     languageDirective,
   } = body;
 
@@ -111,8 +106,6 @@ async function runSceneActionsGeneration(
 
   const actions = await generateSceneActions(outline, content, aiCall, {
     ctx,
-    agents,
-    userProfile,
     languageDirective,
   });
 

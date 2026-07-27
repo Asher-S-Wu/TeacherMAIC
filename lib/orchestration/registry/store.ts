@@ -220,8 +220,7 @@ export const useAgentRegistry = create<AgentRegistryState>()(
     }),
     {
       name: 'agent-registry-storage',
-      version: 11, // Bumped: add voiceOverrides field to AgentConfig
-      migrate: (persistedState: unknown) => persistedState,
+      version: 11,
       // Merge persisted state with default agents
       // Default agents always use code-defined values (not cached)
       // Custom agents use persisted values

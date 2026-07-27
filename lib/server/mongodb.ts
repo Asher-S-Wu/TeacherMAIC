@@ -207,13 +207,6 @@ async function ensureMongoIndexes(db: Db): Promise<void> {
   const c = getCollections(db);
 
   await c.accountFiles.createIndex({ userId: 1, createdAt: -1 });
-  const accountFileIndexes = await c.accountFiles.listIndexes().toArray();
-  for (const obsoleteIndex of ['pathname_1', 'url_1']) {
-    if (accountFileIndexes.some((index) => index.name === obsoleteIndex)) {
-      await c.accountFiles.dropIndex(obsoleteIndex);
-    }
-  }
-  await c.accountFiles.deleteMany({ storageKey: { $exists: false } });
 
   await Promise.all([
     c.users.createIndex({ email: 1 }, { unique: true }),
